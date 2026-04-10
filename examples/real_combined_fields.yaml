@@ -8,6 +8,15 @@ fields:
     notes:
       - Interpreted as forward adjustment factor
 
+  - standard_field: backward_adj_factor
+    source_node: backward_factor_real
+    source_field: factor_value
+    field_role: adjustment_factor
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Interpreted as backward adjustment factor
+
   - standard_field: close_adj
     source_node: null
     source_field: null
@@ -257,6 +266,105 @@ fields:
     applies_to_grain: daily
     notes:
       - Preferred industry display name
+
+  - standard_field: industry_daily_open
+    source_node: industry_daily_real
+    source_field: open
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry daily open
+
+  - standard_field: industry_daily_high
+    source_node: industry_daily_real
+    source_field: high
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry daily high
+
+  - standard_field: industry_daily_low
+    source_node: industry_daily_real
+    source_field: low
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry daily low
+
+  - standard_field: industry_daily_close
+    source_node: industry_daily_real
+    source_field: close
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry daily close
+
+  - standard_field: industry_daily_amount
+    source_node: industry_daily_real
+    source_field: amount
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry daily amount
+
+  - standard_field: industry_daily_volume
+    source_node: industry_daily_real
+    source_field: volume
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry daily volume
+
+  - standard_field: industry_pb
+    source_node: industry_daily_real
+    source_field: pb
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry price-to-book
+
+  - standard_field: industry_pe
+    source_node: industry_daily_real
+    source_field: pe
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry price-to-earnings
+
+  - standard_field: industry_total_cap
+    source_node: industry_daily_real
+    source_field: total_cap
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry total market cap
+
+  - standard_field: industry_a_float_cap
+    source_node: industry_daily_real
+    source_field: a_float_cap
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry A-share float cap
+
+  - standard_field: industry_pre_close
+    source_node: industry_daily_real
+    source_field: pre_close
+    field_role: industry_daily_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Industry previous close
 
   - standard_field: index_code
     source_node: index_weight_real
@@ -708,6 +816,483 @@ fields:
     notes:
       - Minimum price tick
 
+  - standard_field: hist_security_type
+    source_node: hist_code_daily_real
+    source_field: security_type
+    field_role: historical_code_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Historical security type snapshot
+
+  - standard_field: snapshot_last
+    source_node: stock_snapshot_real
+    source_field: last
+    field_role: snapshot_field
+    resolver_type: direct
+    applies_to_grain: minute
+    notes:
+      - Last traded price from market snapshot
+
+  - standard_field: snapshot_num_trades
+    source_node: stock_snapshot_real
+    source_field: num_trades
+    field_role: snapshot_field
+    resolver_type: direct
+    applies_to_grain: minute
+    notes:
+      - Number of trades in snapshot
+
+  - standard_field: snapshot_bid_price1
+    source_node: stock_snapshot_real
+    source_field: bid_price1
+    field_role: snapshot_field
+    resolver_type: direct
+    applies_to_grain: minute
+    notes:
+      - Best bid price
+
+  - standard_field: snapshot_ask_price1
+    source_node: stock_snapshot_real
+    source_field: ask_price1
+    field_role: snapshot_field
+    resolver_type: direct
+    applies_to_grain: minute
+    notes:
+      - Best ask price
+
+  - standard_field: snapshot_bid_volume1
+    source_node: stock_snapshot_real
+    source_field: bid_volume1
+    field_role: snapshot_field
+    resolver_type: direct
+    applies_to_grain: minute
+    notes:
+      - Best bid volume
+
+  - standard_field: snapshot_ask_volume1
+    source_node: stock_snapshot_real
+    source_field: ask_volume1
+    field_role: snapshot_field
+    resolver_type: direct
+    applies_to_grain: minute
+    notes:
+      - Best ask volume
+
+  - standard_field: snapshot_trading_phase_code
+    source_node: stock_snapshot_real
+    source_field: trading_phase_code
+    field_role: snapshot_field
+    resolver_type: direct
+    applies_to_grain: minute
+    notes:
+      - Trading phase code
+
+  - standard_field: treasury_term
+    source_node: treasury_yield_real
+    source_field: term
+    field_role: macro_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Treasury yield term
+
+  - standard_field: treasury_trade_date
+    source_node: treasury_yield_real
+    source_field: trade_date
+    field_role: macro_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Treasury yield trade date
+
+  - standard_field: treasury_yield
+    source_node: treasury_yield_real
+    source_field: yield_value
+    field_role: macro_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Treasury yield value
+
+  - standard_field: fund_iopv_date
+    source_node: fund_iopv_real
+    source_field: price_date
+    field_role: fund_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Fund IOPV price date
+
+  - standard_field: fund_iopv
+    source_node: fund_iopv_real
+    source_field: iopv_nav
+    field_role: fund_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Fund intraday indicative NAV
+
+  - standard_field: fund_share
+    source_node: fund_share_real
+    source_field: fund_share
+    field_role: fund_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Fund share amount
+
+  - standard_field: fund_total_share
+    source_node: fund_share_real
+    source_field: total_share
+    field_role: fund_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Fund total share
+
+  - standard_field: fund_float_share
+    source_node: fund_share_real
+    source_field: float_share
+    field_role: fund_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Fund float share
+
+  - standard_field: fund_share_ann_date
+    source_node: fund_share_real
+    source_field: ann_date
+    field_role: fund_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Fund share announcement date
+
+  - standard_field: fund_share_change_date
+    source_node: fund_share_real
+    source_field: change_date
+    field_role: fund_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Fund share change date
+
+  - standard_field: fund_change_reason
+    source_node: fund_share_real
+    source_field: change_reason
+    field_role: fund_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Fund share change reason
+
+  - standard_field: dividend_ann_date
+    source_node: dividend_real
+    source_field: ann_date
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Dividend announcement date
+
+  - standard_field: dividend_report_period
+    source_node: dividend_real
+    source_field: report_period
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Dividend report period
+
+  - standard_field: dividend_progress
+    source_node: dividend_real
+    source_field: div_progress
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Dividend progress status
+
+  - standard_field: dividend_cash_pre_tax
+    source_node: dividend_real
+    source_field: dvd_per_share_pre_tax_cash
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Pre-tax cash dividend per share
+
+  - standard_field: dividend_cash_after_tax
+    source_node: dividend_real
+    source_field: dvd_per_share_after_tax_cash
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - After-tax cash dividend per share
+
+  - standard_field: dividend_stock_per_share
+    source_node: dividend_real
+    source_field: dvd_per_share_stk
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Stock dividend per share
+
+  - standard_field: ex_dividend_date
+    source_node: dividend_real
+    source_field: date_ex
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Ex-dividend / ex-right date
+
+  - standard_field: equity_record_date
+    source_node: dividend_real
+    source_field: date_eqy_record
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Equity record date
+
+  - standard_field: dividend_payout_date
+    source_node: dividend_real
+    source_field: date_dvd_payout
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Dividend payout date
+
+  - standard_field: holder_num_ann_date
+    source_node: holder_num_real
+    source_field: ann_dt
+    field_role: holder_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Holder number announcement date
+
+  - standard_field: holder_enddate
+    source_node: holder_num_real
+    source_field: holder_enddate
+    field_role: holder_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Holder number period end date
+
+  - standard_field: holder_total_num
+    source_node: holder_num_real
+    source_field: holder_total_num
+    field_role: holder_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Total number of holders
+
+  - standard_field: holder_num
+    source_node: holder_num_real
+    source_field: holder_num
+    field_role: holder_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Holder count
+
+  - standard_field: share_holder_ann_date
+    source_node: share_holder_real
+    source_field: ann_date
+    field_role: share_holder_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Share holder announcement date
+
+  - standard_field: share_holder_enddate
+    source_node: share_holder_real
+    source_field: holder_enddate
+    field_role: share_holder_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Share holder period end date
+
+  - standard_field: share_holder_name
+    source_node: share_holder_real
+    source_field: holder_name
+    field_role: share_holder_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Share holder name
+
+  - standard_field: share_holder_quantity
+    source_node: share_holder_real
+    source_field: holder_quantity
+    field_role: share_holder_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Share holder quantity
+
+  - standard_field: share_holder_pct
+    source_node: share_holder_real
+    source_field: holder_pct
+    field_role: share_holder_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Share holder percentage
+
+  - standard_field: share_holder_float_qty
+    source_node: share_holder_real
+    source_field: float_qty
+    field_role: share_holder_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Share holder float quantity
+
+  - standard_field: right_issue_ann_date
+    source_node: right_issue_real
+    source_field: ann_date
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Rights issue announcement date
+
+  - standard_field: right_issue_progress
+    source_node: right_issue_real
+    source_field: progress
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Rights issue progress code
+
+  - standard_field: right_issue_price
+    source_node: right_issue_real
+    source_field: price
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Rights issue price
+
+  - standard_field: right_issue_ratio
+    source_node: right_issue_real
+    source_field: ratio
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Rights issue ratio
+
+  - standard_field: right_issue_amt_plan
+    source_node: right_issue_real
+    source_field: amt_plan
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Planned rights issue amount
+
+  - standard_field: right_issue_collection_fund
+    source_node: right_issue_real
+    source_field: collection_fund
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Actual funds collected in rights issue
+
+  - standard_field: right_issue_expected_fund_raising
+    source_node: right_issue_real
+    source_field: expected_fund_raising
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Expected fund raising amount
+
+  - standard_field: right_issue_ex_dividend_date
+    source_node: right_issue_real
+    source_field: ex_dividend_date
+    field_role: corporate_action_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Rights issue ex-dividend date
+
+  - standard_field: restricted_list_date
+    source_node: equity_restricted_real
+    source_field: list_date
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Restricted shares listing date
+
+  - standard_field: restricted_share_ratio
+    source_node: equity_restricted_real
+    source_field: share_ratio
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Restricted shares ratio
+
+  - standard_field: restricted_share_type_name
+    source_node: equity_restricted_real
+    source_field: share_lst_type_name
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Restricted shares listing type
+
+  - standard_field: restricted_share_lst
+    source_node: equity_restricted_real
+    source_field: share_lst
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Quantity of listed restricted shares
+
+  - standard_field: restricted_share_is_ann
+    source_node: equity_restricted_real
+    source_field: share_lst_is_ann
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Whether restricted listing is announced
+
+  - standard_field: restricted_event_close_price
+    source_node: equity_restricted_real
+    source_field: close_price
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Close price on restricted listing event
+
+  - standard_field: restricted_share_market_value
+    source_node: equity_restricted_real
+    source_field: share_lst_market_value
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Market value of listed restricted shares
+
   - standard_field: minute_open
     source_node: stock_minute_real
     source_field: open
@@ -770,3 +1355,93 @@ fields:
     applies_to_grain: daily
     notes:
       - Trading calendar date
+
+  - standard_field: pledge_ann_date
+    source_node: equity_pledge_freeze_real
+    source_field: ann_date
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Equity pledge or freeze announcement date
+
+  - standard_field: pledge_holder_name
+    source_node: equity_pledge_freeze_real
+    source_field: holder_name
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Holder name in pledge/freeze event
+
+  - standard_field: pledge_total_holding_shr
+    source_node: equity_pledge_freeze_real
+    source_field: total_holding_shr
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Total holding shares for holder
+
+  - standard_field: pledge_fro_shares
+    source_node: equity_pledge_freeze_real
+    source_field: fro_shares
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Frozen or pledged shares
+
+  - standard_field: pledge_total_pledge_shr
+    source_node: equity_pledge_freeze_real
+    source_field: total_pledge_shr
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Total pledged shares
+
+  - standard_field: pledge_begin_date
+    source_node: equity_pledge_freeze_real
+    source_field: begin_date
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Pledge or freeze begin date
+
+  - standard_field: pledge_end_date
+    source_node: equity_pledge_freeze_real
+    source_field: end_date
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Pledge or freeze end date
+
+  - standard_field: pledge_is_disfrozen
+    source_node: equity_pledge_freeze_real
+    source_field: is_disfrozen
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Whether the event has been unfrozen
+
+  - standard_field: pledge_frozen_institution
+    source_node: equity_pledge_freeze_real
+    source_field: frozen_institution
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Institution involved in pledge/freeze
+
+  - standard_field: pledge_freeze_type
+    source_node: equity_pledge_freeze_real
+    source_field: freeze_type
+    field_role: equity_event_field
+    resolver_type: direct
+    applies_to_grain: daily
+    notes:
+      - Freeze type code

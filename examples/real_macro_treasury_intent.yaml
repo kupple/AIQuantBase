@@ -1,0 +1,29 @@
+from: treasury_yield_real
+
+select:
+  - treasury_term
+  - treasury_trade_date
+  - treasury_yield
+
+time_range:
+  field: trade_date
+  start: "2026-03-24"
+  end: "2026-03-30"
+
+where:
+  mode: and
+  items:
+    - field: term
+      op: "="
+      value: "10Y"
+
+order_by:
+  - field: trade_date
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

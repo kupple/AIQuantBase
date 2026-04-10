@@ -1,0 +1,33 @@
+from: fund_share_real
+
+select:
+  - market_code
+  - fund_share_ann_date
+  - fund_share_change_date
+  - fund_share
+  - fund_total_share
+  - fund_float_share
+  - fund_change_reason
+
+time_range:
+  field: ann_date
+  start: "2010-01-04"
+  end: "2010-01-10"
+
+where:
+  mode: and
+  items:
+    - field: market_code
+      op: "="
+      value: "159901.SZ"
+
+order_by:
+  - field: ann_date
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

@@ -37,6 +37,14 @@ nodes:
     fields:
       - factor_value
 
+  - name: backward_factor_real
+    table: starlight.ad_backward_factor
+    entity_keys: [code]
+    time_key: trade_date
+    grain: daily
+    fields:
+      - factor_value
+
   - name: history_stock_status_real
     table: starlight.ad_history_stock_status
     entity_keys: [market_code]
@@ -81,6 +89,26 @@ nodes:
       - level1_name
       - level2_name
       - level3_name
+
+  - name: industry_daily_real
+    table: starlight.ad_industry_daily
+    entity_keys: [index_code]
+    time_key: trade_date
+    grain: daily
+    fields:
+      - index_code
+      - trade_date
+      - open
+      - high
+      - close
+      - low
+      - amount
+      - volume
+      - pb
+      - pe
+      - total_cap
+      - a_float_cap
+      - pre_close
 
   - name: index_weight_real
     table: starlight.ad_index_weight
@@ -194,6 +222,108 @@ nodes:
       - listplate_name
       - is_listed
 
+  - name: stock_snapshot_real
+    table: starlight.ad_market_snapshot
+    entity_keys: [code]
+    time_key: trade_time
+    grain: minute
+    fields:
+      - trade_time
+      - code
+      - pre_close
+      - last
+      - open
+      - high
+      - low
+      - close
+      - volume
+      - amount
+      - num_trades
+      - high_limited
+      - low_limited
+      - ask_price1
+      - ask_price2
+      - ask_price3
+      - ask_price4
+      - ask_price5
+      - ask_volume1
+      - ask_volume2
+      - ask_volume3
+      - ask_volume4
+      - ask_volume5
+      - bid_price1
+      - bid_price2
+      - bid_price3
+      - bid_price4
+      - bid_price5
+      - bid_volume1
+      - bid_volume2
+      - bid_volume3
+      - bid_volume4
+      - bid_volume5
+      - iopv
+      - trading_phase_code
+      - total_long_position
+      - pre_settle
+      - auction_price
+      - auction_volume
+      - settle
+      - contract_type
+      - expire_date
+      - underlying_security_code
+      - exercise_price
+      - action_day
+      - trading_day
+      - pre_open_interest
+      - open_interest
+      - average_price
+      - nominal_price
+
+  - name: hist_code_daily_real
+    table: starlight.ad_hist_code_daily
+    entity_keys: [code]
+    time_key: trade_date
+    grain: daily
+    fields:
+      - trade_date
+      - security_type
+      - code
+
+  - name: treasury_yield_real
+    table: starlight.ad_treasury_yield
+    entity_keys: [term]
+    time_key: trade_date
+    grain: daily
+    fields:
+      - term
+      - trade_date
+      - yield_value
+
+  - name: fund_iopv_real
+    table: starlight.ad_fund_iopv
+    entity_keys: [market_code]
+    time_key: price_date
+    grain: daily
+    fields:
+      - market_code
+      - price_date
+      - iopv_nav
+
+  - name: fund_share_real
+    table: starlight.ad_fund_share
+    entity_keys: [market_code]
+    time_key: ann_date
+    grain: daily
+    fields:
+      - market_code
+      - fund_share
+      - change_reason
+      - is_consolidated_data
+      - ann_date
+      - total_share
+      - change_date
+      - float_share
+
   - name: code_info_real
     table: starlight.ad_code_info
     entity_keys: [code]
@@ -208,6 +338,103 @@ nodes:
       - low_limited
       - price_tick
 
+  - name: dividend_real
+    table: starlight.ad_dividend
+    entity_keys: [market_code]
+    time_key: ann_date
+    grain: daily
+    fields:
+      - ann_date
+      - report_period
+      - div_progress
+      - dvd_per_share_stk
+      - dvd_per_share_pre_tax_cash
+      - dvd_per_share_after_tax_cash
+      - date_eqy_record
+      - date_ex
+      - date_dvd_payout
+      - div_bonusrate
+      - div_conversedrate
+      - remark
+      - div_target
+
+  - name: holder_num_real
+    table: starlight.ad_holder_num
+    entity_keys: [market_code]
+    time_key: ann_dt
+    grain: daily
+    fields:
+      - ann_dt
+      - holder_enddate
+      - holder_total_num
+      - holder_num
+
+  - name: share_holder_real
+    table: starlight.ad_share_holder
+    entity_keys: [market_code]
+    time_key: ann_date
+    grain: daily
+    fields:
+      - ann_date
+      - holder_enddate
+      - holder_type
+      - qty_num
+      - holder_name
+      - holder_quantity
+      - holder_pct
+      - holder_sharecategoryname
+      - float_qty
+
+  - name: right_issue_real
+    table: starlight.ad_right_issue
+    entity_keys: [market_code]
+    time_key: ann_date
+    grain: daily
+    fields:
+      - progress
+      - price
+      - ratio
+      - amt_plan
+      - amt_real
+      - collection_fund
+      - shareb_reg_date
+      - ex_dividend_date
+      - listed_date
+      - pay_start_date
+      - pay_end_date
+      - preplan_date
+      - smtg_ann_date
+      - pass_date
+      - approved_date
+      - execute_date
+      - result_date
+      - list_ann_date
+      - guarantor
+      - guartype
+      - rightsissue_code
+      - ann_date
+      - rightsissue_year
+      - rightsissue_desc
+      - rightsissue_name
+      - ratio_denominator
+      - ratio_molecular
+      - subs_method
+      - expected_fund_raising
+
+  - name: equity_restricted_real
+    table: starlight.ad_equity_restricted
+    entity_keys: [market_code]
+    time_key: list_date
+    grain: daily
+    fields:
+      - list_date
+      - share_ratio
+      - share_lst_type_name
+      - share_lst
+      - share_lst_is_ann
+      - close_price
+      - share_lst_market_value
+
   - name: trade_calendar_real
     table: starlight.ad_trade_calendar
     entity_keys: []
@@ -216,10 +443,47 @@ nodes:
     fields:
       - trade_date
 
+  - name: equity_pledge_freeze_real
+    table: starlight.ad_equity_pledge_freeze
+    entity_keys: [market_code]
+    time_key: ann_date
+    grain: daily
+    fields:
+      - ann_date
+      - holder_name
+      - holder_type_code
+      - total_holding_shr
+      - total_holding_shr_ratio
+      - fro_shares
+      - fro_shr_to_total_holding_ratio
+      - fro_shr_to_total_ratio
+      - total_pledge_shr
+      - is_equity_pledge_repo
+      - begin_date
+      - end_date
+      - is_disfrozen
+      - frozen_institution
+      - disfrozen_time
+      - shr_category_code
+      - freeze_type
+
 edges:
   - name: stock_daily_real_to_adj_factor_real
     from: stock_daily_real
     to: adj_factor_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: code
+    time_binding:
+      mode: same_date
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: trade_date
+
+  - name: stock_daily_real_to_backward_factor_real
+    from: stock_daily_real
+    to: backward_factor_real
     relation_type: direct
     join_keys:
       - base: code
@@ -271,6 +535,14 @@ edges:
 
   - name: industry_weight_real_to_industry_base_info_real
     from: industry_weight_real
+    to: industry_base_info_real
+    relation_type: direct
+    join_keys:
+      - base: index_code
+        source: index_code
+
+  - name: industry_daily_real_to_industry_base_info_real
+    from: industry_daily_real
     to: industry_base_info_real
     relation_type: direct
     join_keys:
@@ -390,6 +662,84 @@ edges:
       - base: code
         source: code
 
+  - name: stock_daily_real_to_hist_code_daily_real
+    from: stock_daily_real
+    to: hist_code_daily_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: code
+    time_binding:
+      mode: same_date
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: trade_date
+
+  - name: stock_daily_real_to_dividend_real
+    from: stock_daily_real
+    to: dividend_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: ann_date
+
+  - name: stock_daily_real_to_holder_num_real
+    from: stock_daily_real
+    to: holder_num_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: ann_dt
+
+  - name: stock_daily_real_to_share_holder_real
+    from: stock_daily_real
+    to: share_holder_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: ann_date
+
+  - name: stock_daily_real_to_right_issue_real
+    from: stock_daily_real
+    to: right_issue_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: ann_date
+
+  - name: stock_daily_real_to_equity_restricted_real
+    from: stock_daily_real
+    to: equity_restricted_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: list_date
+
   - name: stock_daily_real_to_trade_calendar_real
     from: stock_daily_real
     to: trade_calendar_real
@@ -400,3 +750,16 @@ edges:
       base_time_field: trade_time
       base_time_cast: date
       source_time_field: trade_date
+
+  - name: stock_daily_real_to_equity_pledge_freeze_real
+    from: stock_daily_real
+    to: equity_pledge_freeze_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: ann_date

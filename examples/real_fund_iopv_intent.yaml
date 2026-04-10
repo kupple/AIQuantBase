@@ -1,0 +1,29 @@
+from: fund_iopv_real
+
+select:
+  - market_code
+  - fund_iopv_date
+  - fund_iopv
+
+time_range:
+  field: price_date
+  start: "20260326"
+  end: "20260409"
+
+where:
+  mode: and
+  items:
+    - field: market_code
+      op: "="
+      value: "516250.SH"
+
+order_by:
+  - field: price_date
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

@@ -1221,25 +1221,77 @@ safety:
 
 当前阶段已经不只是概念设计，而是已经围绕真实 `starlight` 数据库开始接入实际表。
 
-### 21.1 当前已接入的真实表
+### 21.1 当前统计
+
+当前 `starlight` 库中符合 `ad_%` 命名模式的表总数为：
+
+1. `46` 张
+
+当前已经纳入图谱并完成接入的表总数为：
+
+1. `30` 张
+
+当前尚未纳入图谱的表总数为：
+
+1. `16` 张
+
+### 21.2 当前已接入的真实表
 
 当前已完成接入并可实际查询的 `starlight` 表包括：
 
 1. `ad_market_kline_daily`
-2. `ad_adj_factor`
-3. `ad_history_stock_status`
-4. `ad_equity_structure`
-5. `ad_industry_weight`
-6. `ad_industry_base_info`
-7. `ad_index_weight`
-8. `ad_index_constituent`
-9. `ad_income`
-10. `ad_balance_sheet`
-11. `ad_cash_flow`
-12. `ad_profit_notice`
-13. `ad_profit_express`
+2. `ad_market_kline_minute`
+3. `ad_adj_factor`
+4. `ad_backward_factor`
+5. `ad_history_stock_status`
+6. `ad_equity_structure`
+7. `ad_equity_restricted`
+8. `ad_equity_pledge_freeze`
+9. `ad_industry_weight`
+10. `ad_industry_base_info`
+11. `ad_industry_daily`
+12. `ad_index_weight`
+13. `ad_index_constituent`
+14. `ad_income`
+15. `ad_balance_sheet`
+16. `ad_cash_flow`
+17. `ad_profit_notice`
+18. `ad_profit_express`
+19. `ad_stock_basic`
+20. `ad_code_info`
+21. `ad_trade_calendar`
+22. `ad_dividend`
+23. `ad_holder_num`
+24. `ad_share_holder`
+25. `ad_right_issue`
+26. `ad_hist_code_daily`
+27. `ad_market_snapshot`
+28. `ad_treasury_yield`
+29. `ad_fund_iopv`
+30. `ad_fund_share`
 
-### 21.2 当前已验证可查询的字段类型
+### 21.3 当前未接入的 `starlight` 表
+
+当前尚未纳入图谱的 `starlight` 表包括：
+
+1. `ad_bj_code_mapping`
+2. `ad_etf_pcf`
+3. `ad_etf_pcf_constituent`
+4. `ad_industry_constituent`
+5. `ad_kzz_call_explanation`
+6. `ad_kzz_conv_change`
+7. `ad_kzz_corr`
+8. `ad_kzz_issuance`
+9. `ad_kzz_put_explanation`
+10. `ad_kzz_share`
+11. `ad_kzz_suspend`
+12. `ad_option_basic_info`
+13. `ad_option_mon_ctr_specs`
+14. `ad_option_std_ctr_specs`
+15. `ad_sync_checkpoint`
+16. `ad_sync_task_log`
+
+### 21.4 当前已验证可查询的字段类型
 
 围绕这些真实表，当前已经验证可查询的字段类型包括：
 
@@ -1252,7 +1304,7 @@ safety:
 7. 财务字段
 8. 派生字段
 
-### 21.3 当前已验证的代表性标准字段
+### 21.5 当前已验证的代表性标准字段
 
 例如：
 
@@ -1271,7 +1323,7 @@ safety:
 13. `profit_notice_change_max / profit_notice_change_min`
 14. `express_revenue / express_basic_eps`
 
-### 21.4 当前接入策略
+### 21.6 当前接入策略
 
 当前阶段的策略已经从“只挑少量字段接入”调整为：
 
@@ -1284,7 +1336,7 @@ safety:
 3. 更贴近真实数据库使用方式
 4. 更方便后续由人工继续补重要字段关系
 
-### 21.5 当前限制
+### 21.7 当前限制
 
 当前阶段明确只围绕：
 

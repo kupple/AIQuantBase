@@ -1,0 +1,42 @@
+from: stock_daily_real
+
+select:
+  - code
+  - trade_time
+  - close
+  - pledge_ann_date
+  - pledge_holder_name
+  - pledge_total_holding_shr
+  - pledge_fro_shares
+  - pledge_total_pledge_shr
+  - pledge_begin_date
+  - pledge_end_date
+  - pledge_is_disfrozen
+  - pledge_frozen_institution
+  - pledge_freeze_type
+
+time_range:
+  field: trade_time
+  start: "2020-11-25 00:00:00"
+  end: "2020-12-05 23:59:59"
+
+where:
+  mode: and
+  items:
+    - field: code
+      op: "="
+      value: "300071.SZ"
+    - field: close
+      op: is_not_null
+      value: null
+
+order_by:
+  - field: trade_time
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

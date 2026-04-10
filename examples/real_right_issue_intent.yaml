@@ -1,0 +1,40 @@
+from: stock_daily_real
+
+select:
+  - code
+  - trade_time
+  - close
+  - right_issue_ann_date
+  - right_issue_progress
+  - right_issue_price
+  - right_issue_ratio
+  - right_issue_amt_plan
+  - right_issue_collection_fund
+  - right_issue_expected_fund_raising
+  - right_issue_ex_dividend_date
+
+time_range:
+  field: trade_time
+  start: "2022-12-20 00:00:00"
+  end: "2023-01-10 23:59:59"
+
+where:
+  mode: and
+  items:
+    - field: code
+      op: "="
+      value: "600459.SH"
+    - field: close
+      op: is_not_null
+      value: null
+
+order_by:
+  - field: trade_time
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

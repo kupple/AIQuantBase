@@ -165,6 +165,17 @@ def test_query_planner_resolves_index_fields_from_catalog():
     assert plan.field_bindings["index_name"] == "index_constituent_real"
 
 
+def test_query_planner_resolves_industry_daily_fields_from_catalog():
+    nodes, edges = load_nodes_and_edges("examples/real_combined_graph.yaml")
+    fields = load_field_catalog("examples/real_combined_fields.yaml")
+    intent = load_query_intent("examples/real_industry_daily_intent.yaml")
+    registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    plan = QueryPlanner(registry).plan(intent)
+
+    assert plan.field_bindings["industry_daily_close"] == "industry_daily_real"
+    assert plan.field_bindings["industry_name"] == "industry_daily_real"
+
+
 def test_query_planner_resolves_financial_fields_from_catalog():
     nodes, edges = load_nodes_and_edges("examples/real_combined_graph.yaml")
     fields = load_field_catalog("examples/real_combined_fields.yaml")
@@ -201,6 +212,22 @@ def test_query_planner_resolves_basic_info_fields_from_catalog():
     assert plan.field_bindings["security_type"] == "code_info_real"
 
 
+def test_query_planner_resolves_backward_factor_and_snapshot_fields():
+    nodes, edges = load_nodes_and_edges("examples/real_combined_graph.yaml")
+    fields = load_field_catalog("examples/real_combined_fields.yaml")
+
+    factor_intent = load_query_intent("examples/real_backward_factor_intent.yaml")
+    factor_registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    factor_plan = QueryPlanner(factor_registry).plan(factor_intent)
+    assert factor_plan.field_bindings["backward_adj_factor"] == "backward_factor_real"
+
+    snapshot_intent = load_query_intent("examples/real_snapshot_intent.yaml")
+    snapshot_registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    snapshot_plan = QueryPlanner(snapshot_registry).plan(snapshot_intent)
+    assert snapshot_plan.field_bindings["last"] == "stock_snapshot_real"
+    assert snapshot_plan.field_bindings["ask_price1"] == "stock_snapshot_real"
+
+
 def test_query_planner_resolves_minute_and_calendar_fields_from_catalog():
     nodes, edges = load_nodes_and_edges("examples/real_combined_graph.yaml")
     fields = load_field_catalog("examples/real_combined_fields.yaml")
@@ -214,3 +241,73 @@ def test_query_planner_resolves_minute_and_calendar_fields_from_catalog():
     calendar_registry = GraphRegistry(nodes, edges, field_catalog=fields)
     calendar_plan = QueryPlanner(calendar_registry).plan(calendar_intent)
     assert calendar_plan.field_bindings["calendar_trade_date"] == "trade_calendar_real"
+
+
+def test_query_planner_resolves_corporate_action_fields_from_catalog():
+    nodes, edges = load_nodes_and_edges("examples/real_combined_graph.yaml")
+    fields = load_field_catalog("examples/real_combined_fields.yaml")
+    intent = load_query_intent("examples/real_corporate_action_intent.yaml")
+    registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    plan = QueryPlanner(registry).plan(intent)
+
+    assert plan.field_bindings["dividend_progress"] == "dividend_real"
+    assert plan.field_bindings["holder_total_num"] == "holder_num_real"
+    assert plan.field_bindings["share_holder_name"] == "share_holder_real"
+
+
+def test_query_planner_resolves_right_issue_fields_from_catalog():
+    nodes, edges = load_nodes_and_edges("examples/real_combined_graph.yaml")
+    fields = load_field_catalog("examples/real_combined_fields.yaml")
+    intent = load_query_intent("examples/real_right_issue_intent.yaml")
+    registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    plan = QueryPlanner(registry).plan(intent)
+
+    assert plan.field_bindings["right_issue_price"] == "right_issue_real"
+    assert plan.field_bindings["right_issue_ratio"] == "right_issue_real"
+
+
+def test_query_planner_resolves_equity_restricted_fields_from_catalog():
+    nodes, edges = load_nodes_and_edges("examples/real_combined_graph.yaml")
+    fields = load_field_catalog("examples/real_combined_fields.yaml")
+    intent = load_query_intent("examples/real_equity_restricted_intent.yaml")
+    registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    plan = QueryPlanner(registry).plan(intent)
+
+    assert plan.field_bindings["restricted_share_ratio"] == "equity_restricted_real"
+    assert plan.field_bindings["restricted_share_market_value"] == "equity_restricted_real"
+
+
+def test_query_planner_resolves_equity_pledge_fields_from_catalog():
+    nodes, edges = load_nodes_and_edges("examples/real_combined_graph.yaml")
+    fields = load_field_catalog("examples/real_combined_fields.yaml")
+    intent = load_query_intent("examples/real_pledge_freeze_intent.yaml")
+    registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    plan = QueryPlanner(registry).plan(intent)
+
+    assert plan.field_bindings["pledge_holder_name"] == "equity_pledge_freeze_real"
+    assert plan.field_bindings["pledge_total_pledge_shr"] == "equity_pledge_freeze_real"
+
+
+def test_query_planner_resolves_snapshot_macro_fund_fields():
+    nodes, edges = load_nodes_and_edges("examples/real_combined_graph.yaml")
+    fields = load_field_catalog("examples/real_combined_fields.yaml")
+
+    snapshot_intent = load_query_intent("examples/real_snapshot_fund_macro_intent.yaml")
+    snapshot_registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    snapshot_plan = QueryPlanner(snapshot_registry).plan(snapshot_intent)
+    assert snapshot_plan.field_bindings["snapshot_last"] == "stock_snapshot_real"
+
+    treasury_intent = load_query_intent("examples/real_macro_treasury_intent.yaml")
+    treasury_registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    treasury_plan = QueryPlanner(treasury_registry).plan(treasury_intent)
+    assert treasury_plan.field_bindings["treasury_yield"] == "treasury_yield_real"
+
+    fund_intent = load_query_intent("examples/real_fund_share_intent.yaml")
+    fund_registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    fund_plan = QueryPlanner(fund_registry).plan(fund_intent)
+    assert fund_plan.field_bindings["fund_share"] == "fund_share_real"
+
+    fund_iopv_intent = load_query_intent("examples/real_fund_iopv_intent.yaml")
+    fund_iopv_registry = GraphRegistry(nodes, edges, field_catalog=fields)
+    fund_iopv_plan = QueryPlanner(fund_iopv_registry).plan(fund_iopv_intent)
+    assert fund_iopv_plan.field_bindings["fund_iopv"] == "fund_iopv_real"

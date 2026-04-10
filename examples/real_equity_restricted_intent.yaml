@@ -1,0 +1,39 @@
+from: stock_daily_real
+
+select:
+  - code
+  - trade_time
+  - close
+  - restricted_list_date
+  - restricted_share_ratio
+  - restricted_share_type_name
+  - restricted_share_lst
+  - restricted_share_is_ann
+  - restricted_event_close_price
+  - restricted_share_market_value
+
+time_range:
+  field: trade_time
+  start: "2025-01-20 00:00:00"
+  end: "2025-01-31 23:59:59"
+
+where:
+  mode: and
+  items:
+    - field: code
+      op: "="
+      value: "002839.SZ"
+    - field: close
+      op: is_not_null
+      value: null
+
+order_by:
+  - field: trade_time
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true
