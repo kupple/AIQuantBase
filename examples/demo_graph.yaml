@@ -1,0 +1,76 @@
+nodes:
+  - name: stock_daily
+    table: market.stock_daily
+    entity_keys: [code]
+    time_key: trade_date
+    fields:
+      - code
+      - trade_date
+      - close
+
+  - name: stock_st_status
+    table: market.stock_st_status
+    entity_keys: [code]
+    time_key: trade_date
+    fields:
+      - is_st
+
+  - name: financial_announcement
+    table: fundamental.stock_financial_announcement
+    entity_keys: [code]
+    time_key: announce_date
+    fields:
+      - revenue
+      - close
+
+  - name: concept_info
+    table: reference.concept_info
+    entity_keys: [concept_id]
+    fields:
+      - concept_name
+
+edges:
+  - name: stock_daily_to_st_status
+    from: stock_daily
+    to: stock_st_status
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: code
+    time_binding:
+      mode: same_date
+      base_time_field: trade_date
+      source_time_field: trade_date
+
+  - name: stock_daily_to_financial_announcement
+    from: stock_daily
+    to: financial_announcement
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: code
+    time_binding:
+      mode: asof
+      base_time_field: trade_date
+      source_time_field: announce_date
+      available_time_field: announce_date
+      allow_equal: true
+      lookahead_safe: true
+
+  - name: stock_daily_to_concept_info
+    from: stock_daily
+    to: concept_info
+    relation_type: bridge
+    bridge_steps:
+      - table: reference.stock_concept_membership
+        join_keys:
+          - base: code
+            source: code
+        time_binding:
+          mode: effective_range
+          base_time_field: trade_date
+          source_start_field: effective_start
+          source_end_field: effective_end
+    join_keys:
+      - base: concept_id
+        source: concept_id

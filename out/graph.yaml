@@ -1,0 +1,95 @@
+nodes:
+- name: adj_factor
+  table: starlight.ad_adj_factor
+  entity_keys:
+  - code
+  time_key: trade_date
+  fields:
+  - trade_date
+  - code
+  - factor_value
+  description: Detected node_type=adjustment_factor; Detected grain=daily_factor;
+    Likely factor table; for this project ad_adj_factor is treated as forward adjustment
+    factor
+- name: history_stock_status
+  table: starlight.ad_history_stock_status
+  entity_keys:
+  - market_code
+  time_key: trade_date
+  fields:
+  - trade_date
+  - market_code
+  - preclose
+  - high_limited
+  - low_limited
+  - price_high_lmt_rate
+  - price_low_lmt_rate
+  - is_st_sec
+  - is_susp_sec
+  - is_wd_sec
+  - is_xr_sec
+  description: 'Detected node_type=status_snapshot; Detected grain=daily_status; Contains
+    status flags that may attach to stock daily data; Potential key mismatch: market_code
+    may need mapping to stock code in edge configuration'
+- name: market_kline_daily
+  table: starlight.ad_market_kline_daily
+  entity_keys:
+  - code
+  time_key: trade_time
+  fields:
+  - trade_time
+  - code
+  - open
+  - high
+  - low
+  - close
+  - volume
+  - amount
+  description: Detected node_type=market_timeseries; Detected grain=daily; Daily table
+    uses DateTime trade_time; downstream graph may normalize to trade_date semantics
+- name: market_kline_minute
+  table: starlight.ad_market_kline_minute
+  entity_keys:
+  - code
+  time_key: trade_time
+  fields:
+  - trade_time
+  - code
+  - open
+  - high
+  - low
+  - close
+  - volume
+  - amount
+  description: Detected node_type=market_timeseries; Detected grain=minute
+edges:
+- name: market_kline_daily_to_adj_factor
+  from: market_kline_daily
+  to: adj_factor
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description: Daily kline and adjustment factor share stock code; trade_time should
+    be normalized to trade_date when joining daily factor table; For this project
+    ad_adj_factor is treated as forward adjustment factor
+- name: market_kline_daily_to_history_stock_status
+  from: market_kline_daily
+  to: history_stock_status
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description: Status snapshot appears attachable to stock daily data by trade date;
+    market_code has been observed to use the same A-share code format as stock_daily.code;
+    trade_time should be normalized to trade_date when joining status snapshot table

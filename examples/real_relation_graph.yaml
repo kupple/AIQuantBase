@@ -1,0 +1,30 @@
+nodes:
+  - name: stock_daily_real
+    table: starlight.ad_market_kline_daily
+    entity_keys: [code]
+    time_key: trade_time
+    fields:
+      - code
+      - trade_time
+      - close
+
+  - name: adj_factor_real
+    table: starlight.ad_adj_factor
+    entity_keys: [code]
+    time_key: trade_date
+    fields:
+      - factor_value
+
+edges:
+  - name: stock_daily_real_to_adj_factor_real
+    from: stock_daily_real
+    to: adj_factor_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: code
+    time_binding:
+      mode: same_date
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: trade_date

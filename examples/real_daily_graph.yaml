@@ -1,0 +1,16 @@
+nodes:
+  - name: stock_daily_real
+    table: starlight.ad_market_kline_daily
+    entity_keys: [code]
+    time_key: trade_time
+    fields:
+      - code
+      - trade_time
+      - open
+      - high
+      - low
+      - close
+      - volume
+      - amount
+
+edges: []

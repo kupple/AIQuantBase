@@ -1,0 +1,45 @@
+from: stock_daily
+
+group_by:
+  - concept_name
+
+aggregations:
+  - field: stock_daily.close
+    func: avg
+    alias: avg_close
+  - field: financial_announcement.revenue
+    func: max
+    alias: latest_revenue
+
+time_range:
+  field: trade_date
+  start: "2024-01-01"
+  end: "2024-03-31"
+
+where:
+  mode: and
+  items:
+    - field: code
+      op: "="
+      value: "600519.SH"
+
+having:
+  mode: and
+  items:
+    - field: avg_close
+      op: ">="
+      value: 100
+    - field: latest_revenue
+      op: is_not_null
+      value: null
+
+order_by:
+  - field: concept_info.concept_name
+    direction: asc
+
+page: 2
+page_size: 50
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

@@ -1,0 +1,44 @@
+from: stock_daily_real
+
+select:
+  - code
+  - trade_time
+  - close
+  - reporting_period
+  - revenue
+  - basic_eps
+  - total_assets
+  - total_liab
+  - total_equity_ex_min_int
+  - net_cash_flows_oper_act
+  - free_cash_flow
+  - profit_notice_change_max
+  - profit_notice_change_min
+  - express_revenue
+  - express_basic_eps
+
+time_range:
+  field: trade_time
+  start: "2025-04-01 00:00:00"
+  end: "2026-04-07 23:59:59"
+
+where:
+  mode: and
+  items:
+    - field: code
+      op: "="
+      value: "000004.SZ"
+    - field: close
+      op: is_not_null
+      value: null
+
+order_by:
+  - field: trade_time
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

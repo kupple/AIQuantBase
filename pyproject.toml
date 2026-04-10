@@ -1,0 +1,22 @@
+[project]
+name = "aiquantbase"
+version = "0.1.0"
+description = "A-share research query planning middleware demo"
+requires-python = ">=3.11"
+dependencies = [
+  "Flask>=3.0",
+  "PyYAML>=6.0",
+]
+
+[project.scripts]
+aiquantbase = "aiquantbase.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

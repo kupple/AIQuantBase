@@ -1,0 +1,31 @@
+llm:
+  provider_name: deepseek
+  base_url: https://api.deepseek.com
+  api_key: YOUR_DEEPSEEK_API_KEY
+  model_name: deepseek-chat
+  temperature: 0.1
+  max_tokens: 4096
+  enabled: true
+  verify_ssl: true
+
+datasource:
+  id: primary
+  name: Primary Data Source
+  db_type: clickhouse
+  host: 127.0.0.1
+  port: 8123
+  database: YOUR_DATABASE
+  username: default
+  password: YOUR_CLICKHOUSE_PASSWORD
+  secure: false
+  extra_params: {}
+
+discovery:
+  allow_databases:
+    - starlight
+    - research_ref
+  allow_tables:
+    - ad_market_kline_daily
+    - ad_market_kline_minute
+    - ad_adj_factor
+    - ad_history_stock_status

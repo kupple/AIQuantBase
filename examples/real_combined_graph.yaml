@@ -1,0 +1,402 @@
+nodes:
+  - name: stock_daily_real
+    table: starlight.ad_market_kline_daily
+    entity_keys: [code]
+    time_key: trade_time
+    grain: daily
+    fields:
+      - code
+      - trade_time
+      - open
+      - high
+      - low
+      - close
+      - volume
+      - amount
+
+  - name: stock_minute_real
+    table: starlight.ad_market_kline_minute
+    entity_keys: [code]
+    time_key: trade_time
+    grain: minute
+    fields:
+      - code
+      - trade_time
+      - open
+      - high
+      - low
+      - close
+      - volume
+      - amount
+
+  - name: adj_factor_real
+    table: starlight.ad_adj_factor
+    entity_keys: [code]
+    time_key: trade_date
+    grain: daily
+    fields:
+      - factor_value
+
+  - name: history_stock_status_real
+    table: starlight.ad_history_stock_status
+    entity_keys: [market_code]
+    time_key: trade_date
+    grain: daily
+    fields:
+      - preclose
+      - high_limited
+      - low_limited
+      - is_st_sec
+      - is_susp_sec
+      - is_wd_sec
+      - is_xr_sec
+
+  - name: equity_structure_real
+    table: starlight.ad_equity_structure
+    entity_keys: [market_code]
+    time_key: change_date
+    grain: daily
+    fields:
+      - tot_share
+      - float_share
+      - float_a_share
+
+  - name: industry_weight_real
+    table: starlight.ad_industry_weight
+    entity_keys: [con_code]
+    time_key: trade_date
+    grain: daily
+    fields:
+      - index_code
+      - weight
+
+  - name: industry_base_info_real
+    table: starlight.ad_industry_base_info
+    entity_keys: [index_code]
+    time_key: null
+    grain: daily
+    fields:
+      - index_code
+      - industry_code
+      - level1_name
+      - level2_name
+      - level3_name
+
+  - name: index_weight_real
+    table: starlight.ad_index_weight
+    entity_keys: [con_code]
+    time_key: trade_date
+    grain: daily
+    fields:
+      - index_code
+      - weight
+      - close
+
+  - name: index_constituent_real
+    table: starlight.ad_index_constituent
+    entity_keys: [con_code]
+    time_key: in_date
+    grain: daily
+    fields:
+      - index_code
+      - index_name
+      - in_date
+      - out_date
+
+  - name: income_real
+    table: starlight.ad_income
+    entity_keys: [market_code]
+    time_key: ann_date
+    grain: daily
+    fields:
+      - reporting_period
+      - ann_date
+      - opera_rev
+      - basic_eps
+
+  - name: balance_sheet_real
+    table: starlight.ad_balance_sheet
+    entity_keys: [market_code]
+    time_key: ann_date
+    grain: daily
+    fields:
+      - reporting_period
+      - ann_date
+      - total_assets
+      - total_liab
+      - tot_share_equity_excl_min_int
+
+  - name: cash_flow_real
+    table: starlight.ad_cash_flow
+    entity_keys: [market_code]
+    time_key: ann_date
+    grain: daily
+    fields:
+      - reporting_period
+      - ann_date
+      - net_cash_flows_opera_act
+      - net_cash_flows_inv_act
+      - net_cash_flows_fin_act
+      - net_incr_cash_and_cash_equ
+      - free_cash_flow
+      - cash_end_bal
+
+  - name: profit_notice_real
+    table: starlight.ad_profit_notice
+    entity_keys: [market_code]
+    time_key: ann_date
+    grain: daily
+    fields:
+      - reporting_period
+      - ann_date
+      - p_change_max
+      - p_change_min
+      - net_profit_max
+      - net_profit_min
+      - first_ann_date
+      - p_reason
+      - p_summary
+      - p_net_parent_firm
+      - report_type
+
+  - name: profit_express_real
+    table: starlight.ad_profit_express
+    entity_keys: [market_code]
+    time_key: ann_date
+    grain: daily
+    fields:
+      - reporting_period
+      - ann_date
+      - total_assets
+      - net_pro_excl_min_int_inc
+      - tot_opera_rev
+      - total_profit
+      - opera_profit
+      - eps_basic
+      - roe_weighted
+      - performance_summary
+      - yoy_gr_gross_rev
+      - yoy_gr_net_profit_parent
+
+  - name: stock_basic_real
+    table: starlight.ad_stock_basic
+    entity_keys: [market_code]
+    time_key: snapshot_date
+    grain: daily
+    fields:
+      - snapshot_date
+      - security_name
+      - comp_name
+      - pinyin
+      - comp_name_eng
+      - list_date
+      - delist_date
+      - listplate_name
+      - is_listed
+
+  - name: code_info_real
+    table: starlight.ad_code_info
+    entity_keys: [code]
+    time_key: null
+    grain: daily
+    fields:
+      - security_type
+      - symbol
+      - security_status_raw
+      - pre_close
+      - high_limited
+      - low_limited
+      - price_tick
+
+  - name: trade_calendar_real
+    table: starlight.ad_trade_calendar
+    entity_keys: []
+    time_key: trade_date
+    grain: daily
+    fields:
+      - trade_date
+
+edges:
+  - name: stock_daily_real_to_adj_factor_real
+    from: stock_daily_real
+    to: adj_factor_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: code
+    time_binding:
+      mode: same_date
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: trade_date
+
+  - name: stock_daily_real_to_history_stock_status_real
+    from: stock_daily_real
+    to: history_stock_status_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: same_date
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: trade_date
+
+  - name: stock_daily_real_to_equity_structure_real
+    from: stock_daily_real
+    to: equity_structure_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: change_date
+
+  - name: stock_daily_real_to_industry_weight_real
+    from: stock_daily_real
+    to: industry_weight_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: con_code
+    time_binding:
+      mode: same_date
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: trade_date
+
+  - name: industry_weight_real_to_industry_base_info_real
+    from: industry_weight_real
+    to: industry_base_info_real
+    relation_type: direct
+    join_keys:
+      - base: index_code
+        source: index_code
+
+  - name: stock_daily_real_to_index_weight_real
+    from: stock_daily_real
+    to: index_weight_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: con_code
+    time_binding:
+      mode: same_date
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: trade_date
+
+  - name: stock_daily_real_to_index_constituent_real
+    from: stock_daily_real
+    to: index_constituent_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: con_code
+    time_binding:
+      mode: effective_range
+      base_time_field: trade_time
+      base_time_cast: date
+      source_start_field: in_date
+      source_end_field: out_date
+
+  - name: stock_daily_real_to_income_real
+    from: stock_daily_real
+    to: income_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: ann_date
+
+  - name: stock_daily_real_to_balance_sheet_real
+    from: stock_daily_real
+    to: balance_sheet_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: ann_date
+
+  - name: stock_daily_real_to_cash_flow_real
+    from: stock_daily_real
+    to: cash_flow_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: ann_date
+
+  - name: stock_daily_real_to_profit_notice_real
+    from: stock_daily_real
+    to: profit_notice_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: ann_date
+
+  - name: stock_daily_real_to_profit_express_real
+    from: stock_daily_real
+    to: profit_express_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: ann_date
+
+  - name: stock_daily_real_to_stock_basic_real
+    from: stock_daily_real
+    to: stock_basic_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: asof
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: snapshot_date
+
+  - name: stock_daily_real_to_code_info_real
+    from: stock_daily_real
+    to: code_info_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: code
+
+  - name: stock_daily_real_to_trade_calendar_real
+    from: stock_daily_real
+    to: trade_calendar_real
+    relation_type: direct
+    join_keys: []
+    time_binding:
+      mode: same_date
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: trade_date

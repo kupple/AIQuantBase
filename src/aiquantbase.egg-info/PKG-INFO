@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: aiquantbase
+Version: 0.1.0
+Summary: A-share research query planning middleware demo
+Requires-Python: >=3.11
+Requires-Dist: Flask>=3.0
+Requires-Dist: PyYAML>=6.0

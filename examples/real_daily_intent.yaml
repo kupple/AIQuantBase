@@ -1,0 +1,37 @@
+from: stock_daily_real
+
+select:
+  - stock_daily_real.code
+  - stock_daily_real.trade_time
+  - stock_daily_real.open
+  - stock_daily_real.high
+  - stock_daily_real.low
+  - stock_daily_real.close
+  - stock_daily_real.volume
+  - stock_daily_real.amount
+
+time_range:
+  field: stock_daily_real.trade_time
+  start: "2026-04-01 00:00:00"
+  end: "2026-04-07 23:59:59"
+
+where:
+  mode: and
+  items:
+    - field: stock_daily_real.code
+      op: "="
+      value: "301156.SZ"
+    - field: stock_daily_real.close
+      op: is_not_null
+      value: null
+
+order_by:
+  - field: stock_daily_real.trade_time
+    direction: asc
+
+page: 1
+page_size: 5
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

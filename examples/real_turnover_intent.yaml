@@ -1,0 +1,36 @@
+from: stock_daily_real
+
+select:
+  - code
+  - trade_time
+  - close
+  - volume
+  - float_share
+  - float_a_share
+  - turnover_rate
+
+time_range:
+  field: trade_time
+  start: "2026-04-01 00:00:00"
+  end: "2026-04-07 23:59:59"
+
+where:
+  mode: and
+  items:
+    - field: code
+      op: "="
+      value: "000004.SZ"
+    - field: close
+      op: is_not_null
+      value: null
+
+order_by:
+  - field: trade_time
+    direction: asc
+
+page: 1
+page_size: 5
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

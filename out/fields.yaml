@@ -1,0 +1,142 @@
+fields:
+- standard_field: forward_adj_factor
+  source_node: adj_factor
+  source_field: factor_value
+  field_role: adjustment_factor
+  applies_to_grain: daily
+  notes:
+  - Mapped from ad_adj_factor
+  - Interpreted as forward adjustment factor
+- standard_field: pre_close
+  source_node: history_stock_status
+  source_field: preclose
+  field_role: status_snapshot_field
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+- standard_field: high_limited
+  source_node: history_stock_status
+  source_field: high_limited
+  field_role: status_snapshot_field
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+- standard_field: low_limited
+  source_node: history_stock_status
+  source_field: low_limited
+  field_role: status_snapshot_field
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+- standard_field: is_st
+  source_node: history_stock_status
+  source_field: is_st_sec
+  field_role: status_flag
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+- standard_field: is_suspended
+  source_node: history_stock_status
+  source_field: is_susp_sec
+  field_role: status_flag
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+- standard_field: is_wd
+  source_node: history_stock_status
+  source_field: is_wd_sec
+  field_role: status_flag
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+- standard_field: is_xr
+  source_node: history_stock_status
+  source_field: is_xr_sec
+  field_role: status_flag
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+- standard_field: open
+  source_node: market_kline_daily
+  source_field: open
+  field_role: raw_market_field
+  applies_to_grain: daily
+  notes:
+  - Direct passthrough market field
+- standard_field: high
+  source_node: market_kline_daily
+  source_field: high
+  field_role: raw_market_field
+  applies_to_grain: daily
+  notes:
+  - Direct passthrough market field
+- standard_field: low
+  source_node: market_kline_daily
+  source_field: low
+  field_role: raw_market_field
+  applies_to_grain: daily
+  notes:
+  - Direct passthrough market field
+- standard_field: close
+  source_node: market_kline_daily
+  source_field: close
+  field_role: raw_market_field
+  applies_to_grain: daily
+  notes:
+  - Direct passthrough market field
+- standard_field: volume
+  source_node: market_kline_daily
+  source_field: volume
+  field_role: raw_market_field
+  applies_to_grain: daily
+  notes:
+  - Direct passthrough market field
+- standard_field: amount
+  source_node: market_kline_daily
+  source_field: amount
+  field_role: raw_market_field
+  applies_to_grain: daily
+  notes:
+  - Direct passthrough market field
+- standard_field: open
+  source_node: market_kline_minute
+  source_field: open
+  field_role: raw_market_field
+  applies_to_grain: minute
+  notes:
+  - Direct passthrough market field
+- standard_field: high
+  source_node: market_kline_minute
+  source_field: high
+  field_role: raw_market_field
+  applies_to_grain: minute
+  notes:
+  - Direct passthrough market field
+- standard_field: low
+  source_node: market_kline_minute
+  source_field: low
+  field_role: raw_market_field
+  applies_to_grain: minute
+  notes:
+  - Direct passthrough market field
+- standard_field: close
+  source_node: market_kline_minute
+  source_field: close
+  field_role: raw_market_field
+  applies_to_grain: minute
+  notes:
+  - Direct passthrough market field
+- standard_field: volume
+  source_node: market_kline_minute
+  source_field: volume
+  field_role: raw_market_field
+  applies_to_grain: minute
+  notes:
+  - Direct passthrough market field
+- standard_field: amount
+  source_node: market_kline_minute
+  source_field: amount
+  field_role: raw_market_field
+  applies_to_grain: minute
+  notes:
+  - Direct passthrough market field

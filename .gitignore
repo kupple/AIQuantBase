@@ -1,0 +1,8 @@
+config/runtime.local.yaml
+__pycache__/
+*.pyc
+studio/node_modules/
+studio/.nuxt/
+studio/.output/
+
+studio/.npm-cache/

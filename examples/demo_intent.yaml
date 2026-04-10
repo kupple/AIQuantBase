@@ -1,0 +1,44 @@
+from: stock_daily
+
+select:
+  - field: stock_daily.close
+    alias: close_price
+  - is_st
+  - financial_announcement.revenue
+  - concept_name
+
+time_range:
+  field: trade_date
+  start: "2024-01-01"
+  end: "2024-03-31"
+
+where:
+  mode: and
+  items:
+    - field: code
+      op: "="
+      value: "600519.SH"
+    - mode: or
+      items:
+        - field: concept_name
+          op: like
+          value: "%白酒%"
+        - field: is_st
+          op: "="
+          value: 0
+    - field: concept_info.concept_name
+      op: not_in
+      value:
+        - "测试概念"
+        - "停用概念"
+
+order_by:
+  - field: stock_daily.trade_date
+    direction: asc
+
+page: 3
+page_size: 100
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

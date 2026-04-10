@@ -1,0 +1,37 @@
+{
+  "scope": {
+    "allow_databases": ["starlight"],
+    "allow_tables": ["ad_market_kline_daily", "ad_adj_factor", "ad_history_stock_status"]
+  },
+  "tables": [
+    {
+      "database": "starlight",
+      "name": "ad_market_kline_daily",
+      "engine": "ReplacingMergeTree",
+      "create_table_query": "CREATE TABLE starlight.ad_market_kline_daily (...)"
+    },
+    {
+      "database": "starlight",
+      "name": "ad_adj_factor",
+      "engine": "ReplacingMergeTree",
+      "create_table_query": "CREATE TABLE starlight.ad_adj_factor (...)"
+    },
+    {
+      "database": "starlight",
+      "name": "ad_history_stock_status",
+      "engine": "ReplacingMergeTree",
+      "create_table_query": "CREATE TABLE starlight.ad_history_stock_status (...)"
+    }
+  ],
+  "columns": [
+    {"database": "starlight", "table": "ad_market_kline_daily", "name": "trade_time", "type": "DateTime64(3)", "position": 1},
+    {"database": "starlight", "table": "ad_market_kline_daily", "name": "code", "type": "String", "position": 2},
+    {"database": "starlight", "table": "ad_market_kline_daily", "name": "close", "type": "Nullable(Float64)", "position": 3},
+    {"database": "starlight", "table": "ad_adj_factor", "name": "trade_date", "type": "Date", "position": 1},
+    {"database": "starlight", "table": "ad_adj_factor", "name": "code", "type": "String", "position": 2},
+    {"database": "starlight", "table": "ad_adj_factor", "name": "factor_value", "type": "Float64", "position": 3},
+    {"database": "starlight", "table": "ad_history_stock_status", "name": "trade_date", "type": "Date", "position": 1},
+    {"database": "starlight", "table": "ad_history_stock_status", "name": "market_code", "type": "String", "position": 2},
+    {"database": "starlight", "table": "ad_history_stock_status", "name": "is_st_sec", "type": "Nullable(String)", "position": 3}
+  ]
+}

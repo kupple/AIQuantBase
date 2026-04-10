@@ -1,0 +1,36 @@
+nodes:
+  - name: stock_daily_real
+    table: starlight.ad_market_kline_daily
+    entity_keys: [code]
+    time_key: trade_time
+    fields:
+      - code
+      - trade_time
+      - close
+
+  - name: history_stock_status_real
+    table: starlight.ad_history_stock_status
+    entity_keys: [market_code]
+    time_key: trade_date
+    fields:
+      - preclose
+      - high_limited
+      - low_limited
+      - is_st_sec
+      - is_susp_sec
+      - is_wd_sec
+      - is_xr_sec
+
+edges:
+  - name: stock_daily_real_to_history_stock_status_real
+    from: stock_daily_real
+    to: history_stock_status_real
+    relation_type: direct
+    join_keys:
+      - base: code
+        source: market_code
+    time_binding:
+      mode: same_date
+      base_time_field: trade_time
+      base_time_cast: date
+      source_time_field: trade_date
