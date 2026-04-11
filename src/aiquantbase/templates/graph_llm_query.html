@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}LLM 查询数据库 - AIQuantBase{% endblock %}
+{% block page_title %}LLM 查询数据库{% endblock %}
+{% block page_description %}输入自然语言问题，右侧展示解析后的 Intent、SQL 和执行结果。{% endblock %}
+
+{% block content %}
+  <section class="summary-row">
+    <div class="metric-card metric-card-wide">
+      <span class="metric-label">当前模块</span>
+      <strong class="metric-value metric-copy">自然语言 -> Intent -> SQL -> 数据结果</strong>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">图谱文件</span>
+      <strong class="metric-value metric-copy">out/graph.yaml</strong>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">字段文件</span>
+      <strong class="metric-value metric-copy">out/fields.yaml</strong>
+    </div>
+  </section>
+
+  <main class="llm-layout">
+    <section class="detail-card">
+      <div class="section-head">
+        <div>
+          <h2>自然语言输入</h2>
+          <p class="muted">这个小功能可以直接让 LLM 帮你生成 Query Intent 并执行数据库查询。</p>
+        </div>
+      </div>
+
+      <form method="post" action="{{ url_for('llm_query_page') }}" class="editor-form">
+        <input type="hidden" name="runtime_path" value="{{ runtime_path }}">
+        <label>自然语言问题
+          <textarea name="query" rows="6" placeholder="例如：查询 2026年4月1日到2026年4月7日 000004.SZ 的市值、流通市值和换手率，按日期升序返回">{{ natural_query }}</textarea>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="primary-button">生成并执行</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="detail-card">
+      <div class="section-head">
+        <div>
+          <h2>查询结果</h2>
+          <p class="muted">这里展示 Query Intent、生成 SQL 和最终结果。</p>
+        </div>
+      </div>
+
+      {% if error %}
+        <div class="flash flash-error">{{ error }}</div>
+      {% endif %}
+
+      <div class="result-stack">
+        <section>
+          <h3>Query Intent</h3>
+          <pre class="code-block">{{ query_intent | tojson(indent=2) if query_intent else '等待生成 Query Intent' }}</pre>
+        </section>
+        <section>
+          <h3>SQL</h3>
+          <pre class="code-block">{{ sql if sql else '等待生成 SQL' }}</pre>
+        </section>
+        <section>
+          <h3>数据结果</h3>
+          <pre class="code-block">{{ result | tojson(indent=2) if result else '等待执行结果' }}</pre>
+        </section>
+      </div>
+    </section>
+  </main>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}关系图浏览 - AIQuantBase{% endblock %}
+
+{% block content %}
+  <section class="summary-row">
+    <div class="metric-card">
+      <span class="metric-label">节点</span>
+      <strong class="metric-value">{{ graph_summary.node_count }}</strong>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">边</span>
+      <strong class="metric-value">{{ graph_summary.edge_count }}</strong>
+    </div>
+    <div class="metric-card metric-card-wide">
+      <span class="metric-label">浏览模式</span>
+      <strong class="metric-value metric-copy">Cytoscape.js 只读关系图</strong>
+    </div>
+  </section>
+
+  <main class="graph-layout">
+    <section class="graph-board-card">
+      <div class="section-head">
+        <div>
+          <h2>全量关系图</h2>
+          <p class="muted">支持搜索、高亮、缩放和点击节点/边查看详情。</p>
+        </div>
+        <div class="action-row">
+          <input id="graph-search" type="search" placeholder="搜索节点名、表名、粒度">
+          <button id="graph-fit-button" type="button">适配视图</button>
+        </div>
+      </div>
+      <div id="graph-canvas" class="graph-canvas" aria-label="graph-canvas"></div>
+    </section>
+
+    <aside class="detail-card detail-card-sticky">
+      <div class="section-head">
+        <div>
+          <h2>图谱详情</h2>
+          <p class="muted">点击节点或边后会在这里显示详情。</p>
+        </div>
+      </div>
+      <div id="graph-details" class="graph-details-empty">请选择一个节点或边。</div>
+    </aside>
+  </main>
+
+  <script id="graph-elements" type="application/json">{{ graph_elements|tojson }}</script>
+  <script id="graph-node-lookup" type="application/json">{{ node_lookup|tojson }}</script>
+  <script id="graph-edge-lookup" type="application/json">{{ edge_lookup|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='vendor/cytoscape.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/graph-view.js') }}"></script>
+{% endblock %}

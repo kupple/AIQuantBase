@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}AIQuantBase 图谱管理{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/graph.css') }}">
+    {% block head %}{% endblock %}
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="workspace-shell">
+        <aside class="app-sidebar">
+          <div class="sidebar-brand">
+            <p class="eyebrow">AIQuantBase</p>
+            <h1>图谱工作台</h1>
+            <p class="muted">左侧点击功能菜单，右侧展示对应管理内容。</p>
+          </div>
+
+          <nav class="sidebar-nav">
+            {% for endpoint, label in menu_items %}
+              <a class="{% if request.endpoint == endpoint %}active{% endif %}" href="{{ url_for(endpoint) }}">{{ label }}</a>
+            {% endfor %}
+          </nav>
+
+          <div class="sidebar-footnote">
+            <span class="detail-label">当前图谱文件</span>
+            <code>{{ graph_path }}</code>
+          </div>
+        </aside>
+
+        <main class="app-main">
+          <header class="topbar">
+            <div class="topbar-copy">
+              <p class="eyebrow">AIQuantBase</p>
+              <h1>{% block page_title %}图谱管理台{% endblock %}</h1>
+              <p class="muted">{% block page_description %}固定管理图谱与查询功能。{% endblock %}</p>
+            </div>
+          </header>
+
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              <section class="flash-stack">
+                {% for category, message in messages %}
+                  <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+              </section>
+            {% endif %}
+          {% endwith %}
+
+          {% block content %}{% endblock %}
+        </main>
+      </div>
+    </div>
+
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

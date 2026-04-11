@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}节点列表 - AIQuantBase{% endblock %}
+{% block page_title %}节点列表{% endblock %}
+{% block page_description %}通过左侧菜单进入节点管理，只在右侧显示节点管理相关内容。{% endblock %}
+
+{% block content %}
+  <section class="summary-row">
+    <div class="metric-card">
+      <span class="metric-label">节点</span>
+      <strong class="metric-value">{{ graph_summary.node_count }}</strong>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">边</span>
+      <strong class="metric-value">{{ graph_summary.edge_count }}</strong>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">字段</span>
+      <strong class="metric-value">{{ graph_summary.field_count }}</strong>
+    </div>
+    <div class="metric-card metric-card-wide">
+      <span class="metric-label">当前模块</span>
+      <strong class="metric-value metric-copy">节点列表 / 节点详情 / 节点编辑</strong>
+    </div>
+  </section>
+
+  <main class="manage-layout">
+    <aside class="sidebar-panel" id="manage-sidebar">
+      <form method="get" action="{{ url_for('node_list') }}" class="search-form">
+        <input type="search" name="q" value="{{ query }}" placeholder="搜索节点名、表名、粒度">
+        <button type="submit">筛选</button>
+        {% if query %}
+          <a class="ghost-button" href="{{ url_for('node_list') }}">清空</a>
+        {% endif %}
+      </form>
+
+      <div class="action-row">
+        <a class="ghost-button" href="{{ url_for('node_list', mode='new-node') }}">新增节点</a>
+      </div>
+
+      <section class="list-card">
+        <div class="section-head">
+          <h2>节点表</h2>
+          <span>{{ nodes|length }}</span>
+        </div>
+        <div class="table-shell">
+          {% if nodes %}
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>节点名</th>
+                  <th>表名</th>
+                  <th>粒度</th>
+                  <th>字段</th>
+                  <th>关系</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for node in nodes %}
+                  <tr
+                    class="{% if selected_type == 'node' and selected_payload.name == node.name %}selected{% endif %} clickable-row"
+                    data-href="{{ url_for('node_list', node=node.name, q=query) }}#detail-panel"
+                    data-preserve-scroll="true"
+                    tabindex="0"
+                    role="link"
+                  >
+                    <td><strong>{{ node.name }}</strong></td>
+                    <td class="table-copy">{{ node.table }}</td>
+                    <td>{{ node.grain }}</td>
+                    <td>{{ node.field_count }}</td>
+                    <td>{{ node.incoming_count }}/{{ node.outgoing_count }}</td>
+                    <td><a class="table-link" data-preserve-scroll="true" href="{{ url_for('node_list', node=node.name, q=query) }}#detail-panel">查看</a></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <p class="empty-copy">没有匹配的节点。</p>
+          {% endif %}
+        </div>
+      </section>
+    </aside>
+
+    <section class="detail-panel" id="detail-panel">
+      <div class="detail-card">
+        <div class="section-head">
+          <div>
+            <h2>{% if selected_type == 'node' %}节点设置管理{% else %}新增节点{% endif %}</h2>
+            <p class="muted">点击左侧节点表后，右侧进入节点配置面板，对该节点的字段逐项管理。</p>
+          </div>
+        </div>
+
+        {% if selected_type == 'node' %}
+          <div class="detail-grid">
+            <div><span class="detail-label">表名</span><strong>{{ selected_payload.table }}</strong></div>
+            <div><span class="detail-label">粒度</span><strong>{{ selected_payload.grain }}</strong></div>
+            <div><span class="detail-label">入边</span><strong>{{ selected_payload.incoming_count }}</strong></div>
+            <div><span class="detail-label">出边</span><strong>{{ selected_payload.outgoing_count }}</strong></div>
+          </div>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('update_node' if selected_type == 'node' else 'create_node') }}" class="editor-form">
+          {% if selected_type == 'node' %}
+            <input type="hidden" name="original_name" value="{{ selected_payload.name }}">
+          {% endif %}
+
+          <section class="form-section">
+            <div class="form-section-head">
+              <h3>基础设置</h3>
+              <p class="muted">定义节点身份、来源表和粒度。</p>
+            </div>
+            <div class="form-grid">
+              <label>节点名
+                <input name="name" value="{{ selected_payload.name }}">
+              </label>
+              <label>表名
+                <input name="table" value="{{ selected_payload.table }}">
+              </label>
+              <label>粒度
+                <input name="grain" value="{{ selected_payload.grain if selected_payload.grain != '-' else '' }}">
+              </label>
+              <label>时间键
+                <input name="time_key" value="{{ selected_payload.time_key }}">
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="form-section-head">
+              <h3>业务字段设置</h3>
+              <p class="muted">用逗号维护实体键和字段列表。</p>
+            </div>
+            <div class="form-grid">
+              <label>实体键
+                <input name="entity_keys" value="{{ selected_payload.entity_keys_text }}">
+              </label>
+              <label class="field-span-full">字段列表
+                <textarea name="fields" rows="6">{{ selected_payload.fields_text }}</textarea>
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="form-section-head">
+              <h3>描述与备注</h3>
+              <p class="muted">记录该节点在图谱中的业务作用。</p>
+            </div>
+            <div class="form-grid">
+              <label class="field-span-full">描述
+                <textarea name="description" rows="4">{{ selected_payload.description }}</textarea>
+              </label>
+            </div>
+          </section>
+
+          <div class="form-actions">
+            <button type="submit" class="primary-button">{% if selected_type == 'node' %}保存节点{% else %}创建节点{% endif %}</button>
+          </div>
+        </form>
+
+        {% if selected_type == 'node' %}
+          <form method="post" action="{{ url_for('delete_node') }}" class="inline-danger-form">
+            <input type="hidden" name="name" value="{{ selected_payload.name }}">
+            <button type="submit" class="danger-button" data-confirm="确认删除这个节点吗？">删除节点</button>
+          </form>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/graph-manage.js') }}"></script>
+{% endblock %}
