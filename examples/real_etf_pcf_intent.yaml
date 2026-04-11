@@ -1,0 +1,33 @@
+from: etf_pcf_real
+
+select:
+  - etf_code
+  - etf_trading_day
+  - etf_symbol
+  - etf_nav
+  - etf_cash_component
+  - etf_creation_flag
+  - etf_redemption_flag
+
+where:
+  mode: and
+  items:
+    - field: etf_code
+      op: "="
+      value: "159001.SZ"
+
+time_range:
+  field: trading_day
+  start: "2026-04-08"
+  end: "2026-04-08"
+
+order_by:
+  - field: etf_trading_day
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

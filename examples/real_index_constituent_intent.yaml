@@ -4,9 +4,8 @@ select:
   - code
   - trade_time
   - close
-  - index_code
-  - index_weight
-  - index_component_close
+  - index_constituent_code
+  - index_name
 
 time_range:
   field: trade_time

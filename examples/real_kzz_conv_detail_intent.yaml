@@ -1,0 +1,28 @@
+from: kzz_conv_real
+
+select:
+  - market_code
+  - kzz_conv_code
+  - kzz_conv_name
+  - kzz_conv_rule_price
+  - kzz_conv_start_date
+  - kzz_conv_end_date
+  - kzz_is_forced
+
+where:
+  mode: and
+  items:
+    - field: market_code
+      op: "="
+      value: "123085.SZ"
+
+order_by:
+  - field: kzz_conv_rule_ann_date
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

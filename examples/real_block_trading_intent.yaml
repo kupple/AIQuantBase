@@ -4,24 +4,22 @@ select:
   - code
   - trade_time
   - close
-  - index_code
-  - index_weight
-  - index_component_close
+  - block_trade_date
+  - block_trade_frequency
+  - block_trade_avg_volume
+  - block_trade_avg_amount_per_freq
 
 time_range:
   field: trade_time
-  start: "2026-04-01 00:00:00"
-  end: "2026-04-07 23:59:59"
+  start: "2010-01-01 00:00:00"
+  end: "2010-02-28 23:59:59"
 
 where:
   mode: and
   items:
     - field: code
       op: "="
-      value: "000004.SZ"
-    - field: close
-      op: is_not_null
-      value: null
+      value: "000009.SZ"
 
 order_by:
   - field: trade_time

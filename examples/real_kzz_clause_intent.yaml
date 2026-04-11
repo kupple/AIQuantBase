@@ -4,24 +4,24 @@ select:
   - code
   - trade_time
   - close
-  - index_code
-  - index_weight
-  - index_component_close
+  - kzz_call_begin_date
+  - kzz_call_end_date
+  - kzz_call_trigger_ratio
+  - kzz_put_begin_date
+  - kzz_put_end_date
+  - kzz_put_trigger_ratio
 
 time_range:
   field: trade_time
-  start: "2026-04-01 00:00:00"
-  end: "2026-04-07 23:59:59"
+  start: "2025-05-01 00:00:00"
+  end: "2025-05-31 23:59:59"
 
 where:
   mode: and
   items:
     - field: code
       op: "="
-      value: "000004.SZ"
-    - field: close
-      op: is_not_null
-      value: null
+      value: "123085.SZ"
 
 order_by:
   - field: trade_time

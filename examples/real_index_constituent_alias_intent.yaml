@@ -1,0 +1,26 @@
+from: stock_daily_real
+
+select:
+  - code
+  - trade_time
+  - index_constituent_code
+  - index_constituent_name
+
+where:
+  mode: and
+  items:
+    - field: code
+      op: "="
+      value: "000004.SZ"
+
+time_range:
+  field: trade_time
+  start: "2026-04-01 00:00:00"
+  end: "2026-04-07 23:59:59"
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

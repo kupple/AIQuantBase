@@ -1,0 +1,28 @@
+from: kzz_issuance_real
+
+select:
+  - market_code
+  - kzz_stock_code
+  - kzz_ann_dt
+  - kzz_listed_date
+  - kzz_clause_ini_conv_price
+  - kzz_coupon_rate
+  - kzz_term_year
+
+where:
+  mode: and
+  items:
+    - field: market_code
+      op: "="
+      value: "110070.SH"
+
+order_by:
+  - field: kzz_ann_dt
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

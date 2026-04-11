@@ -51,6 +51,7 @@ class SqlRenderer:
                                 bridge_step.table,
                                 bridge_step.join_keys,
                                 bridge_step.time_binding,
+                                lookahead_safe_for_event=step.lookahead_safe_for_event,
                             )
                         )
                     lines.append(f"LEFT JOIN {bridge_step.table} {bridge_alias} ON " + " AND ".join(conditions))
@@ -65,6 +66,7 @@ class SqlRenderer:
                             to_node.table,
                             step.join_keys,
                             step.time_binding,
+                            lookahead_safe_for_event=step.lookahead_safe_for_event,
                         )
                     )
                 lines.append(f"LEFT JOIN {join_target} ON " + " AND ".join(conditions))
@@ -82,6 +84,7 @@ class SqlRenderer:
                         to_node.table,
                         step.join_keys,
                         step.time_binding,
+                        lookahead_safe_for_event=step.lookahead_safe_for_event,
                     )
                 )
             lines.append(f"{join_prefix} {join_target} ON " + " AND ".join(conditions))
@@ -132,16 +135,19 @@ class SqlRenderer:
         to_table: str,
         join_keys: list[dict[str, str]],
         binding,
+        lookahead_safe_for_event: bool = False,
     ) -> list[str]:
         mode = binding.mode
         if mode == "same_date" or mode == "same_timestamp":
             left = self._render_time_ref(from_alias, binding.base_time_field, binding.base_time_cast)
             right = self._render_time_ref(to_alias, binding.source_time_field, binding.source_time_cast)
+            if lookahead_safe_for_event:
+                return [f"{left} > {right}"]
             return [f"{left} = {right}"]
         if mode == "asof":
             left = self._render_time_ref(from_alias, binding.base_time_field, binding.base_time_cast)
             right = self._render_time_ref(to_alias, binding.source_time_field, binding.source_time_cast)
-            operator = ">=" if binding.allow_equal else ">"
+            operator = ">" if lookahead_safe_for_event else (">=" if binding.allow_equal else ">")
             clauses = [f"{left} {operator} {right}"]
             if binding.available_time_field and binding.available_time_field != binding.source_time_field:
                 clauses.append(
@@ -153,7 +159,7 @@ class SqlRenderer:
             start = self._render_time_ref(to_alias, binding.source_start_field, binding.source_time_cast)
             end = self._render_time_ref(to_alias, binding.source_end_field, binding.source_time_cast)
             return [
-                f"{left} >= {start}",
+                f"{left} > {start}" if lookahead_safe_for_event else f"{left} >= {start}",
                 f"{left} < {end}",
             ]
         raise ValueError(f"Unsupported bind mode: {mode}")
@@ -216,6 +222,8 @@ class SqlRenderer:
         ref = f"{alias}.{field_name}"
         if cast_name == "date":
             return f"toDate({ref})"
+        if cast_name == "yyyymmdd":
+            return f"toDate(parseDateTimeBestEffortOrNull(toString({ref})))"
         return ref
 
     def _label_for_field(self, field_name: str) -> str:

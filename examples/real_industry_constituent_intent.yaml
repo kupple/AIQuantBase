@@ -4,24 +4,21 @@ select:
   - code
   - trade_time
   - close
-  - index_code
-  - index_weight
-  - index_component_close
-
-time_range:
-  field: trade_time
-  start: "2026-04-01 00:00:00"
-  end: "2026-04-07 23:59:59"
+  - industry_constituent_index_code
+  - industry_constituent_index_name
+  - industry_level1_name
 
 where:
   mode: and
   items:
     - field: code
       op: "="
-      value: "000004.SZ"
-    - field: close
-      op: is_not_null
-      value: null
+      value: "600602.SH"
+
+time_range:
+  field: trade_time
+  start: "2016-06-01 00:00:00"
+  end: "2016-06-30 23:59:59"
 
 order_by:
   - field: trade_time

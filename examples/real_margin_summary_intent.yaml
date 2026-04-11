@@ -1,0 +1,21 @@
+from: margin_summary_real
+
+select:
+  - margin_summary_trade_date
+  - margin_summary_borrow_money_balance
+  - margin_summary_purch_with_borrow_money
+  - margin_summary_repayment_of_borrow_money
+  - margin_summary_net_borrow_money
+  - margin_summary_trade_balance
+
+time_range:
+  field: trade_date
+  start: "2025-01-01"
+  end: "2025-01-31"
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

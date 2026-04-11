@@ -1,0 +1,31 @@
+from: etf_pcf_constituent_real
+
+select:
+  - etf_constituent_etf_code
+  - etf_constituent_trading_day
+  - etf_constituent_underlying_symbol
+  - etf_constituent_component_share
+  - etf_constituent_substitute_flag
+
+where:
+  mode: and
+  items:
+    - field: etf_constituent_etf_code
+      op: "="
+      value: "159001.SZ"
+
+time_range:
+  field: trading_day
+  start: "2026-04-08"
+  end: "2026-04-08"
+
+order_by:
+  - field: etf_constituent_underlying_symbol
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

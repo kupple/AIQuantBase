@@ -1233,7 +1233,7 @@ safety:
 
 当前尚未纳入图谱的表总数为：
 
-1. `16` 张
+1. `0` 张
 
 ### 21.2 当前已接入的真实表
 
@@ -1269,27 +1269,33 @@ safety:
 28. `ad_treasury_yield`
 29. `ad_fund_iopv`
 30. `ad_fund_share`
+31. `ad_bj_code_mapping`
+32. `ad_etf_pcf`
+33. `ad_etf_pcf_constituent`
+34. `ad_industry_constituent`
+35. `ad_kzz_call_explanation`
+36. `ad_kzz_conv_change`
+37. `ad_kzz_corr`
+38. `ad_kzz_issuance`
+39. `ad_kzz_put_explanation`
+40. `ad_kzz_share`
+41. `ad_kzz_suspend`
+42. `ad_option_basic_info`
+43. `ad_option_mon_ctr_specs`
+44. `ad_option_std_ctr_specs`
+45. `ad_sync_checkpoint`
+46. `ad_sync_task_log`
+47. `ad_block_trading`
+48. `ad_kzz_call`
+49. `ad_kzz_conv`
+50. `ad_kzz_put`
+51. `ad_kzz_put_call_item`
 
 ### 21.3 当前未接入的 `starlight` 表
 
 当前尚未纳入图谱的 `starlight` 表包括：
 
-1. `ad_bj_code_mapping`
-2. `ad_etf_pcf`
-3. `ad_etf_pcf_constituent`
-4. `ad_industry_constituent`
-5. `ad_kzz_call_explanation`
-6. `ad_kzz_conv_change`
-7. `ad_kzz_corr`
-8. `ad_kzz_issuance`
-9. `ad_kzz_put_explanation`
-10. `ad_kzz_share`
-11. `ad_kzz_suspend`
-12. `ad_option_basic_info`
-13. `ad_option_mon_ctr_specs`
-14. `ad_option_std_ctr_specs`
-15. `ad_sync_checkpoint`
-16. `ad_sync_task_log`
+1. 当前 `starlight` 下 `54` 张 `ad_%` 表已全部纳入图谱。
 
 ### 21.4 当前已验证可查询的字段类型
 
@@ -1303,6 +1309,15 @@ safety:
 6. 指数成分字段
 7. 财务字段
 8. 派生字段
+9. ETF PCF 字段
+10. 行业成分字段
+11. 可转债条款与事件字段
+12. 期权合约元数据字段
+13. 同步任务与检查点运维字段
+14. 大宗交易字段
+15. 可转债赎回/回售/转股规则字段
+16. 龙虎榜事件字段
+17. 融资融券明细与市场汇总字段
 
 ### 21.5 当前已验证的代表性标准字段
 

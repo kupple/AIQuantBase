@@ -1,0 +1,35 @@
+from: sync_task_log_real
+
+select:
+  - sync_task_task_name
+  - sync_task_target_table
+  - sync_task_run_date
+  - sync_task_status
+  - sync_task_row_count
+  - sync_task_finished_at
+
+where:
+  mode: and
+  items:
+    - field: sync_task_target_table
+      op: "="
+      value: "ad_adj_factor"
+    - field: sync_task_status
+      op: "="
+      value: "success"
+
+time_range:
+  field: run_date
+  start: "2026-04-01"
+  end: "2026-04-05"
+
+order_by:
+  - field: sync_task_run_date
+    direction: desc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

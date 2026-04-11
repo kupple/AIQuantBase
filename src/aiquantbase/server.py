@@ -18,8 +18,8 @@ from .sql import SqlRenderer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 STUDIO_DIR = PROJECT_ROOT / "studio"
-DEFAULT_GRAPH_PATH = PROJECT_ROOT / "out" / "graph.yaml"
-DEFAULT_FIELDS_PATH = PROJECT_ROOT / "out" / "fields.yaml"
+DEFAULT_GRAPH_PATH = PROJECT_ROOT / "config" / "graph.yaml"
+DEFAULT_FIELDS_PATH = PROJECT_ROOT / "config" / "fields.yaml"
 
 
 def create_app() -> Flask:
@@ -135,6 +135,55 @@ def create_app() -> Flask:
         )
         rows = executor.execute_sql(sql).data
         return jsonify({"items": rows})
+
+    @app.get("/api/metadata/catalog")
+    def metadata_catalog():
+        graph_path = Path(request.args.get("graph_path") or DEFAULT_GRAPH_PATH)
+        fields_path = Path(request.args.get("fields_path") or DEFAULT_FIELDS_PATH)
+        nodes, edges = _safe_load_graph(graph_path)
+        fields = _safe_load_fields(fields_path)
+        return jsonify(
+            {
+                "nodes": [
+                    {
+                        "name": node.name,
+                        "table": node.table,
+                        "grain": node.grain,
+                        "description": node.description,
+                        "description_zh": node.description_zh,
+                        "node_role": node.node_role,
+                        "is_ai_entry": node.is_ai_entry,
+                    }
+                    for node in nodes
+                ],
+                "edges": [
+                    {
+                        "name": edge.name,
+                        "from": edge.from_node,
+                        "to": edge.to_node,
+                        "relation_type": edge.relation_type,
+                        "description": edge.description,
+                        "description_zh": edge.description_zh,
+                    }
+                    for edge in edges
+                ],
+                "fields": [
+                    {
+                        "standard_field": field.standard_field,
+                        "source_node": field.source_node,
+                        "source_field": field.source_field,
+                        "field_role": field.field_role,
+                        "description_zh": field.description_zh,
+                        "path_domain": field.path_domain,
+                        "path_group": field.path_group,
+                        "via_node": field.via_node,
+                        "time_semantics": field.time_semantics,
+                        "lookahead_category": field.lookahead_category,
+                    }
+                    for field in fields
+                ],
+            }
+        )
 
     @app.post("/api/query/execute")
     def execute_query():

@@ -1,0 +1,25 @@
+from: bj_code_mapping_real
+
+select:
+  - bj_old_code
+  - bj_new_code
+  - bj_security_name
+  - bj_listing_date
+
+where:
+  mode: and
+  items:
+    - field: bj_new_code
+      op: "="
+      value: "920017"
+
+order_by:
+  - field: bj_new_code
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

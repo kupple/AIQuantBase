@@ -26,6 +26,9 @@ class Node:
     grain: str | None = None
     fields: list[str] = field(default_factory=list)
     description: str | None = None
+    description_zh: str | None = None
+    node_role: str | None = None
+    is_ai_entry: bool = False
 
 
 @dataclass(slots=True)
@@ -78,6 +81,7 @@ class Edge:
     bridge_steps: list[BridgeStep] = field(default_factory=list)
     priority: int = 100
     description: str | None = None
+    description_zh: str | None = None
 
     def validate(self) -> None:
         if self.relation_type not in VALID_RELATION_TYPES:
@@ -167,6 +171,7 @@ class PlanStep:
     join_keys: list[dict[str, str]]
     time_binding: TimeBinding | None = None
     bridge_steps: list[BridgeStep] = field(default_factory=list)
+    lookahead_safe_for_event: bool = False
 
 
 @dataclass(slots=True)
@@ -198,4 +203,10 @@ class FieldCatalogEntry:
     depends_on: list[str] = field(default_factory=list)
     formula: str | None = None
     applies_to_grain: str | None = None
+    path_domain: str | None = None
+    path_group: str | None = None
+    via_node: str | None = None
+    time_semantics: str | None = None
+    lookahead_category: str | None = None
+    description_zh: str | None = None
     notes: list[str] = field(default_factory=list)

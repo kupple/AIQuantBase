@@ -1,0 +1,26 @@
+from: kzz_issuance_real
+
+select:
+  - market_code
+  - kzz_coupon_rate
+  - kzz_coupon_rate_decimal
+  - kzz_clause_ini_conv_premium_ratio
+  - kzz_clause_ini_conv_premium_ratio_decimal
+
+where:
+  mode: and
+  items:
+    - field: market_code
+      op: "="
+      value: "110070.SH"
+
+order_by:
+  - field: kzz_ann_dt
+    direction: asc
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

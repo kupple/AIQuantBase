@@ -1,0 +1,24 @@
+from: kzz_put_call_item_real
+
+select:
+  - market_code
+  - kzz_item_con_put_start_date
+  - kzz_item_con_put_end_date
+  - kzz_item_is_put_item
+  - kzz_item_is_call_item
+  - kzz_item_call_tri_per
+  - kzz_item_call_tri_con_ins
+
+where:
+  mode: and
+  items:
+    - field: market_code
+      op: "="
+      value: "123085.SZ"
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

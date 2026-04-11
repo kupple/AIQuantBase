@@ -1,0 +1,16 @@
+from: option_std_ctr_specs_real
+
+select:
+  - option_std_market_code
+  - option_std_contract_value
+  - option_std_contract_multiplier
+  - option_std_contract_value_per_multiplier
+  - option_std_option_strike_price
+  - option_std_option_strike_price_num
+
+page: 1
+page_size: 10
+
+safety:
+  lookahead_safe: true
+  strict_mode: true

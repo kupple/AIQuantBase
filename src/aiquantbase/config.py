@@ -140,6 +140,9 @@ def _parse_node(item: dict[str, Any]) -> Node:
         grain=item.get("grain"),
         fields=list(item.get("fields", [])),
         description=item.get("description"),
+        description_zh=item.get("description_zh"),
+        node_role=item.get("node_role"),
+        is_ai_entry=item.get("is_ai_entry", False),
     )
 
 
@@ -166,4 +169,5 @@ def _parse_edge(item: dict[str, Any]) -> Edge:
         bridge_steps=bridge_steps,
         priority=item.get("priority", 100),
         description=item.get("description"),
+        description_zh=item.get("description_zh"),
     )

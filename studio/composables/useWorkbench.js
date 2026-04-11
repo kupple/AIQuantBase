@@ -438,8 +438,8 @@ export function useWorkbench() {
 function createWorkbenchState() {
   return {
     workspace: {
-      graphPath: 'examples/real_combined_graph.yaml',
-      fieldsPath: 'examples/real_combined_fields.yaml',
+      graphPath: 'config/graph.yaml',
+      fieldsPath: 'config/fields.yaml',
       runtimePath: 'config/runtime.local.yaml',
     },
     runtime: {
