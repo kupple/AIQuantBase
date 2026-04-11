@@ -22,6 +22,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   color: var(--text);
   font-family: "PingFang SC", "Helvetica Neue", sans-serif;
   background:
@@ -35,20 +36,27 @@ a {
 }
 
 code {
+  display: inline-block;
+  max-width: 100%;
   padding: 2px 6px;
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .app-shell {
   padding: 20px;
+  width: 100%;
 }
 
 .workspace-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 18px;
+  width: 100%;
+  min-width: 0;
 }
 
 .app-sidebar {
@@ -57,6 +65,7 @@ code {
   align-self: start;
   display: grid;
   gap: 18px;
+  min-width: 0;
   padding: 22px 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -66,6 +75,7 @@ code {
 
 .sidebar-brand h1 {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .sidebar-nav {
@@ -97,10 +107,12 @@ code {
 .sidebar-footnote {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .app-main {
   min-width: 0;
+  width: 100%;
 }
 
 .topbar,
@@ -201,6 +213,7 @@ button:hover,
 
 .metric-card {
   padding: 18px;
+  min-width: 0;
 }
 
 .metric-card-wide {
@@ -228,10 +241,12 @@ button:hover,
 
 .manage-layout {
   grid-template-columns: 380px minmax(0, 1fr);
+  min-width: 0;
 }
 
 .graph-layout {
   grid-template-columns: minmax(0, 1.5fr) 360px;
+  min-width: 0;
 }
 
 .llm-layout {
@@ -239,6 +254,7 @@ button:hover,
   grid-template-columns: 0.9fr 1.1fr;
   gap: 18px;
   margin-top: 18px;
+  min-width: 0;
 }
 
 .sidebar-panel,
@@ -246,6 +262,8 @@ button:hover,
 .graph-board-card,
 .list-card {
   padding: 18px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .search-form,
@@ -256,6 +274,7 @@ button:hover,
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .search-form input,
@@ -263,6 +282,7 @@ button:hover,
 .editor-form select,
 .editor-form textarea,
 #graph-search {
+  max-width: 100%;
   width: 100%;
   padding: 11px 12px;
   border: 1px solid var(--line);
@@ -283,11 +303,14 @@ button:hover,
   margin-top: 14px;
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .table-shell {
   margin-top: 14px;
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.78);
@@ -306,6 +329,8 @@ button:hover,
   text-align: left;
   vertical-align: top;
   font-size: 14px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .data-table thead th {
@@ -338,6 +363,8 @@ button:hover,
 .table-copy {
   color: var(--muted);
   min-width: 220px;
+  max-width: 360px;
+  overflow-wrap: anywhere;
 }
 
 .table-link {
@@ -360,6 +387,7 @@ button:hover,
 .detail-panel {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .detail-grid {
@@ -368,15 +396,18 @@ button:hover,
 
 .detail-grid > div {
   min-width: 150px;
+  max-width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.78);
+  overflow-wrap: anywhere;
 }
 
 .editor-form {
   display: grid;
   gap: 14px;
+  min-width: 0;
 }
 
 .form-section {
@@ -386,6 +417,7 @@ button:hover,
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.74);
+  min-width: 0;
 }
 
 .form-section-head {
@@ -402,6 +434,7 @@ button:hover,
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  min-width: 0;
 }
 
 .field-span-full {
@@ -412,6 +445,7 @@ button:hover,
   display: grid;
   gap: 8px;
   font-weight: 600;
+  min-width: 0;
 }
 
 .inline-danger-form {
@@ -424,6 +458,7 @@ button:hover,
 }
 
 .graph-canvas {
+  width: 100%;
   height: 72vh;
   min-height: 560px;
   margin-top: 18px;
@@ -445,6 +480,7 @@ button:hover,
 .graph-details-item {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .graph-details-item ul {
@@ -455,6 +491,7 @@ button:hover,
 .result-stack {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .result-stack h3 {
@@ -465,12 +502,17 @@ button:hover,
   margin: 0;
   padding: 16px;
   border-radius: var(--radius-md);
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
   background: #132027;
   color: #e7f1ee;
   font-family: "SFMono-Regular", "Menlo", monospace;
   font-size: 13px;
   line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 @media (max-width: 1120px) {
@@ -492,5 +534,18 @@ button:hover,
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .app-shell {
+    padding: 12px;
+  }
+
+  .data-table {
+    min-width: 640px;
+  }
+
+  .graph-canvas {
+    min-height: 420px;
+    height: 60vh;
   }
 }
