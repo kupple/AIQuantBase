@@ -50,10 +50,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to runtime YAML",
     )
 
-    studio_cmd = subparsers.add_parser("studio", help="Run local Graph Studio workbench")
-    studio_cmd.add_argument("--host", default="127.0.0.1")
-    studio_cmd.add_argument("--port", type=int, default=8000)
-
     exec_cmd = subparsers.add_parser("execute-intent", help="Plan, render and execute a Query Intent")
     exec_cmd.add_argument("graph", help="Path to graph YAML")
     exec_cmd.add_argument("intent", help="Path to Query Intent YAML")
@@ -335,12 +331,6 @@ def main() -> None:
         runtime = load_runtime_config(args.runtime)
         ok = ClickHouseExecutor(runtime.datasource).ping()
         print("Datasource is reachable" if ok else "Datasource ping failed")
-        return
-
-    if args.command == "studio":
-        from .server import run_server
-
-        run_server(host=args.host, port=args.port)
         return
 
     if args.command == "discover-schema":

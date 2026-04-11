@@ -51,7 +51,10 @@ DEFAULT_RUNTIME_EXAMPLE_PATH = Path("config/runtime.example.yaml")
 
 
 def load_runtime_config(path: str | Path = DEFAULT_RUNTIME_CONFIG_PATH) -> RuntimeConfig:
-    data = load_yaml(path)
+    candidate_path = Path(path)
+    if not candidate_path.exists() and candidate_path == DEFAULT_RUNTIME_CONFIG_PATH and DEFAULT_RUNTIME_EXAMPLE_PATH.exists():
+        candidate_path = DEFAULT_RUNTIME_EXAMPLE_PATH
+    data = load_yaml(candidate_path)
     if "llm" not in data or "datasource" not in data:
         raise ValueError("Runtime config must contain 'llm' and 'datasource'")
     return RuntimeConfig(
