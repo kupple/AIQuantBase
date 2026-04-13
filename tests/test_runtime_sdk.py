@@ -52,3 +52,14 @@ def test_graph_runtime_metadata_catalog():
     assert any(item.get("time_semantics") for item in catalog["fields"])
     assert any(item.get("is_ai_entry") for item in catalog["nodes"])
     assert any(item.get("node_role") == "query_entry" for item in catalog["nodes"])
+    assert "sync_task_log_real" not in [item["name"] for item in catalog["nodes"] if item.get("is_ai_entry")]
+
+
+def test_graph_runtime_get_real_nodes():
+    runtime = GraphRuntime.from_defaults()
+    real_nodes = runtime.get_real_nodes()
+
+    assert real_nodes
+    assert all(item["name"].endswith("_real") for item in real_nodes)
+    assert len(real_nodes) == 54
+    assert any(item["description_zh"] for item in real_nodes)

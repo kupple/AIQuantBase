@@ -332,7 +332,7 @@ nodes:
   - nominal_price
   description_zh: 股票盘口快照表
   node_role: query_entry
-  is_ai_entry: true
+  is_ai_entry: false
 - name: hist_code_daily_real
   table: starlight.ad_hist_code_daily
   entity_keys:
@@ -975,7 +975,7 @@ nodes:
   - finished_at
   description_zh: 同步任务日志表
   node_role: query_entry
-  is_ai_entry: true
+  is_ai_entry: false
 - name: block_trading_real
   table: starlight.ad_block_trading
   entity_keys:

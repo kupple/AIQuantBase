@@ -114,6 +114,28 @@ class GraphRuntime:
             ],
         }
 
+    def get_real_nodes(self) -> list[dict[str, Any]]:
+        """返回当前图谱中所有 *_real 节点的信息。
+
+        这个方法是给外部模块快速查看“当前有哪些正式业务节点”用的，
+        会返回节点名、表名、粒度、中文说明、节点角色以及是否作为 AI 主入口开放。
+        """
+        return [
+            {
+                'name': node.name,
+                'table': node.table,
+                'entity_keys': list(node.entity_keys),
+                'time_key': node.time_key,
+                'grain': node.grain,
+                'description': node.description,
+                'description_zh': node.description_zh,
+                'node_role': node.node_role,
+                'is_ai_entry': node.is_ai_entry,
+            }
+            for node in self.nodes
+            if node.name.endswith('_real')
+        ]
+
     def execute_intent(self, intent: dict[str, Any]) -> dict[str, Any]:
         try:
             plan = self.planner.plan(_intent_from_dict(intent))
