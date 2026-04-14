@@ -205,8 +205,10 @@ runtime = GraphRuntime.from_defaults()
 高频方法：
 
 1. `runtime.get_metadata_catalog()`
-2. `runtime.render_intent(intent)`
-3. `runtime.execute_intent(intent)`
+2. `runtime.get_real_fields_json()`
+3. `runtime.render_intent(intent)`
+4. `runtime.execute_intent(intent)`
+5. `runtime.execute_sql(sql)`
 
 ## 9. 一句话接入原则
 
@@ -238,3 +240,36 @@ runtime = GraphRuntime.from_defaults()
 
 1. `config/` 下的是“正式默认配置”
 2. `examples/` 下的是“示例与历史演化文件”
+
+## 10. 补充入口
+
+### 直接执行原生 SQL
+
+```python
+result = runtime.execute_sql("SELECT ...")
+```
+
+返回：
+
+```python
+{
+    "code": 0,
+    "message": "success",
+    "sql": "...",
+    "df": DataFrame(...),
+}
+```
+
+### 获取 real 节点字段 JSON
+
+```python
+result = runtime.get_real_fields_json()
+```
+
+返回：
+
+1. `code`
+2. `message`
+3. `items`
+
+其中 `items` 会按 `*_real` 节点分组返回字段，每个字段只带英文名 `field_name` 和中文名 `field_label_zh`。

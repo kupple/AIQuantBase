@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -16,12 +15,22 @@ DEFAULT_GRAPH_PATH = Path('config/graph.yaml')
 DEFAULT_FIELDS_PATH = Path('config/fields.yaml')
 
 
-@dataclass(slots=True)
-class RuntimeResult:
-    code: int
-    message: str
-    sql: str
-    df: pd.DataFrame
+RAW_FIELD_DESCRIPTION_ZH = {
+    'code': '代码',
+    'trade_time': '交易时间',
+    'trade_date': '交易日期',
+    'open': '开盘价',
+    'high': '最高价',
+    'low': '最低价',
+    'close': '收盘价',
+    'volume': '成交量',
+    'amount': '成交额',
+    'factor_value': '因子值',
+    'market_code': '市场代码',
+    'index_code': '指数代码',
+    'index_name': '指数名称',
+    'weight': '权重',
+}
 
 
 class GraphRuntime:
@@ -140,14 +149,7 @@ class GraphRuntime:
         try:
             plan = self.planner.plan(_intent_from_dict(intent))
             sql = self.renderer.render(plan)
-            result = self.executor.execute_sql(sql)
-            df = pd.DataFrame(result.data)
-            return {
-                'code': 0,
-                'message': 'success',
-                'sql': result.sql,
-                'df': df,
-            }
+            return self.execute_sql(sql)
         except Exception as exc:  # pragma: no cover - defensive path
             return {
                 'code': 1,
@@ -155,6 +157,81 @@ class GraphRuntime:
                 'sql': '',
                 'df': pd.DataFrame(),
             }
+
+    def execute_sql(self, sql: str) -> dict[str, Any]:
+        """直接执行原生 SQL，并返回标准结果结构。"""
+        try:
+            result = self.executor.execute_sql(sql)
+            return self._build_result(
+                code=0,
+                message='success',
+                sql=result.sql,
+                df=pd.DataFrame(result.data),
+            )
+        except Exception as exc:  # pragma: no cover - defensive path
+            return self._build_result(
+                code=1,
+                message=str(exc),
+                sql=sql,
+                df=pd.DataFrame(),
+            )
+
+    def get_real_fields_json(self) -> dict[str, Any]:
+        """按 *_real 节点分组返回最小字段清单 JSON。
+
+        这个方法只返回节点名、表名、中文说明，以及字段的英文名和中文名，
+        便于外部模块先做字段选择；真正执行查询仍然通过 execute_intent 完成。
+        """
+        fields_by_node: dict[str, list[dict[str, Any]]] = {}
+        for field in self.field_catalog:
+            if not field.source_node or not field.source_node.endswith('_real'):
+                continue
+            fields_by_node.setdefault(field.source_node, []).append(
+                {
+                    'field_name': field.standard_field,
+                    'field_label_zh': field.description_zh,
+                }
+            )
+
+        items = []
+        for node in self.nodes:
+            if not node.name.endswith('_real'):
+                continue
+            node_fields = list(fields_by_node.get(node.name, []))
+            existing_standard = {item['field_name'] for item in node_fields}
+            for raw_name in node.fields:
+                if raw_name in existing_standard:
+                    continue
+                node_fields.append(
+                    {
+                        'field_name': raw_name,
+                        'field_label_zh': RAW_FIELD_DESCRIPTION_ZH.get(raw_name, raw_name),
+                    }
+                )
+            items.append(
+                {
+                    'name': node.name,
+                    'table': node.table,
+                    'grain': node.grain,
+                    'description_zh': node.description_zh,
+                    'is_ai_entry': node.is_ai_entry,
+                    'fields': sorted(node_fields, key=lambda item: item['field_name']),
+                }
+            )
+
+        return {
+            'code': 0,
+            'message': 'success',
+            'items': items,
+        }
+
+    def _build_result(self, code: int, message: str, sql: str, df: pd.DataFrame) -> dict[str, Any]:
+        return {
+            'code': code,
+            'message': message,
+            'sql': sql,
+            'df': df,
+        }
 
 
 def _intent_from_dict(intent: dict[str, Any]):
