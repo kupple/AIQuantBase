@@ -1,0 +1,4406 @@
+backup_name: stock_daily_real_related_fields_snapshot
+base_node: stock_daily_real
+base_node_config:
+  name: stock_daily_real
+  table: starlight.ad_market_kline_daily
+  entity_keys:
+  - code
+  time_key: trade_time
+  grain: daily
+  asset_type: stock
+  query_freq: 1d
+  base_filters:
+  - field: security_type
+    op: '='
+    value: EXTRA_STOCK_A
+  fields:
+  - code
+  - trade_time
+  - open
+  - high
+  - low
+  - close
+  - volume
+  - amount
+  description_zh: 股票日线行情主表
+  node_role: query_entry
+  is_ai_entry: true
+snapshot_summary:
+  related_edge_count: 39
+  related_source_node_count: 39
+  related_field_count: 365
+  derived_field_count: 3
+related_edges:
+- name: stock_daily_real_to_adj_factor_real
+  from: stock_daily_real
+  to: adj_factor_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description_zh: stock_daily_real 到 adj_factor_real，按同日关联
+- name: stock_daily_real_to_backward_factor_real
+  from: stock_daily_real
+  to: backward_factor_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description_zh: stock_daily_real 到 backward_factor_real，按同日关联
+- name: stock_daily_real_to_history_stock_status_real
+  from: stock_daily_real
+  to: history_stock_status_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description_zh: stock_daily_real 到 history_stock_status_real，按同日关联
+- name: stock_daily_real_to_equity_structure_real
+  from: stock_daily_real
+  to: equity_structure_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: change_date
+  description_zh: stock_daily_real 到 equity_structure_real，按截至时点关联
+- name: stock_daily_real_to_industry_weight_real
+  from: stock_daily_real
+  to: industry_weight_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: con_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description_zh: stock_daily_real 到 industry_weight_real，按同日关联
+- name: stock_daily_real_to_index_weight_real
+  from: stock_daily_real
+  to: index_weight_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: con_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description_zh: stock_daily_real 到 index_weight_real，按同日关联
+- name: stock_daily_real_to_index_constituent_real
+  from: stock_daily_real
+  to: index_constituent_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: con_code
+  time_binding:
+    mode: effective_range
+    base_time_field: trade_time
+    base_time_cast: date
+    source_start_field: in_date
+    source_end_field: out_date
+  description_zh: stock_daily_real 到 index_constituent_real，按生效区间关联
+- name: stock_daily_real_to_income_real
+  from: stock_daily_real
+  to: income_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 income_real，按截至时点关联
+- name: stock_daily_real_to_balance_sheet_real
+  from: stock_daily_real
+  to: balance_sheet_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 balance_sheet_real，按截至时点关联
+- name: stock_daily_real_to_cash_flow_real
+  from: stock_daily_real
+  to: cash_flow_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 cash_flow_real，按截至时点关联
+- name: stock_daily_real_to_profit_notice_real
+  from: stock_daily_real
+  to: profit_notice_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 profit_notice_real，按截至时点关联
+- name: stock_daily_real_to_profit_express_real
+  from: stock_daily_real
+  to: profit_express_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 profit_express_real，按截至时点关联
+- name: stock_daily_real_to_stock_basic_real
+  from: stock_daily_real
+  to: stock_basic_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: snapshot_date
+  description_zh: stock_daily_real 到 stock_basic_real，按截至时点关联
+- name: stock_daily_real_to_code_info_real
+  from: stock_daily_real
+  to: code_info_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: code
+  description_zh: stock_daily_real 到 code_info_real，按键值关联
+- name: stock_daily_real_to_hist_code_daily_real
+  from: stock_daily_real
+  to: hist_code_daily_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description_zh: stock_daily_real 到 hist_code_daily_real，按同日关联
+- name: stock_daily_real_to_dividend_real
+  from: stock_daily_real
+  to: dividend_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 dividend_real，按截至时点关联
+- name: stock_daily_real_to_holder_num_real
+  from: stock_daily_real
+  to: holder_num_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_dt
+  description_zh: stock_daily_real 到 holder_num_real，按截至时点关联
+- name: stock_daily_real_to_share_holder_real
+  from: stock_daily_real
+  to: share_holder_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 share_holder_real，按截至时点关联
+- name: stock_daily_real_to_right_issue_real
+  from: stock_daily_real
+  to: right_issue_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 right_issue_real，按截至时点关联
+- name: stock_daily_real_to_equity_restricted_real
+  from: stock_daily_real
+  to: equity_restricted_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: list_date
+  description_zh: stock_daily_real 到 equity_restricted_real，按截至时点关联
+- name: stock_daily_real_to_trade_calendar_real
+  from: stock_daily_real
+  to: trade_calendar_real
+  relation_type: direct
+  join_keys: []
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description_zh: stock_daily_real 到 trade_calendar_real，按同日关联
+- name: stock_daily_real_to_equity_pledge_freeze_real
+  from: stock_daily_real
+  to: equity_pledge_freeze_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 equity_pledge_freeze_real，按截至时点关联
+- name: stock_daily_real_to_etf_pcf_real
+  from: stock_daily_real
+  to: etf_pcf_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: etf_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trading_day
+  description_zh: stock_daily_real 到 etf_pcf_real，按同日关联
+- name: stock_daily_real_to_etf_pcf_constituent_real
+  from: stock_daily_real
+  to: etf_pcf_constituent_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: underlying_symbol
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trading_day
+  description_zh: stock_daily_real 到 etf_pcf_constituent_real，按同日关联
+- name: stock_daily_real_to_industry_constituent_real
+  from: stock_daily_real
+  to: industry_constituent_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: con_code
+  time_binding:
+    mode: effective_range
+    base_time_field: trade_time
+    base_time_cast: date
+    source_start_field: in_date
+    source_end_field: out_date
+  description_zh: stock_daily_real 到 industry_constituent_real，按生效区间关联
+- name: stock_daily_real_to_kzz_call_explanation_real
+  from: stock_daily_real
+  to: kzz_call_explanation_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: call_announcement_date
+  description_zh: stock_daily_real 到 kzz_call_explanation_real，按截至时点关联
+- name: stock_daily_real_to_kzz_conv_change_real
+  from: stock_daily_real
+  to: kzz_conv_change_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 kzz_conv_change_real，按截至时点关联
+- name: stock_daily_real_to_kzz_corr_real
+  from: stock_daily_real
+  to: kzz_corr_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: effective_range
+    base_time_field: trade_time
+    base_time_cast: date
+    source_start_field: start_date
+    source_end_field: end_date
+  description_zh: stock_daily_real 到 kzz_corr_real，按生效区间关联
+- name: stock_daily_real_to_kzz_issuance_real
+  from: stock_daily_real
+  to: kzz_issuance_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_dt
+    source_time_cast: yyyymmdd
+  description_zh: stock_daily_real 到 kzz_issuance_real，按截至时点关联
+- name: stock_daily_real_to_kzz_put_explanation_real
+  from: stock_daily_real
+  to: kzz_put_explanation_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: put_announcement_date
+    source_time_cast: yyyymmdd
+  description_zh: stock_daily_real 到 kzz_put_explanation_real，按截至时点关联
+- name: stock_daily_real_to_kzz_share_real
+  from: stock_daily_real
+  to: kzz_share_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+    source_time_cast: yyyymmdd
+  description_zh: stock_daily_real 到 kzz_share_real，按截至时点关联
+- name: stock_daily_real_to_kzz_suspend_real
+  from: stock_daily_real
+  to: kzz_suspend_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: suspend_date
+    source_time_cast: yyyymmdd
+  description_zh: stock_daily_real 到 kzz_suspend_real，按截至时点关联
+- name: stock_daily_real_to_block_trading_real
+  from: stock_daily_real
+  to: block_trading_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description_zh: stock_daily_real 到 block_trading_real，按同日关联
+- name: stock_daily_real_to_kzz_call_real
+  from: stock_daily_real
+  to: kzz_call_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: effective_range
+    base_time_field: trade_time
+    base_time_cast: date
+    source_start_field: begin_date
+    source_end_field: end_date
+  description_zh: stock_daily_real 到 kzz_call_real，按生效区间关联
+- name: stock_daily_real_to_kzz_conv_real
+  from: stock_daily_real
+  to: kzz_conv_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: ann_date
+  description_zh: stock_daily_real 到 kzz_conv_real，按截至时点关联
+- name: stock_daily_real_to_kzz_put_real
+  from: stock_daily_real
+  to: kzz_put_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: effective_range
+    base_time_field: trade_time
+    base_time_cast: date
+    source_start_field: begin_date
+    source_end_field: end_date
+  description_zh: stock_daily_real 到 kzz_put_real，按生效区间关联
+- name: stock_daily_real_to_kzz_put_call_item_real
+  from: stock_daily_real
+  to: kzz_put_call_item_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: effective_range
+    base_time_field: trade_time
+    base_time_cast: date
+    source_start_field: con_put_start_date
+    source_end_field: con_put_end_date
+  description_zh: stock_daily_real 到 kzz_put_call_item_real，按生效区间关联
+- name: stock_daily_real_to_long_hu_bang_real
+  from: stock_daily_real
+  to: long_hu_bang_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description_zh: stock_daily_real 到 long_hu_bang_real，按同日关联
+- name: stock_daily_real_to_margin_detail_real
+  from: stock_daily_real
+  to: margin_detail_real
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    base_time_cast: date
+    source_time_field: trade_date
+  description_zh: stock_daily_real 到 margin_detail_real，按同日关联
+related_fields:
+- standard_field: forward_adj_factor
+  source_node: adj_factor_real
+  source_field: factor_value
+  field_role: adjustment_factor
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Interpreted as forward adjustment factor
+  description_zh: 前复权因子
+  lookahead_category: none
+- standard_field: backward_adj_factor
+  source_node: backward_factor_real
+  source_field: factor_value
+  field_role: adjustment_factor
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Interpreted as backward adjustment factor
+  description_zh: 后复权因子
+  lookahead_category: none
+- standard_field: pre_close
+  source_node: history_stock_status_real
+  source_field: preclose
+  field_role: status_snapshot_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+  description_zh: 来自状态快照表
+  lookahead_category: none
+- standard_field: tot_share
+  source_node: equity_structure_real
+  source_field: tot_share
+  field_role: equity_structure_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mapped from equity structure table
+  - Share unit is 10k shares
+  description_zh: 来自股本结构表
+  lookahead_category: none
+- standard_field: float_share
+  source_node: equity_structure_real
+  source_field: float_share
+  field_role: equity_structure_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mapped from equity structure table
+  - Share unit is 10k shares
+  description_zh: 来自股本结构表
+  lookahead_category: none
+- standard_field: float_a_share
+  source_node: equity_structure_real
+  source_field: float_a_share
+  field_role: equity_structure_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mapped from equity structure table
+  - Share unit is 10k shares
+  description_zh: 来自股本结构表
+  lookahead_category: none
+- standard_field: high_limited
+  source_node: history_stock_status_real
+  source_field: high_limited
+  field_role: status_snapshot_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+  description_zh: 来自状态快照表
+  lookahead_category: none
+- standard_field: low_limited
+  source_node: history_stock_status_real
+  source_field: low_limited
+  field_role: status_snapshot_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+  description_zh: 来自状态快照表
+  lookahead_category: none
+- standard_field: is_st
+  source_node: history_stock_status_real
+  source_field: is_st_sec
+  field_role: status_flag
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+  description_zh: 来自状态快照表
+  lookahead_category: none
+- standard_field: is_suspended
+  source_node: history_stock_status_real
+  source_field: is_susp_sec
+  field_role: status_flag
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mapped from status snapshot table
+  description_zh: 来自状态快照表
+  lookahead_category: none
+- standard_field: industry_index_code
+  source_node: industry_weight_real
+  source_field: index_code
+  field_role: industry_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mapped from industry weight table
+  path_domain: industry
+  path_group: weight
+  via_node: industry_weight_real
+  description_zh: 行业指数代码
+  lookahead_category: none
+- standard_field: industry_weight
+  source_node: industry_weight_real
+  source_field: weight
+  field_role: industry_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Daily industry constituent weight
+  path_domain: industry
+  path_group: weight
+  via_node: industry_weight_real
+  description_zh: 行业权重
+  lookahead_category: none
+- standard_field: index_code
+  source_node: index_weight_real
+  source_field: index_code
+  field_role: index_weight_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Daily index constituent weight mapping
+  path_domain: index
+  path_group: weight
+  via_node: index_weight_real
+  description_zh: 日度指数成分权重映射
+  lookahead_category: none
+- standard_field: index_weight
+  source_node: index_weight_real
+  source_field: weight
+  field_role: index_weight_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Daily index constituent weight
+  path_domain: index
+  path_group: weight
+  via_node: index_weight_real
+  description_zh: 日度指数成分权重
+  lookahead_category: none
+- standard_field: index_component_close
+  source_node: index_weight_real
+  source_field: close
+  field_role: index_weight_snapshot_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Component close stored in index weight table
+  path_domain: index
+  path_group: weight
+  via_node: index_weight_real
+  description_zh: 指数权重表中的成分收盘价
+  lookahead_category: none
+- standard_field: index_name
+  source_node: index_constituent_real
+  source_field: index_name
+  field_role: index_constituent_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Index constituent mapping name
+  path_domain: index
+  path_group: constituent
+  via_node: index_constituent_real
+  description_zh: 指数成分映射名称
+  lookahead_category: none
+- standard_field: reporting_period
+  source_node: income_real
+  source_field: reporting_period
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Financial reporting period
+  description_zh: 报告期period
+  lookahead_category: none
+- standard_field: ann_date
+  source_node: income_real
+  source_field: ann_date
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Financial announcement date
+  description_zh: 公告日期
+  time_semantics: financial_announce_date
+  lookahead_category: published_event
+- standard_field: revenue
+  source_node: income_real
+  source_field: opera_rev
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mapped from ad_income.opera_rev
+  description_zh: 营收
+  lookahead_category: none
+- standard_field: basic_eps
+  source_node: income_real
+  source_field: basic_eps
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Basic earnings per share
+  description_zh: 基础每股收益
+  lookahead_category: none
+- standard_field: bs_reporting_period
+  source_node: balance_sheet_real
+  source_field: reporting_period
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Balance sheet reporting period
+  description_zh: 资产负债表报告期period
+  lookahead_category: none
+- standard_field: bs_ann_date
+  source_node: balance_sheet_real
+  source_field: ann_date
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Balance sheet announcement date
+  description_zh: 资产负债表公告日期
+  time_semantics: financial_announce_date
+  lookahead_category: published_event
+- standard_field: total_assets
+  source_node: balance_sheet_real
+  source_field: total_assets
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Total assets from balance sheet
+  description_zh: 总资产
+  lookahead_category: none
+- standard_field: total_liab
+  source_node: balance_sheet_real
+  source_field: total_liab
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Total liabilities from balance sheet
+  description_zh: 总负债
+  lookahead_category: none
+- standard_field: total_equity_ex_min_int
+  source_node: balance_sheet_real
+  source_field: tot_share_equity_excl_min_int
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Total equity excluding minority interest
+  description_zh: 总股权除权除息下限INT
+  lookahead_category: none
+- standard_field: cf_reporting_period
+  source_node: cash_flow_real
+  source_field: reporting_period
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Cash flow reporting period
+  description_zh: 现金流报告期period
+  lookahead_category: none
+- standard_field: cf_ann_date
+  source_node: cash_flow_real
+  source_field: ann_date
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Cash flow announcement date
+  description_zh: 现金流公告日期
+  time_semantics: financial_announce_date
+  lookahead_category: published_event
+- standard_field: net_cash_flows_oper_act
+  source_node: cash_flow_real
+  source_field: net_cash_flows_opera_act
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Net cash flow from operating activities
+  description_zh: NET现金流量经营ACT
+  lookahead_category: none
+- standard_field: net_cash_flows_inv_act
+  source_node: cash_flow_real
+  source_field: net_cash_flows_inv_act
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Net cash flow from investing activities
+  description_zh: NET现金流量投资ACT
+  lookahead_category: none
+- standard_field: net_cash_flows_fin_act
+  source_node: cash_flow_real
+  source_field: net_cash_flows_fin_act
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Net cash flow from financing activities
+  description_zh: NET现金流量融资ACT
+  lookahead_category: none
+- standard_field: net_incr_cash_and_cash_equ
+  source_node: cash_flow_real
+  source_field: net_incr_cash_and_cash_equ
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Net increase in cash and cash equivalents
+  description_zh: NET增加现金AND现金等价物
+  lookahead_category: none
+- standard_field: free_cash_flow
+  source_node: cash_flow_real
+  source_field: free_cash_flow
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Free cash flow
+  description_zh: free现金流向
+  lookahead_category: none
+- standard_field: cash_end_bal
+  source_node: cash_flow_real
+  source_field: cash_end_bal
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Ending cash balance
+  description_zh: 现金ENDBAL
+  lookahead_category: none
+- standard_field: notice_reporting_period
+  source_node: profit_notice_real
+  source_field: reporting_period
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Profit notice reporting period
+  description_zh: 预告报告期period
+  lookahead_category: none
+- standard_field: notice_ann_date
+  source_node: profit_notice_real
+  source_field: ann_date
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Profit notice announcement date
+  description_zh: 预告公告日期
+  time_semantics: financial_announce_date
+  lookahead_category: published_event
+- standard_field: profit_notice_change_max
+  source_node: profit_notice_real
+  source_field: p_change_max
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Profit notice max change ratio
+  description_zh: 利润预告变动上限
+  lookahead_category: none
+- standard_field: profit_notice_change_min
+  source_node: profit_notice_real
+  source_field: p_change_min
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Profit notice min change ratio
+  description_zh: 利润预告变动下限
+  lookahead_category: none
+- standard_field: profit_notice_net_profit_max
+  source_node: profit_notice_real
+  source_field: net_profit_max
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Profit notice net profit max
+  description_zh: 利润预告NET利润上限
+  lookahead_category: none
+- standard_field: profit_notice_net_profit_min
+  source_node: profit_notice_real
+  source_field: net_profit_min
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Profit notice net profit min
+  description_zh: 利润预告NET利润下限
+  lookahead_category: none
+- standard_field: profit_notice_summary
+  source_node: profit_notice_real
+  source_field: p_summary
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Profit notice summary
+  description_zh: 利润预告汇总
+  lookahead_category: none
+- standard_field: express_reporting_period
+  source_node: profit_express_real
+  source_field: reporting_period
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Profit express reporting period
+  description_zh: 快报报告期period
+  lookahead_category: none
+- standard_field: express_ann_date
+  source_node: profit_express_real
+  source_field: ann_date
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Profit express announcement date
+  description_zh: 快报公告日期
+  time_semantics: financial_announce_date
+  lookahead_category: published_event
+- standard_field: express_total_assets
+  source_node: profit_express_real
+  source_field: total_assets
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Total assets from profit express
+  description_zh: 快报总资产
+  lookahead_category: none
+- standard_field: express_net_profit
+  source_node: profit_express_real
+  source_field: net_pro_excl_min_int_inc
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Net profit from profit express
+  description_zh: 快报NET利润
+  lookahead_category: none
+- standard_field: express_revenue
+  source_node: profit_express_real
+  source_field: tot_opera_rev
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Revenue from profit express
+  description_zh: 快报营收
+  lookahead_category: none
+- standard_field: express_total_profit
+  source_node: profit_express_real
+  source_field: total_profit
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Total profit from profit express
+  description_zh: 快报总利润
+  lookahead_category: none
+- standard_field: express_oper_profit
+  source_node: profit_express_real
+  source_field: opera_profit
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Operating profit from profit express
+  description_zh: 快报经营利润
+  lookahead_category: none
+- standard_field: express_basic_eps
+  source_node: profit_express_real
+  source_field: eps_basic
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Basic EPS from profit express
+  description_zh: 快报基础每股收益
+  lookahead_category: none
+- standard_field: express_roe_weighted
+  source_node: profit_express_real
+  source_field: roe_weighted
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Weighted ROE from profit express
+  description_zh: 快报ROEweighted
+  lookahead_category: none
+- standard_field: express_performance_summary
+  source_node: profit_express_real
+  source_field: performance_summary
+  field_role: financial_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Performance summary from profit express
+  description_zh: 快报performance汇总
+  lookahead_category: none
+- standard_field: security_name
+  source_node: stock_basic_real
+  source_field: security_name
+  field_role: basic_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Security short name
+  description_zh: 证券名称
+  lookahead_category: none
+- standard_field: comp_name
+  source_node: stock_basic_real
+  source_field: comp_name
+  field_role: basic_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Company full name
+  description_zh: 公司名称
+  lookahead_category: none
+- standard_field: pinyin
+  source_node: stock_basic_real
+  source_field: pinyin
+  field_role: basic_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Pinyin abbreviation
+  description_zh: 字段 pinyin
+  lookahead_category: none
+- standard_field: comp_name_eng
+  source_node: stock_basic_real
+  source_field: comp_name_eng
+  field_role: basic_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Company English name
+  description_zh: 公司名称英文
+  lookahead_category: none
+- standard_field: list_date
+  source_node: stock_basic_real
+  source_field: list_date
+  field_role: basic_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Listing date
+  description_zh: 上市日期
+  time_semantics: listing_start_date
+  lookahead_category: none
+- standard_field: delist_date
+  source_node: stock_basic_real
+  source_field: delist_date
+  field_role: basic_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Delisting date
+  description_zh: delist日期
+  time_semantics: listing_end_date
+  lookahead_category: none
+- standard_field: listplate_name
+  source_node: stock_basic_real
+  source_field: listplate_name
+  field_role: basic_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Listing board name
+  description_zh: listplate名称
+  lookahead_category: none
+- standard_field: is_listed
+  source_node: stock_basic_real
+  source_field: is_listed
+  field_role: basic_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Listed status snapshot
+  description_zh: 是否已上市
+  lookahead_category: none
+- standard_field: security_type
+  source_node: code_info_real
+  source_field: security_type
+  field_role: code_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Security type
+  description_zh: 证券type
+  lookahead_category: none
+- standard_field: symbol
+  source_node: code_info_real
+  source_field: symbol
+  field_role: code_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Security display symbol
+  description_zh: 简称
+  lookahead_category: none
+- standard_field: security_status_raw
+  source_node: code_info_real
+  source_field: security_status_raw
+  field_role: code_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Raw security status
+  description_zh: 证券状态原始
+  lookahead_category: none
+- standard_field: price_tick
+  source_node: code_info_real
+  source_field: price_tick
+  field_role: code_info_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Minimum price tick
+  description_zh: 字段 price_tick
+  lookahead_category: none
+- standard_field: hist_security_type
+  source_node: hist_code_daily_real
+  source_field: security_type
+  field_role: historical_code_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Historical security type snapshot
+  description_zh: 历史证券类型快照
+  lookahead_category: none
+- standard_field: dividend_ann_date
+  source_node: dividend_real
+  source_field: ann_date
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Dividend announcement date
+  description_zh: 分红公告日期
+  time_semantics: corporate_action_announce_date
+  lookahead_category: published_event
+- standard_field: dividend_report_period
+  source_node: dividend_real
+  source_field: report_period
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Dividend report period
+  description_zh: 分红reportperiod
+  lookahead_category: none
+- standard_field: dividend_progress
+  source_node: dividend_real
+  source_field: div_progress
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Dividend progress status
+  description_zh: 分红progress
+  lookahead_category: none
+- standard_field: dividend_cash_pre_tax
+  source_node: dividend_real
+  source_field: dvd_per_share_pre_tax_cash
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Pre-tax cash dividend per share
+  description_zh: 分红现金前值TAX
+  lookahead_category: none
+- standard_field: dividend_cash_after_tax
+  source_node: dividend_real
+  source_field: dvd_per_share_after_tax_cash
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - After-tax cash dividend per share
+  description_zh: 分红现金afterTAX
+  lookahead_category: none
+- standard_field: dividend_stock_per_share
+  source_node: dividend_real
+  source_field: dvd_per_share_stk
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Stock dividend per share
+  description_zh: 分红股票PER股本
+  lookahead_category: none
+- standard_field: ex_dividend_date
+  source_node: dividend_real
+  source_field: date_ex
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Ex-dividend / ex-right date
+  description_zh: 除权除息分红日期
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: equity_record_date
+  source_node: dividend_real
+  source_field: date_eqy_record
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Equity record date
+  description_zh: 股权记录日期
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: dividend_payout_date
+  source_node: dividend_real
+  source_field: date_dvd_payout
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Dividend payout date
+  description_zh: 分红派付日期
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: holder_num_ann_date
+  source_node: holder_num_real
+  source_field: ann_dt
+  field_role: holder_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Holder number announcement date
+  description_zh: 持有人数量公告日期
+  time_semantics: holder_announce_date
+  lookahead_category: published_event
+- standard_field: holder_enddate
+  source_node: holder_num_real
+  source_field: holder_enddate
+  field_role: holder_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Holder number period end date
+  description_zh: 持有人enddate
+  lookahead_category: none
+- standard_field: holder_total_num
+  source_node: holder_num_real
+  source_field: holder_total_num
+  field_role: holder_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Total number of holders
+  description_zh: 持有人总数量
+  lookahead_category: none
+- standard_field: holder_num
+  source_node: holder_num_real
+  source_field: holder_num
+  field_role: holder_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Holder count
+  description_zh: 持有人数量
+  lookahead_category: none
+- standard_field: share_holder_ann_date
+  source_node: share_holder_real
+  source_field: ann_date
+  field_role: share_holder_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Share holder announcement date
+  description_zh: 股本持有人公告日期
+  time_semantics: holder_announce_date
+  lookahead_category: published_event
+- standard_field: share_holder_enddate
+  source_node: share_holder_real
+  source_field: holder_enddate
+  field_role: share_holder_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Share holder period end date
+  description_zh: 股本持有人enddate
+  lookahead_category: none
+- standard_field: share_holder_name
+  source_node: share_holder_real
+  source_field: holder_name
+  field_role: share_holder_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Share holder name
+  description_zh: 股本持有人名称
+  lookahead_category: none
+- standard_field: share_holder_quantity
+  source_node: share_holder_real
+  source_field: holder_quantity
+  field_role: share_holder_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Share holder quantity
+  description_zh: 股本持有人quantity
+  lookahead_category: none
+- standard_field: share_holder_pct
+  source_node: share_holder_real
+  source_field: holder_pct
+  field_role: share_holder_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Share holder percentage
+  description_zh: 股本持有人PCT
+  lookahead_category: none
+- standard_field: share_holder_float_qty
+  source_node: share_holder_real
+  source_field: float_qty
+  field_role: share_holder_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Share holder float quantity
+  description_zh: 股本持有人流通QTY
+  lookahead_category: none
+- standard_field: right_issue_ann_date
+  source_node: right_issue_real
+  source_field: ann_date
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Rights issue announcement date
+  description_zh: 配股发行公告日期
+  time_semantics: corporate_action_announce_date
+  lookahead_category: published_event
+- standard_field: right_issue_progress
+  source_node: right_issue_real
+  source_field: progress
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Rights issue progress code
+  description_zh: 配股发行progress
+  lookahead_category: none
+- standard_field: right_issue_price
+  source_node: right_issue_real
+  source_field: price
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Rights issue price
+  description_zh: 配股发行price
+  lookahead_category: none
+- standard_field: right_issue_ratio
+  source_node: right_issue_real
+  source_field: ratio
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Rights issue ratio
+  description_zh: 配股发行ratio
+  lookahead_category: none
+- standard_field: right_issue_amt_plan
+  source_node: right_issue_real
+  source_field: amt_plan
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Planned rights issue amount
+  description_zh: 配股发行AMTplan
+  lookahead_category: none
+- standard_field: right_issue_collection_fund
+  source_node: right_issue_real
+  source_field: collection_fund
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Actual funds collected in rights issue
+  description_zh: 配股发行collection基金
+  lookahead_category: none
+- standard_field: right_issue_expected_fund_raising
+  source_node: right_issue_real
+  source_field: expected_fund_raising
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Expected fund raising amount
+  description_zh: 配股发行expected基金raising
+  lookahead_category: none
+- standard_field: right_issue_ex_dividend_date
+  source_node: right_issue_real
+  source_field: ex_dividend_date
+  field_role: corporate_action_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Rights issue ex-dividend date
+  description_zh: 配股发行除权除息分红日期
+  lookahead_category: none
+- standard_field: restricted_list_date
+  source_node: equity_restricted_real
+  source_field: list_date
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Restricted shares listing date
+  description_zh: 限售上市日期
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: restricted_share_ratio
+  source_node: equity_restricted_real
+  source_field: share_ratio
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Restricted shares ratio
+  description_zh: 限售股本ratio
+  lookahead_category: none
+- standard_field: restricted_share_type_name
+  source_node: equity_restricted_real
+  source_field: share_lst_type_name
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Restricted shares listing type
+  description_zh: 限售股本type名称
+  lookahead_category: none
+- standard_field: restricted_share_lst
+  source_node: equity_restricted_real
+  source_field: share_lst
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Quantity of listed restricted shares
+  description_zh: 限售股本LST
+  lookahead_category: none
+- standard_field: restricted_share_is_ann
+  source_node: equity_restricted_real
+  source_field: share_lst_is_ann
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Whether restricted listing is announced
+  description_zh: 限售股本是否公告
+  lookahead_category: none
+- standard_field: restricted_event_close_price
+  source_node: equity_restricted_real
+  source_field: close_price
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Close price on restricted listing event
+  description_zh: 限售事件收盘价price
+  lookahead_category: none
+- standard_field: restricted_share_market_value
+  source_node: equity_restricted_real
+  source_field: share_lst_market_value
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Market value of listed restricted shares
+  description_zh: 限售股本市场数值
+  lookahead_category: none
+- standard_field: calendar_trade_date
+  source_node: trade_calendar_real
+  source_field: trade_date
+  field_role: calendar_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Trading calendar date
+  description_zh: 交易日历日期
+  time_semantics: market_trade_date
+  lookahead_category: none
+- standard_field: pledge_ann_date
+  source_node: equity_pledge_freeze_real
+  source_field: ann_date
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Equity pledge or freeze announcement date
+  description_zh: 质押公告日期
+  time_semantics: corporate_action_announce_date
+  lookahead_category: published_event
+- standard_field: pledge_holder_name
+  source_node: equity_pledge_freeze_real
+  source_field: holder_name
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Holder name in pledge/freeze event
+  description_zh: 质押持有人名称
+  lookahead_category: none
+- standard_field: pledge_total_holding_shr
+  source_node: equity_pledge_freeze_real
+  source_field: total_holding_shr
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Total holding shares for holder
+  description_zh: 质押总holdingSHR
+  lookahead_category: none
+- standard_field: pledge_fro_shares
+  source_node: equity_pledge_freeze_real
+  source_field: fro_shares
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Frozen or pledged shares
+  description_zh: 质押FROshares
+  lookahead_category: none
+- standard_field: pledge_total_pledge_shr
+  source_node: equity_pledge_freeze_real
+  source_field: total_pledge_shr
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Total pledged shares
+  description_zh: 质押总质押SHR
+  lookahead_category: none
+- standard_field: pledge_begin_date
+  source_node: equity_pledge_freeze_real
+  source_field: begin_date
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Pledge or freeze begin date
+  description_zh: 质押begin日期
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: pledge_end_date
+  source_node: equity_pledge_freeze_real
+  source_field: end_date
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Pledge or freeze end date
+  description_zh: 质押END日期
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: pledge_is_disfrozen
+  source_node: equity_pledge_freeze_real
+  source_field: is_disfrozen
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Whether the event has been unfrozen
+  description_zh: 质押是否disfrozen
+  lookahead_category: none
+- standard_field: pledge_frozen_institution
+  source_node: equity_pledge_freeze_real
+  source_field: frozen_institution
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Institution involved in pledge/freeze
+  description_zh: 质押frozeninstitution
+  lookahead_category: none
+- standard_field: pledge_freeze_type
+  source_node: equity_pledge_freeze_real
+  source_field: freeze_type
+  field_role: equity_event_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Freeze type code
+  description_zh: 质押冻结type
+  lookahead_category: none
+- standard_field: etf_code
+  source_node: etf_pcf_real
+  source_field: etf_code
+  field_role: etf_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - ETF 代码
+  description_zh: ETF 代码
+  lookahead_category: none
+- standard_field: etf_creation_redemption_unit
+  source_node: etf_pcf_real
+  source_field: creation_redemption_unit
+  field_role: etf_structure_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 申赎单位
+  description_zh: 申赎单位
+  lookahead_category: none
+- standard_field: etf_max_cash_ratio
+  source_node: etf_pcf_real
+  source_field: max_cash_ratio
+  field_role: etf_cash_nav_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 最大现金替代比例
+  description_zh: 最大现金替代比例
+  lookahead_category: none
+- standard_field: etf_publish_flag
+  source_node: etf_pcf_real
+  source_field: publish
+  field_role: etf_status_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 是否发布 PCF
+  description_zh: 是否发布 PCF
+  lookahead_category: none
+- standard_field: etf_creation_flag
+  source_node: etf_pcf_real
+  source_field: creation
+  field_role: etf_status_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 是否允许申购
+  description_zh: 是否允许申购
+  lookahead_category: none
+- standard_field: etf_redemption_flag
+  source_node: etf_pcf_real
+  source_field: redemption
+  field_role: etf_status_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 是否允许赎回
+  description_zh: 是否允许赎回
+  lookahead_category: none
+- standard_field: etf_creation_redemption_switch
+  source_node: etf_pcf_real
+  source_field: creation_redemption_switch
+  field_role: etf_status_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 申赎开关
+  description_zh: 申赎开关
+  lookahead_category: none
+- standard_field: etf_record_num
+  source_node: etf_pcf_real
+  source_field: record_num
+  field_role: etf_structure_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 现金替代记录数
+  description_zh: 现金替代记录数
+  lookahead_category: none
+- standard_field: etf_total_record_num
+  source_node: etf_pcf_real
+  source_field: total_record_num
+  field_role: etf_structure_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 总记录数
+  description_zh: 总记录数
+  lookahead_category: none
+- standard_field: etf_estimate_cash_component
+  source_node: etf_pcf_real
+  source_field: estimate_cash_component
+  field_role: etf_cash_nav_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 预估现金差额
+  description_zh: 预估现金差额
+  lookahead_category: none
+- standard_field: etf_trading_day
+  source_node: etf_pcf_real
+  source_field: trading_day
+  field_role: etf_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - PCF 交易日
+  description_zh: PCF 交易日
+  lookahead_category: none
+- standard_field: etf_pre_trading_day
+  source_node: etf_pcf_real
+  source_field: pre_trading_day
+  field_role: etf_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 前一交易日
+  description_zh: 前一交易日
+  lookahead_category: none
+- standard_field: etf_cash_component
+  source_node: etf_pcf_real
+  source_field: cash_component
+  field_role: etf_cash_nav_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 现金差额
+  description_zh: 现金差额
+  lookahead_category: none
+- standard_field: etf_nav_per_cu
+  source_node: etf_pcf_real
+  source_field: nav_per_cu
+  field_role: etf_cash_nav_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 每申赎单位资产净值
+  description_zh: 每申赎单位资产净值
+  lookahead_category: none
+- standard_field: etf_nav
+  source_node: etf_pcf_real
+  source_field: nav
+  field_role: etf_cash_nav_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 基金净值
+  description_zh: 基金净值
+  lookahead_category: none
+- standard_field: etf_symbol
+  source_node: etf_pcf_real
+  source_field: symbol
+  field_role: etf_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - ETF 名称
+  description_zh: ETF 名称
+  lookahead_category: none
+- standard_field: etf_fund_management_company
+  source_node: etf_pcf_real
+  source_field: fund_management_company
+  field_role: etf_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 基金管理人
+  description_zh: 基金管理人
+  lookahead_category: none
+- standard_field: etf_underlying_security_id
+  source_node: etf_pcf_real
+  source_field: underlying_security_id
+  field_role: etf_underlying_ref_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 标的证券 ID
+  description_zh: 标的证券 ID
+  lookahead_category: none
+- standard_field: etf_underlying_security_id_source
+  source_node: etf_pcf_real
+  source_field: underlying_security_id_source
+  field_role: etf_underlying_ref_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 标的证券 ID 来源
+  description_zh: 标的证券 ID 来源
+  lookahead_category: none
+- standard_field: etf_dividend_per_cu
+  source_node: etf_pcf_real
+  source_field: dividend_per_cu
+  field_role: etf_cash_nav_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 每申赎单位分红
+  description_zh: 每申赎单位分红
+  lookahead_category: none
+- standard_field: etf_creation_limit
+  source_node: etf_pcf_real
+  source_field: creation_limit
+  field_role: etf_limit_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 申购上限
+  description_zh: 申购上限
+  lookahead_category: none
+- standard_field: etf_redemption_limit
+  source_node: etf_pcf_real
+  source_field: redemption_limit
+  field_role: etf_limit_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回上限
+  description_zh: 赎回上限
+  lookahead_category: none
+- standard_field: etf_creation_limit_per_user
+  source_node: etf_pcf_real
+  source_field: creation_limit_per_user
+  field_role: etf_limit_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 单用户申购上限
+  description_zh: 单用户申购上限
+  lookahead_category: none
+- standard_field: etf_redemption_limit_per_user
+  source_node: etf_pcf_real
+  source_field: redemption_limit_per_user
+  field_role: etf_limit_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 单用户赎回上限
+  description_zh: 单用户赎回上限
+  lookahead_category: none
+- standard_field: etf_net_creation_limit
+  source_node: etf_pcf_real
+  source_field: net_creation_limit
+  field_role: etf_limit_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 净申购上限
+  description_zh: 净申购上限
+  lookahead_category: none
+- standard_field: etf_net_redemption_limit
+  source_node: etf_pcf_real
+  source_field: net_redemption_limit
+  field_role: etf_limit_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 净赎回上限
+  description_zh: 净赎回上限
+  lookahead_category: none
+- standard_field: etf_net_creation_limit_per_user
+  source_node: etf_pcf_real
+  source_field: net_creation_limit_per_user
+  field_role: etf_limit_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 单用户净申购上限
+  description_zh: 单用户净申购上限
+  lookahead_category: none
+- standard_field: etf_net_redemption_limit_per_user
+  source_node: etf_pcf_real
+  source_field: net_redemption_limit_per_user
+  field_role: etf_limit_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 单用户净赎回上限
+  description_zh: 单用户净赎回上限
+  lookahead_category: none
+- standard_field: etf_constituent_etf_code
+  source_node: etf_pcf_constituent_real
+  source_field: etf_code
+  field_role: etf_constituent_identity_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - ETF 代码
+  description_zh: ETF 代码
+  lookahead_category: none
+- standard_field: etf_constituent_trading_day
+  source_node: etf_pcf_constituent_real
+  source_field: trading_day
+  field_role: etf_constituent_identity_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - PCF 交易日
+  description_zh: PCF 交易日
+  lookahead_category: none
+- standard_field: etf_constituent_underlying_symbol
+  source_node: etf_pcf_constituent_real
+  source_field: underlying_symbol
+  field_role: etf_constituent_identity_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 成分证券代码
+  description_zh: 成分证券代码
+  lookahead_category: none
+- standard_field: etf_constituent_component_share
+  source_node: etf_pcf_constituent_real
+  source_field: component_share
+  field_role: etf_constituent_position_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 成分证券数量
+  description_zh: 成分证券数量
+  lookahead_category: none
+- standard_field: etf_constituent_substitute_flag
+  source_node: etf_pcf_constituent_real
+  source_field: substitute_flag
+  field_role: etf_constituent_cash_substitute_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 替代标志
+  description_zh: 替代标志
+  lookahead_category: none
+- standard_field: etf_constituent_premium_ratio
+  source_node: etf_pcf_constituent_real
+  source_field: premium_ratio
+  field_role: etf_constituent_cash_substitute_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 申购溢价比例
+  description_zh: 申购溢价比例
+  lookahead_category: none
+- standard_field: etf_constituent_discount_ratio
+  source_node: etf_pcf_constituent_real
+  source_field: discount_ratio
+  field_role: etf_constituent_cash_substitute_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回折价比例
+  description_zh: 赎回折价比例
+  lookahead_category: none
+- standard_field: etf_constituent_creation_cash_substitute
+  source_node: etf_pcf_constituent_real
+  source_field: creation_cash_substitute
+  field_role: etf_constituent_cash_substitute_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 申购现金替代金额
+  description_zh: 申购现金替代金额
+  lookahead_category: none
+- standard_field: etf_constituent_redemption_cash_substitute
+  source_node: etf_pcf_constituent_real
+  source_field: redemption_cash_substitute
+  field_role: etf_constituent_cash_substitute_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回现金替代金额
+  description_zh: 赎回现金替代金额
+  lookahead_category: none
+- standard_field: etf_constituent_substitution_cash_amount
+  source_node: etf_pcf_constituent_real
+  source_field: substitution_cash_amount
+  field_role: etf_constituent_cash_substitute_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 现金替代补款金额
+  description_zh: 现金替代补款金额
+  lookahead_category: none
+- standard_field: etf_constituent_underlying_security_id
+  source_node: etf_pcf_constituent_real
+  source_field: underlying_security_id
+  field_role: etf_constituent_position_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 成分证券 ID
+  description_zh: 成分证券 ID
+  lookahead_category: none
+- standard_field: industry_constituent_index_code
+  source_node: industry_constituent_real
+  source_field: index_code
+  field_role: industry_constituent_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 行业指数代码
+  path_domain: industry
+  path_group: constituent
+  via_node: industry_constituent_real
+  description_zh: 行业指数代码
+  lookahead_category: none
+- standard_field: industry_constituent_con_code
+  source_node: industry_constituent_real
+  source_field: con_code
+  field_role: industry_constituent_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 行业成分证券代码
+  description_zh: 行业成分证券代码
+  lookahead_category: none
+- standard_field: industry_constituent_in_date
+  source_node: industry_constituent_real
+  source_field: in_date
+  field_role: industry_constituent_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 纳入日期
+  description_zh: 纳入日期
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: industry_constituent_out_date
+  source_node: industry_constituent_real
+  source_field: out_date
+  field_role: industry_constituent_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 剔除日期
+  description_zh: 剔除日期
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: industry_constituent_index_name
+  source_node: industry_constituent_real
+  source_field: index_name
+  field_role: industry_constituent_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 行业指数名称
+  path_domain: industry
+  path_group: constituent
+  via_node: industry_constituent_real
+  description_zh: 行业指数名称
+  lookahead_category: none
+- standard_field: kzz_call_date
+  source_node: kzz_call_explanation_real
+  source_field: call_date
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债赎回日期
+  description_zh: 可转债赎回日期
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: kzz_call_price
+  source_node: kzz_call_explanation_real
+  source_field: call_price
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债赎回价格
+  description_zh: 可转债赎回价格
+  lookahead_category: none
+- standard_field: kzz_call_announcement_date
+  source_node: kzz_call_explanation_real
+  source_field: call_announcement_date
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回公告日期
+  description_zh: 赎回公告日期
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_call_ful_res_ann_date
+  source_node: kzz_call_explanation_real
+  source_field: call_ful_res_ann_date
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回结果公告日期
+  description_zh: 赎回结果公告日期
+  lookahead_category: published_event
+- standard_field: kzz_call_amount
+  source_node: kzz_call_explanation_real
+  source_field: call_amount
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回数量
+  description_zh: 赎回数量
+  lookahead_category: none
+- standard_field: kzz_call_outstanding_amount
+  source_node: kzz_call_explanation_real
+  source_field: call_outstanding_amount
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回后余额
+  description_zh: 赎回后余额
+  lookahead_category: none
+- standard_field: kzz_call_date_pub
+  source_node: kzz_call_explanation_real
+  source_field: call_date_pub
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回实施日期
+  description_zh: 赎回实施日期
+  lookahead_category: published_event
+- standard_field: kzz_call_fund_arrival_date
+  source_node: kzz_call_explanation_real
+  source_field: call_fund_arrival_date
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回到账日期
+  description_zh: 赎回到账日期
+  lookahead_category: none
+- standard_field: kzz_call_record_day
+  source_node: kzz_call_explanation_real
+  source_field: call_record_day
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回登记日
+  description_zh: 赎回登记日
+  lookahead_category: published_event
+- standard_field: kzz_call_reason
+  source_node: kzz_call_explanation_real
+  source_field: call_reason
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 赎回原因
+  description_zh: 赎回原因
+  lookahead_category: none
+- standard_field: kzz_conv_change_date
+  source_node: kzz_conv_change_real
+  source_field: change_date
+  field_role: kzz_conversion_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 转股价调整生效日
+  description_zh: 转股价调整生效日
+  lookahead_category: none
+- standard_field: kzz_conv_ann_date
+  source_node: kzz_conv_change_real
+  source_field: ann_date
+  field_role: kzz_conversion_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 转股价调整公告日
+  description_zh: 转股价调整公告日
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_conv_price
+  source_node: kzz_conv_change_real
+  source_field: conv_price
+  field_role: kzz_conversion_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 转股价格
+  description_zh: 转股价格
+  lookahead_category: none
+- standard_field: kzz_conv_change_reason
+  source_node: kzz_conv_change_real
+  source_field: change_reason
+  field_role: kzz_conversion_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 转股价调整原因
+  description_zh: 转股价调整原因
+  lookahead_category: none
+- standard_field: kzz_corr_start_date
+  source_node: kzz_corr_real
+  source_field: start_date
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 转股价下修起始日
+  description_zh: 转股价下修起始日
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: kzz_corr_end_date
+  source_node: kzz_corr_real
+  source_field: end_date
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 转股价下修结束日
+  description_zh: 转股价下修结束日
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: kzz_corr_trig_calc_max_period
+  source_node: kzz_corr_real
+  source_field: corr_trig_calc_max_period
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 触发计算最大周期
+  description_zh: 触发计算最大周期
+  lookahead_category: none
+- standard_field: kzz_corr_trig_calc_period
+  source_node: kzz_corr_real
+  source_field: corr_trig_calc_period
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 触发计算周期
+  description_zh: 触发计算周期
+  lookahead_category: none
+- standard_field: kzz_corr_spec_corr_trig_ratio
+  source_node: kzz_corr_real
+  source_field: spec_corr_trig_ratio
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 触发比例
+  description_zh: 触发比例
+  lookahead_category: none
+- standard_field: kzz_corr_conv_price_floor_desc
+  source_node: kzz_corr_real
+  source_field: corr_conv_price_floor_desc
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 下修价格下限描述
+  description_zh: 下修价格下限描述
+  lookahead_category: none
+- standard_field: kzz_corr_ref_price_is_avg_price
+  source_node: kzz_corr_real
+  source_field: ref_price_is_avg_price
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 参考价是否均价
+  description_zh: 参考价是否均价
+  lookahead_category: none
+- standard_field: kzz_corr_times_limit
+  source_node: kzz_corr_real
+  source_field: corr_times_limit
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 下修次数限制
+  description_zh: 下修次数限制
+  lookahead_category: none
+- standard_field: kzz_corr_is_timepoint_corr_clause_flag
+  source_node: kzz_corr_real
+  source_field: is_timepoint_corr_clause_flag
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 是否时间点下修条款
+  description_zh: 是否时间点下修条款
+  lookahead_category: none
+- standard_field: kzz_corr_timepoint_count
+  source_node: kzz_corr_real
+  source_field: timepoint_count
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 时间点数量
+  description_zh: 时间点数量
+  lookahead_category: none
+- standard_field: kzz_corr_timepoint_corr_text_clause
+  source_node: kzz_corr_real
+  source_field: timepoint_corr_text_clause
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 时间点条款描述
+  description_zh: 时间点条款描述
+  lookahead_category: none
+- standard_field: kzz_corr_spec_corr_range
+  source_node: kzz_corr_real
+  source_field: spec_corr_range
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 特殊下修区间
+  description_zh: 特殊下修区间
+  lookahead_category: none
+- standard_field: kzz_corr_is_spec_down_corr_clause_flag
+  source_node: kzz_corr_real
+  source_field: is_spec_down_corr_clause_flag
+  field_role: kzz_correction_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 是否特殊下修条款
+  description_zh: 是否特殊下修条款
+  lookahead_category: none
+- standard_field: kzz_stock_code
+  source_node: kzz_issuance_real
+  source_field: stock_code
+  field_role: kzz_issuance_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_crncy_code
+  source_node: kzz_issuance_real
+  source_field: crncy_code
+  field_role: kzz_issuance_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_ann_dt
+  source_node: kzz_issuance_real
+  source_field: ann_dt
+  field_role: kzz_issuance_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_pre_plan_date
+  source_node: kzz_issuance_real
+  source_field: pre_plan_date
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_smtg_ann_date
+  source_node: kzz_issuance_real
+  source_field: smtg_ann_date
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_listed_ann_date
+  source_node: kzz_issuance_real
+  source_field: listed_ann_date
+  field_role: kzz_issuance_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_listed_date
+  source_node: kzz_issuance_real
+  source_field: listed_date
+  field_role: kzz_issuance_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  time_semantics: listing_start_date
+  lookahead_category: none
+- standard_field: kzz_plan_schedule
+  source_node: kzz_issuance_real
+  source_field: plan_schedule
+  field_role: kzz_issuance_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_is_separation
+  source_node: kzz_issuance_real
+  source_field: is_separation
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_recommender
+  source_node: kzz_issuance_real
+  source_field: recommender
+  field_role: kzz_issuance_overview_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_is_int_cha_de_po_rate
+  source_node: kzz_issuance_real
+  source_field: clause_is_int_cha_de_po_rate
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_is_com_int
+  source_node: kzz_issuance_real
+  source_field: clause_is_com_int
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_com_int_rate
+  source_node: kzz_issuance_real
+  source_field: clause_com_int_rate
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_com_int_desc
+  source_node: kzz_issuance_real
+  source_field: clause_com_int_desc
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_init_conv_price_item
+  source_node: kzz_issuance_real
+  source_field: clause_init_conv_price_item
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_conv_adj_item
+  source_node: kzz_issuance_real
+  source_field: clause_conv_adj_item
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_conv_period_item
+  source_node: kzz_issuance_real
+  source_field: clause_conv_period_item
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_ini_conv_price
+  source_node: kzz_issuance_real
+  source_field: clause_ini_conv_price
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_ini_conv_premium_ratio
+  source_node: kzz_issuance_real
+  source_field: clause_ini_conv_premium_ratio
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_put_item
+  source_node: kzz_issuance_real
+  source_field: clause_put_item
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_call_item
+  source_node: kzz_issuance_real
+  source_field: clause_call_item
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_spec_down_adj
+  source_node: kzz_issuance_real
+  source_field: clause_spec_down_adj
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_clause_orig_ration_arr_item
+  source_node: kzz_issuance_real
+  source_field: clause_orig_ration_arr_item
+  field_role: kzz_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_pass_date
+  source_node: kzz_issuance_real
+  source_field: list_pass_date
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_permit_date
+  source_node: kzz_issuance_real
+  source_field: list_permit_date
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_ann_date
+  source_node: kzz_issuance_real
+  source_field: list_ann_date
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_list_result_ann_date
+  source_node: kzz_issuance_real
+  source_field: list_result_ann_date
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_list_type
+  source_node: kzz_issuance_real
+  source_field: list_type
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_fee
+  source_node: kzz_issuance_real
+  source_field: list_fee
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_ration_date
+  source_node: kzz_issuance_real
+  source_field: list_ration_date
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_ration_reg_date
+  source_node: kzz_issuance_real
+  source_field: list_ration_reg_date
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_ration_paymt_date
+  source_node: kzz_issuance_real
+  source_field: list_ration_paymt_date
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_ration_code
+  source_node: kzz_issuance_real
+  source_field: list_ration_code
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_ration_name
+  source_node: kzz_issuance_real
+  source_field: list_ration_name
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_ration_price
+  source_node: kzz_issuance_real
+  source_field: list_ration_price
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_ration_ratio_de
+  source_node: kzz_issuance_real
+  source_field: list_ration_ratio_de
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_ration_ratio_mo
+  source_node: kzz_issuance_real
+  source_field: list_ration_ratio_mo
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_ration_vol
+  source_node: kzz_issuance_real
+  source_field: list_ration_vol
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_household
+  source_node: kzz_issuance_real
+  source_field: list_household
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_onl_date
+  source_node: kzz_issuance_real
+  source_field: list_onl_date
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_pchase_code_onl
+  source_node: kzz_issuance_real
+  source_field: list_pchase_code_onl
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_pch_name_onl
+  source_node: kzz_issuance_real
+  source_field: list_pch_name_onl
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_pch_price_onl
+  source_node: kzz_issuance_real
+  source_field: list_pch_price_onl
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_issue_vol_onl
+  source_node: kzz_issuance_real
+  source_field: list_issue_vol_onl
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_code_onl
+  source_node: kzz_issuance_real
+  source_field: list_code_onl
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_excess_pch_onl
+  source_node: kzz_issuance_real
+  source_field: list_excess_pch_onl
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_result_ef_subscr_p_off
+  source_node: kzz_issuance_real
+  source_field: result_ef_subscr_p_off
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_result_suc_rate_off
+  source_node: kzz_issuance_real
+  source_field: result_suc_rate_off
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_date_inst_off
+  source_node: kzz_issuance_real
+  source_field: list_date_inst_off
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_vol_inst_off
+  source_node: kzz_issuance_real
+  source_field: list_vol_inst_off
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_result_suc_rate_on
+  source_node: kzz_issuance_real
+  source_field: result_suc_rate_on
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_effect_pc_hvol_off
+  source_node: kzz_issuance_real
+  source_field: list_effect_pc_hvol_off
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_eff_pc_h_of
+  source_node: kzz_issuance_real
+  source_field: list_eff_pc_h_of
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_suc_rate_off
+  source_node: kzz_issuance_real
+  source_field: list_suc_rate_off
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_pre_ration_vol
+  source_node: kzz_issuance_real
+  source_field: pre_ration_vol
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_issue_size
+  source_node: kzz_issuance_real
+  source_field: list_issue_size
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_list_issue_quantity
+  source_node: kzz_issuance_real
+  source_field: list_issue_quantity
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_min_off_inst_subscr_qty
+  source_node: kzz_issuance_real
+  source_field: min_off_inst_subscr_qty
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_off_inst_dep_ratio
+  source_node: kzz_issuance_real
+  source_field: off_inst_dep_ratio
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_max_off_inst_subscr_qty
+  source_node: kzz_issuance_real
+  source_field: max_off_inst_subscr_qty
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_off_subscr_unit_inc_desc
+  source_node: kzz_issuance_real
+  source_field: off_subscr_unit_inc_desc
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_is_conv_bonds
+  source_node: kzz_issuance_real
+  source_field: is_conv_bonds
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_min_unline_public
+  source_node: kzz_issuance_real
+  source_field: min_unline_public
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_max_unline_public
+  source_node: kzz_issuance_real
+  source_field: max_unline_public
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_term_year
+  source_node: kzz_issuance_real
+  source_field: term_year
+  field_role: kzz_coupon_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_interest_type
+  source_node: kzz_issuance_real
+  source_field: interest_type
+  field_role: kzz_coupon_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_coupon_rate
+  source_node: kzz_issuance_real
+  source_field: coupon_rate
+  field_role: kzz_coupon_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_interest_fre_quency
+  source_node: kzz_issuance_real
+  source_field: interest_fre_quency
+  field_role: kzz_coupon_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_result_suc_rate_on2
+  source_node: kzz_issuance_real
+  source_field: result_suc_rate_on2
+  field_role: kzz_issuance_misc_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_coupon_txt
+  source_node: kzz_issuance_real
+  source_field: coupon_txt
+  field_role: kzz_coupon_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_ratio_annce_date
+  source_node: kzz_issuance_real
+  source_field: ratio_annce_date
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_ratio_date
+  source_node: kzz_issuance_real
+  source_field: ratio_date
+  field_role: kzz_listing_subscription_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债发行字段
+  description_zh: 可转债发行字段
+  lookahead_category: none
+- standard_field: kzz_put_fund_arrival_date
+  source_node: kzz_put_explanation_real
+  source_field: put_fund_arrival_date
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 回售到账日
+  description_zh: 回售到账日
+  lookahead_category: published_event
+- standard_field: kzz_put_price
+  source_node: kzz_put_explanation_real
+  source_field: put_price
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 回售价格
+  description_zh: 回售价格
+  lookahead_category: none
+- standard_field: kzz_put_announcement_date
+  source_node: kzz_put_explanation_real
+  source_field: put_announcement_date
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 回售公告日期
+  description_zh: 回售公告日期
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_put_ex_date
+  source_node: kzz_put_explanation_real
+  source_field: put_ex_date
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 回售除权日
+  description_zh: 回售除权日
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: kzz_put_amount
+  source_node: kzz_put_explanation_real
+  source_field: put_amount
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 回售数量
+  description_zh: 回售数量
+  lookahead_category: none
+- standard_field: kzz_put_outstanding
+  source_node: kzz_put_explanation_real
+  source_field: put_outstanding
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 回售后余额
+  description_zh: 回售后余额
+  lookahead_category: none
+- standard_field: kzz_put_repurchase_start_date
+  source_node: kzz_put_explanation_real
+  source_field: repurchase_start_date
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 回售申报开始日
+  description_zh: 回售申报开始日
+  lookahead_category: none
+- standard_field: kzz_put_repurchase_end_date
+  source_node: kzz_put_explanation_real
+  source_field: repurchase_end_date
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 回售申报结束日
+  description_zh: 回售申报结束日
+  lookahead_category: none
+- standard_field: kzz_put_resale_start_date
+  source_node: kzz_put_explanation_real
+  source_field: resale_start_date
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 再售开始日
+  description_zh: 再售开始日
+  lookahead_category: none
+- standard_field: kzz_put_fund_end_date
+  source_node: kzz_put_explanation_real
+  source_field: fund_end_date
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 资金截止日
+  description_zh: 资金截止日
+  lookahead_category: published_event
+- standard_field: kzz_put_repurchase_code
+  source_node: kzz_put_explanation_real
+  source_field: repurchase_code
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 回售代码
+  description_zh: 回售代码
+  lookahead_category: none
+- standard_field: kzz_put_resale_amount
+  source_node: kzz_put_explanation_real
+  source_field: resale_amount
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 再售数量
+  description_zh: 再售数量
+  lookahead_category: none
+- standard_field: kzz_put_resale_imp_amount
+  source_node: kzz_put_explanation_real
+  source_field: resale_imp_amount
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 实施再售数量
+  description_zh: 实施再售数量
+  lookahead_category: none
+- standard_field: kzz_put_resale_end_date
+  source_node: kzz_put_explanation_real
+  source_field: resale_end_date
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 再售结束日
+  description_zh: 再售结束日
+  lookahead_category: none
+- standard_field: kzz_share_change_date
+  source_node: kzz_share_real
+  source_field: change_date
+  field_role: kzz_balance_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债余额变动生效日
+  description_zh: 可转债余额变动生效日
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: kzz_share_ann_date
+  source_node: kzz_share_real
+  source_field: ann_date
+  field_role: kzz_balance_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 可转债余额变动公告日
+  description_zh: 可转债余额变动公告日
+  lookahead_category: published_event
+- standard_field: kzz_bond_share
+  source_node: kzz_share_real
+  source_field: bond_share
+  field_role: kzz_balance_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 债券余额
+  description_zh: 债券余额
+  lookahead_category: none
+- standard_field: kzz_conv_share
+  source_node: kzz_share_real
+  source_field: conv_share
+  field_role: kzz_conversion_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 累计转股数量
+  description_zh: 累计转股数量
+  lookahead_category: none
+- standard_field: kzz_share_change_reason
+  source_node: kzz_share_real
+  source_field: change_reason
+  field_role: kzz_balance_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 余额变动原因
+  description_zh: 余额变动原因
+  lookahead_category: none
+- standard_field: kzz_suspend_date
+  source_node: kzz_suspend_real
+  source_field: suspend_date
+  field_role: kzz_suspend_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 停牌日期
+  description_zh: 停牌日期
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: kzz_suspend_type
+  source_node: kzz_suspend_real
+  source_field: suspend_type
+  field_role: kzz_suspend_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 停牌类型
+  description_zh: 停牌类型
+  lookahead_category: none
+- standard_field: kzz_resump_date
+  source_node: kzz_suspend_real
+  source_field: resump_date
+  field_role: kzz_suspend_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 复牌日期
+  description_zh: 复牌日期
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: kzz_suspend_reason
+  source_node: kzz_suspend_real
+  source_field: change_reason
+  field_role: kzz_suspend_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 停牌原因
+  description_zh: 停牌原因
+  lookahead_category: none
+- standard_field: kzz_suspend_reason_code
+  source_node: kzz_suspend_real
+  source_field: change_reason_code
+  field_role: kzz_suspend_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 停牌原因代码
+  description_zh: 停牌原因代码
+  lookahead_category: none
+- standard_field: kzz_resump_time
+  source_node: kzz_suspend_real
+  source_field: resump_time
+  field_role: kzz_suspend_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 复牌时间段
+  description_zh: 复牌时间段
+  lookahead_category: none
+- standard_field: index_constituent_code
+  source_node: index_constituent_real
+  source_field: index_code
+  field_role: index_constituent_field
+  resolver_type: direct
+  applies_to_grain: daily
+  path_domain: index
+  path_group: constituent
+  via_node: index_constituent_real
+  notes:
+  - Index code resolved through constituent membership path
+  description_zh: 指数成分代码
+  lookahead_category: none
+- standard_field: block_trade_date
+  source_node: block_trading_real
+  source_field: trade_date
+  field_role: block_trading_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Block trade date
+  description_zh: 大宗交易日期
+  time_semantics: market_trade_date
+  lookahead_category: none
+- standard_field: block_trade_price
+  source_node: block_trading_real
+  source_field: bshare_price
+  field_role: block_trading_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Block trade price
+  description_zh: 大宗交易price
+  lookahead_category: none
+- standard_field: block_trade_volume
+  source_node: block_trading_real
+  source_field: bshare_volume
+  field_role: block_trading_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Block trade volume
+  description_zh: 大宗交易volume
+  lookahead_category: none
+- standard_field: block_trade_frequency
+  source_node: block_trading_real
+  source_field: b_frequency
+  field_role: block_trading_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Block trade frequency
+  description_zh: 大宗交易frequency
+  lookahead_category: none
+- standard_field: block_trade_avg_volume
+  source_node: block_trading_real
+  source_field: block_avg_volume
+  field_role: block_trading_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Average block trade volume
+  description_zh: 大宗交易AVGvolume
+  lookahead_category: none
+- standard_field: block_trade_amount
+  source_node: block_trading_real
+  source_field: bshare_amount
+  field_role: block_trading_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Block trade amount
+  description_zh: 大宗交易amount
+  lookahead_category: none
+- standard_field: block_trade_buyer_name
+  source_node: block_trading_real
+  source_field: bbuyer_name
+  field_role: block_trading_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Block trade buyer name
+  description_zh: 大宗交易买方名称
+  lookahead_category: none
+- standard_field: block_trade_seller_name
+  source_node: block_trading_real
+  source_field: bseller_name
+  field_role: block_trading_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Block trade seller name
+  description_zh: 大宗交易卖方名称
+  lookahead_category: none
+- standard_field: kzz_call_begin_date
+  source_node: kzz_call_real
+  source_field: begin_date
+  field_role: kzz_call_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Call clause start date
+  description_zh: 可转债赎回begin日期
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: kzz_call_end_date
+  source_node: kzz_call_real
+  source_field: end_date
+  field_role: kzz_call_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Call clause end date
+  description_zh: 可转债赎回END日期
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: kzz_call_trigger_ratio
+  source_node: kzz_call_real
+  source_field: tri_ratio
+  field_role: kzz_call_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Call trigger ratio
+  description_zh: 可转债赎回triggerratio
+  lookahead_category: none
+- standard_field: kzz_conv_code
+  source_node: kzz_conv_real
+  source_field: conv_code
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conversion code
+  description_zh: 可转债转股代码
+  lookahead_category: none
+- standard_field: kzz_conv_name
+  source_node: kzz_conv_real
+  source_field: conv_name
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conversion name
+  description_zh: 可转债转股名称
+  lookahead_category: none
+- standard_field: kzz_conv_currency_code
+  source_node: kzz_conv_real
+  source_field: currency_code
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conversion currency code
+  description_zh: 可转债转股currency代码
+  lookahead_category: none
+- standard_field: kzz_conv_start_date
+  source_node: kzz_conv_real
+  source_field: conv_start_date
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conversion start date
+  description_zh: 可转债转股start日期
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: kzz_conv_end_date
+  source_node: kzz_conv_real
+  source_field: conv_end_date
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conversion end date
+  description_zh: 可转债转股END日期
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: kzz_conv_trade_date_last
+  source_node: kzz_conv_real
+  source_field: trade_date_last
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Last trade date
+  description_zh: 可转债转股交易日期最新价
+  lookahead_category: none
+- standard_field: kzz_forced_conv_date
+  source_node: kzz_conv_real
+  source_field: forced_conv_date
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Forced conversion date
+  description_zh: 可转债强赎转股日期
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: kzz_forced_conv_price
+  source_node: kzz_conv_real
+  source_field: forced_conv_price
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Forced conversion price
+  description_zh: 可转债强赎转股price
+  lookahead_category: none
+- standard_field: kzz_rel_conv_month
+  source_node: kzz_conv_real
+  source_field: rel_conv_month
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Related conversion month
+  description_zh: 可转债REL转股month
+  lookahead_category: none
+- standard_field: kzz_is_forced
+  source_node: kzz_conv_real
+  source_field: is_forced
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Whether forced conversion applies
+  description_zh: 可转债是否强赎
+  lookahead_category: none
+- standard_field: kzz_forced_conv_reason
+  source_node: kzz_conv_real
+  source_field: forced_conv_reason
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Forced conversion reason
+  description_zh: 可转债强赎转股原因
+  lookahead_category: none
+- standard_field: kzz_put_begin_date
+  source_node: kzz_put_real
+  source_field: begin_date
+  field_role: kzz_put_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Put clause start date
+  description_zh: 可转债回售begin日期
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: kzz_put_end_date
+  source_node: kzz_put_real
+  source_field: end_date
+  field_role: kzz_put_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Put clause end date
+  description_zh: 可转债回售END日期
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: kzz_put_trigger_ratio
+  source_node: kzz_put_real
+  source_field: tri_ratio
+  field_role: kzz_put_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Put trigger ratio
+  description_zh: 可转债回售triggerratio
+  lookahead_category: none
+- standard_field: kzz_item_mand_put_period
+  source_node: kzz_put_call_item_real
+  source_field: mand_put_period
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mandatory put period
+  description_zh: 可转债条款项mand回售period
+  lookahead_category: none
+- standard_field: kzz_item_mand_put_price
+  source_node: kzz_put_call_item_real
+  source_field: mand_put_price
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mandatory put price
+  description_zh: 可转债条款项mand回售price
+  lookahead_category: none
+- standard_field: kzz_item_mand_put_start_date
+  source_node: kzz_put_call_item_real
+  source_field: mand_put_start_date
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mandatory put start date
+  description_zh: 可转债条款项mand回售start日期
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: kzz_item_mand_put_end_date
+  source_node: kzz_put_call_item_real
+  source_field: mand_put_end_date
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mandatory put end date
+  description_zh: 可转债条款项mand回售END日期
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: kzz_item_mand_put_text
+  source_node: kzz_put_call_item_real
+  source_field: mand_put_text
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Mandatory put text
+  description_zh: 可转债条款项mand回售text
+  lookahead_category: none
+- standard_field: kzz_item_con_put_start_date
+  source_node: kzz_put_call_item_real
+  source_field: con_put_start_date
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conditional put start date
+  description_zh: 可转债条款项CON回售start日期
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: kzz_item_con_put_end_date
+  source_node: kzz_put_call_item_real
+  source_field: con_put_end_date
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conditional put end date
+  description_zh: 可转债条款项CON回售END日期
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: kzz_item_add_put_con
+  source_node: kzz_put_call_item_real
+  source_field: add_put_con
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Additional put condition
+  description_zh: 可转债条款项ADD回售CON
+  lookahead_category: none
+- standard_field: kzz_item_add_put_price_ins
+  source_node: kzz_put_call_item_real
+  source_field: add_put_price_ins
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Additional put price instruction
+  description_zh: 可转债条款项ADD回售priceINS
+  lookahead_category: none
+- standard_field: kzz_item_put_num_ins
+  source_node: kzz_put_call_item_real
+  source_field: put_num_ins
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Put number instruction
+  description_zh: 可转债条款项回售数量INS
+  lookahead_category: none
+- standard_field: kzz_item_is_put_item
+  source_node: kzz_put_call_item_real
+  source_field: is_put_item
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Whether put item exists
+  description_zh: 可转债条款项是否回售条款项
+  lookahead_category: none
+- standard_field: kzz_item_is_call_item
+  source_node: kzz_put_call_item_real
+  source_field: is_call_item
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Whether call item exists
+  description_zh: 可转债条款项是否赎回条款项
+  lookahead_category: none
+- standard_field: kzz_item_con_call_start_date
+  source_node: kzz_put_call_item_real
+  source_field: con_call_start_date
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conditional call start date
+  description_zh: 可转债条款项CON赎回start日期
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: kzz_item_con_call_end_date
+  source_node: kzz_put_call_item_real
+  source_field: con_call_end_date
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conditional call end date
+  description_zh: 可转债条款项CON赎回END日期
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: kzz_item_call_tri_con_ins
+  source_node: kzz_put_call_item_real
+  source_field: call_tri_con_ins
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Call trigger condition instruction
+  description_zh: 可转债条款项赎回TRICONINS
+  lookahead_category: none
+- standard_field: kzz_item_call_tri_per
+  source_node: kzz_put_call_item_real
+  source_field: call_tri_per
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Call trigger period
+  description_zh: 可转债条款项赎回TRIPER
+  lookahead_category: none
+- standard_field: kzz_item_call_pro_period
+  source_node: kzz_put_call_item_real
+  source_field: call_pro_period
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Call protection period
+  description_zh: 可转债条款项赎回PROperiod
+  lookahead_category: none
+- standard_field: kzz_item_time_call_text
+  source_node: kzz_put_call_item_real
+  source_field: time_call_text
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Time call text
+  description_zh: 可转债条款项time赎回text
+  lookahead_category: none
+- standard_field: kzz_item_expired_redemption_price
+  source_node: kzz_put_call_item_real
+  source_field: expired_redemption_price
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Expired redemption price
+  description_zh: 可转债条款项expired赎回price
+  lookahead_category: none
+- standard_field: kzz_conv_rule_ann_date
+  source_node: kzz_conv_real
+  source_field: ann_date
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conversion rule announcement date
+  description_zh: 可转债转股规则公告日期
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_conv_rule_price
+  source_node: kzz_conv_real
+  source_field: conv_price
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Conversion rule price
+  description_zh: 可转债转股规则价格
+  lookahead_category: none
+- standard_field: long_hu_trade_date
+  source_node: long_hu_bang_real
+  source_field: trade_date
+  field_role: long_hu_identity_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜交易日
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜交易日
+  time_semantics: market_trade_date
+  lookahead_category: none
+- standard_field: long_hu_security_name
+  source_node: long_hu_bang_real
+  source_field: security_name
+  field_role: long_hu_identity_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜证券名称
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜证券名称
+  lookahead_category: none
+- standard_field: long_hu_reason_type
+  source_node: long_hu_bang_real
+  source_field: reason_type
+  field_role: long_hu_reason_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜原因类型
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜原因类型
+  lookahead_category: none
+- standard_field: long_hu_reason_type_name
+  source_node: long_hu_bang_real
+  source_field: reason_type_name
+  field_role: long_hu_reason_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜原因名称
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜原因名称
+  lookahead_category: none
+- standard_field: long_hu_change_range
+  source_node: long_hu_bang_real
+  source_field: change_range
+  field_role: long_hu_reason_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜涨跌幅
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜涨跌幅
+  lookahead_category: none
+- standard_field: long_hu_trader_name
+  source_node: long_hu_bang_real
+  source_field: trader_name
+  field_role: long_hu_trader_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜营业部名称
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜营业部名称
+  lookahead_category: none
+- standard_field: long_hu_buy_amount
+  source_node: long_hu_bang_real
+  source_field: buy_amount
+  field_role: long_hu_amount_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜买入金额
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜买入金额
+  lookahead_category: none
+- standard_field: long_hu_sell_amount
+  source_node: long_hu_bang_real
+  source_field: sell_amount
+  field_role: long_hu_amount_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜卖出金额
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜卖出金额
+  lookahead_category: none
+- standard_field: long_hu_flow_mark
+  source_node: long_hu_bang_real
+  source_field: flow_mark
+  field_role: long_hu_trader_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜流向标识
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜流向标识
+  lookahead_category: none
+- standard_field: long_hu_total_amount
+  source_node: long_hu_bang_real
+  source_field: total_amount
+  field_role: long_hu_amount_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜成交额
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜成交额
+  lookahead_category: none
+- standard_field: long_hu_total_volume
+  source_node: long_hu_bang_real
+  source_field: total_volume
+  field_role: long_hu_amount_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 龙虎榜成交量
+  path_domain: trading_event
+  path_group: long_hu_bang
+  via_node: long_hu_bang_real
+  description_zh: 龙虎榜成交量
+  lookahead_category: none
+- standard_field: margin_trade_date
+  source_node: margin_detail_real
+  source_field: trade_date
+  field_role: margin_detail_identity_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 融资融券交易日
+  path_domain: margin
+  path_group: detail
+  via_node: margin_detail_real
+  description_zh: 融资融券交易日
+  time_semantics: market_trade_date
+  lookahead_category: none
+- standard_field: margin_security_name
+  source_node: margin_detail_real
+  source_field: security_name
+  field_role: margin_detail_identity_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 融资融券证券名称
+  path_domain: margin
+  path_group: detail
+  via_node: margin_detail_real
+  description_zh: 融资融券证券名称
+  lookahead_category: none
+- standard_field: margin_borrow_money_balance
+  source_node: margin_detail_real
+  source_field: borrow_money_balance
+  field_role: margin_detail_balance_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 融资余额
+  path_domain: margin
+  path_group: detail
+  via_node: margin_detail_real
+  description_zh: 融资余额
+  lookahead_category: none
+- standard_field: margin_purch_with_borrow_money
+  source_node: margin_detail_real
+  source_field: purch_with_borrow_money
+  field_role: margin_detail_flow_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 融资买入额
+  path_domain: margin
+  path_group: detail
+  via_node: margin_detail_real
+  description_zh: 融资买入额
+  lookahead_category: none
+- standard_field: margin_repayment_of_borrow_money
+  source_node: margin_detail_real
+  source_field: repayment_of_borrow_money
+  field_role: margin_detail_flow_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 融资偿还额
+  path_domain: margin
+  path_group: detail
+  via_node: margin_detail_real
+  description_zh: 融资偿还额
+  lookahead_category: none
+- standard_field: margin_sec_lending_balance
+  source_node: margin_detail_real
+  source_field: sec_lending_balance
+  field_role: margin_detail_balance_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 融券余额
+  path_domain: margin
+  path_group: detail
+  via_node: margin_detail_real
+  description_zh: 融券余额
+  lookahead_category: none
+- standard_field: margin_sales_of_borrowed_sec
+  source_node: margin_detail_real
+  source_field: sales_of_borrowed_sec
+  field_role: margin_detail_flow_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 融券卖出量
+  path_domain: margin
+  path_group: detail
+  via_node: margin_detail_real
+  description_zh: 融券卖出量
+  lookahead_category: none
+- standard_field: margin_repayment_of_borrow_sec
+  source_node: margin_detail_real
+  source_field: repayment_of_borrow_sec
+  field_role: margin_detail_flow_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 融券偿还量
+  path_domain: margin
+  path_group: detail
+  via_node: margin_detail_real
+  description_zh: 融券偿还量
+  lookahead_category: none
+- standard_field: margin_sec_lending_balance_vol
+  source_node: margin_detail_real
+  source_field: sec_lending_balance_vol
+  field_role: margin_detail_balance_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 融券余量
+  path_domain: margin
+  path_group: detail
+  via_node: margin_detail_real
+  description_zh: 融券余量
+  lookahead_category: none
+- standard_field: margin_trade_balance
+  source_node: margin_detail_real
+  source_field: margin_trade_balance
+  field_role: margin_detail_balance_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - 融资融券余额
+  path_domain: margin
+  path_group: detail
+  via_node: margin_detail_real
+  description_zh: 融资融券余额
+  lookahead_category: none
+- standard_field: index_weight_code
+  source_node: index_weight_real
+  source_field: index_code
+  field_role: index_weight_field
+  resolver_type: direct
+  applies_to_grain: daily
+  path_domain: index
+  path_group: weight
+  via_node: index_weight_real
+  notes:
+  - Explicit alias for index code on weight path
+  description_zh: 指数权重代码
+  lookahead_category: none
+- standard_field: index_weight_name
+  source_node: index_constituent_real
+  source_field: index_name
+  field_role: index_constituent_field
+  resolver_type: direct
+  applies_to_grain: daily
+  path_domain: index
+  path_group: constituent
+  via_node: index_constituent_real
+  notes:
+  - Explicit alias for index name; resolved through constituent path
+  description_zh: 指数权重路径名称
+  lookahead_category: none
+- standard_field: index_constituent_name
+  source_node: index_constituent_real
+  source_field: index_name
+  field_role: index_constituent_field
+  resolver_type: direct
+  applies_to_grain: daily
+  path_domain: index
+  path_group: constituent
+  via_node: index_constituent_real
+  notes:
+  - Explicit alias for index name on constituent path
+  description_zh: 指数成分路径名称
+  lookahead_category: none
+- standard_field: kzz_call_event_date
+  source_node: kzz_call_explanation_real
+  source_field: call_date
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Semantic alias for call event date from explanation table
+  description_zh: 可转债赎回事发日期
+  time_semantics: event_date
+  lookahead_category: published_event
+- standard_field: kzz_call_event_price
+  source_node: kzz_call_explanation_real
+  source_field: call_price
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Semantic alias for call event price from explanation table
+  description_zh: 可转债赎回事发价格
+  lookahead_category: none
+- standard_field: kzz_call_explanation_announce_date
+  source_node: kzz_call_explanation_real
+  source_field: call_announcement_date
+  field_role: kzz_call_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Semantic alias for call explanation announce date
+  description_zh: 可转债赎回说明announce日期
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_put_event_price
+  source_node: kzz_put_explanation_real
+  source_field: put_price
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Semantic alias for put event price from explanation table
+  description_zh: 可转债回售价
+  lookahead_category: none
+- standard_field: kzz_put_explanation_announce_date
+  source_node: kzz_put_explanation_real
+  source_field: put_announcement_date
+  field_role: kzz_put_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Semantic alias for put explanation announce date
+  description_zh: 可转债回售说明announce日期
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_call_clause_start_date
+  source_node: kzz_call_real
+  source_field: begin_date
+  field_role: kzz_call_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Explicit alias for call clause start date
+  description_zh: 可转债赎回条款start日期
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: kzz_call_clause_end_date
+  source_node: kzz_call_real
+  source_field: end_date
+  field_role: kzz_call_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Explicit alias for call clause end date
+  description_zh: 可转债赎回条款END日期
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: kzz_call_clause_trigger_ratio
+  source_node: kzz_call_real
+  source_field: tri_ratio
+  field_role: kzz_call_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Explicit alias for call clause trigger ratio
+  description_zh: 可转债赎回条款triggerratio
+  lookahead_category: none
+- standard_field: kzz_put_clause_start_date
+  source_node: kzz_put_real
+  source_field: begin_date
+  field_role: kzz_put_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Explicit alias for put clause start date
+  description_zh: 可转债回售条款start日期
+  time_semantics: effective_start_date
+  lookahead_category: published_event
+- standard_field: kzz_put_clause_end_date
+  source_node: kzz_put_real
+  source_field: end_date
+  field_role: kzz_put_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Explicit alias for put clause end date
+  description_zh: 可转债回售条款END日期
+  time_semantics: effective_end_date
+  lookahead_category: published_event
+- standard_field: kzz_put_clause_trigger_ratio
+  source_node: kzz_put_real
+  source_field: tri_ratio
+  field_role: kzz_put_clause_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Explicit alias for put clause trigger ratio
+  description_zh: 可转债回售条款triggerratio
+  lookahead_category: none
+- standard_field: kzz_conv_change_announce_date
+  source_node: kzz_conv_change_real
+  source_field: ann_date
+  field_role: kzz_conversion_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Semantic alias for conversion change announcement date
+  description_zh: 可转债转股变动announce日期
+  time_semantics: kzz_announce_date
+  lookahead_category: published_event
+- standard_field: kzz_conv_change_price
+  source_node: kzz_conv_change_real
+  source_field: conv_price
+  field_role: kzz_conversion_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Semantic alias for conversion change price
+  description_zh: 可转债转股变动price
+  lookahead_category: none
+- standard_field: kzz_conv_rule_announce_date
+  source_node: kzz_conv_real
+  source_field: ann_date
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Explicit alias for conversion rule announcement date
+  description_zh: 可转债转股规则announce日期
+  lookahead_category: published_event
+- standard_field: kzz_conv_rule_start_date
+  source_node: kzz_conv_real
+  source_field: conv_start_date
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Explicit alias for conversion rule start date
+  description_zh: 可转债转股规则start日期
+  lookahead_category: published_event
+- standard_field: kzz_conv_rule_end_date
+  source_node: kzz_conv_real
+  source_field: conv_end_date
+  field_role: kzz_conversion_detail_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Explicit alias for conversion rule end date
+  description_zh: 可转债转股规则END日期
+  lookahead_category: published_event
+- standard_field: kzz_put_item_call_trigger_period
+  source_node: kzz_put_call_item_real
+  source_field: call_tri_per
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Semantic alias for put/call item call trigger period
+  description_zh: 可转债回售条款项赎回triggerperiod
+  lookahead_category: none
+- standard_field: kzz_put_item_call_condition_text
+  source_node: kzz_put_call_item_real
+  source_field: call_tri_con_ins
+  field_role: kzz_put_call_item_field
+  resolver_type: direct
+  applies_to_grain: daily
+  notes:
+  - Semantic alias for put/call item call condition text
+  description_zh: 可转债回售条款项赎回conditiontext
+  lookahead_category: none
+derived_fields:
+- standard_field: turnover_rate
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  resolver_type: derived
+  depends_on:
+  - volume
+  - float_share
+  formula: '{volume} / nullIf(({float_share} * 10000), 0)'
+  applies_to_grain: daily
+  notes:
+  - Derived daily turnover rate
+  - float_share is in 10k-share units so denominator multiplies by 10000
+  description_zh: 按日计算的换手率
+  lookahead_category: none
+- standard_field: market_cap
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  resolver_type: derived
+  depends_on:
+  - close
+  - tot_share
+  formula: '{close} * ({tot_share} * 10000)'
+  applies_to_grain: daily
+  notes:
+  - Derived market cap
+  - tot_share is in 10k-share units so denominator multiplies by 10000
+  description_zh: 派生总市值
+  lookahead_category: none
+- standard_field: float_market_cap
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  resolver_type: derived
+  depends_on:
+  - close
+  - float_share
+  formula: '{close} * ({float_share} * 10000)'
+  applies_to_grain: daily
+  notes:
+  - Derived float market cap
+  - float_share is in 10k-share units so denominator multiplies by 10000
+  description_zh: 派生流通市值
+  lookahead_category: none

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -25,12 +26,12 @@ class ClickHouseExecutor:
         self.datasource = datasource
 
     def ping(self) -> bool:
-        response = self._post("SELECT 1 FORMAT JSON")
+        response = self._post("SELECT 1")
         payload = json.loads(response)
         return bool(payload.get("data"))
 
     def execute_sql(self, sql: str) -> QueryExecutionResult:
-        rendered_sql = self._ensure_json_format(sql)
+        rendered_sql = self._normalize_sql(sql)
         response = self._post(rendered_sql)
         payload = json.loads(response)
         return QueryExecutionResult(
@@ -42,7 +43,7 @@ class ClickHouseExecutor:
         )
 
     def _post(self, sql: str) -> str:
-        url = self._build_url()
+        url = self._build_url(default_format="JSON")
         headers = {
             "Content-Type": "text/plain; charset=utf-8",
             "X-ClickHouse-User": self.datasource.username,
@@ -54,21 +55,28 @@ class ClickHouseExecutor:
             headers=headers,
             method="POST",
         )
-        with urlopen(request, timeout=30) as response:
-            return response.read().decode("utf-8")
+        try:
+            with urlopen(request, timeout=30) as response:
+                return response.read().decode("utf-8")
+        except HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8", errors="replace").strip()
+            except Exception:
+                detail = ""
+            message = detail or str(exc)
+            raise RuntimeError(message) from exc
 
-    def _build_url(self) -> str:
+    def _build_url(self, default_format: str | None = None) -> str:
         scheme = "https" if self.datasource.secure else "http"
         params: dict[str, Any] = dict(self.datasource.extra_params)
         if self.datasource.database:
             params["database"] = self.datasource.database
+        if default_format and "default_format" not in params:
+            params["default_format"] = default_format
         query = urlencode(params)
         base = f"{scheme}://{self.datasource.host}:{self.datasource.port}/"
         return f"{base}?{query}" if query else base
 
-    def _ensure_json_format(self, sql: str) -> str:
-        stripped = sql.strip().rstrip(";")
-        upper = stripped.upper()
-        if " FORMAT " in upper:
-            return stripped
-        return stripped + "\nFORMAT JSON"
+    def _normalize_sql(self, sql: str) -> str:
+        return sql.strip().rstrip(";")

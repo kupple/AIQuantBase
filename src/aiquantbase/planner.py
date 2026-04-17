@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+import json
 
 from .models import Edge, FieldCatalogEntry, FilterCondition, FilterGroup, Node, OrderBy, PlanStep, QueryIntent, QueryPlan
 
@@ -18,6 +19,42 @@ class GraphRegistry:
         for entry in self.field_catalog:
             self.standard_field_map.setdefault(entry.standard_field, []).append(entry)
         self._validate()
+
+    def has_direct_source_table_binding(self, entry: FieldCatalogEntry) -> bool:
+        return bool(
+            entry.source_table
+            and entry.binding_mode == "source_table"
+            and (entry.join_keys or entry.time_binding or entry.bridge_steps)
+        )
+
+    def resolve_source_node_for_entry(
+        self,
+        entry: FieldCatalogEntry,
+        base_node: str | None,
+        selected_nodes: set[str] | None = None,
+    ) -> str:
+        if entry.source_node:
+            return entry.source_node
+        if entry.source_table:
+            candidates = [node.name for node in self.nodes.values() if node.table == entry.source_table]
+            if not candidates:
+                raise ValueError(f"No node found for source_table '{entry.source_table}'")
+            if base_node and self.nodes[base_node].table == entry.source_table:
+                return base_node
+            if base_node:
+                reachable = [name for name in candidates if self._is_reachable(base_node, name)]
+                if len(reachable) == 1:
+                    return reachable[0]
+                if len(reachable) > 1 and selected_nodes:
+                    selected_match = [name for name in reachable if name in selected_nodes]
+                    if len(selected_match) == 1:
+                        return selected_match[0]
+            if len(candidates) == 1:
+                return candidates[0]
+            raise ValueError(
+                f"Source table '{entry.source_table}' maps to multiple nodes and could not be resolved uniquely"
+            )
+        raise ValueError(f"Field '{entry.standard_field}' has neither source_node nor source_table")
 
     def _validate(self) -> None:
         if not self.nodes:
@@ -63,7 +100,13 @@ class GraphRegistry:
         if catalog_entry:
             if catalog_entry.resolver_type == "derived":
                 return base_node
-            return catalog_entry.source_node
+            if self.has_direct_source_table_binding(catalog_entry):
+                return base_node
+            return self.resolve_source_node_for_entry(
+                catalog_entry,
+                base_node,
+                selected_nodes=selected_nodes,
+            )
         if field_name in self.ambiguous_fields:
             raise ValueError(
                 f"Field '{field_name}' exists on multiple nodes and must be disambiguated in a future protocol revision"
@@ -100,11 +143,18 @@ class GraphRegistry:
         if not entries:
             return None
         if len(entries) == 1:
-            return entries[0]
+            entry = entries[0]
+            if not base_node or not entry.base_node or entry.base_node == base_node:
+                return entry
         candidates = list(entries)
         selected_path_groups = selected_path_groups or {}
         selected_nodes = selected_nodes or set()
         if base_node:
+            exact_base_matches = [entry for entry in candidates if entry.base_node == base_node]
+            if len(exact_base_matches) == 1:
+                return exact_base_matches[0]
+            if exact_base_matches:
+                candidates = exact_base_matches
             base_grain = self.nodes[base_node].grain
             if base_grain:
                 grain_matches = [entry for entry in candidates if entry.applies_to_grain == base_grain]
@@ -128,12 +178,34 @@ class GraphRegistry:
                 return via_matches[0]
             if via_matches:
                 candidates = via_matches
-            reachable = [entry for entry in candidates if self._is_reachable(base_node, entry.source_node)]
+            reachable = []
+            for entry in candidates:
+                try:
+                    source_node_name = self.resolve_source_node_for_entry(
+                        entry,
+                        base_node,
+                        selected_nodes=selected_nodes,
+                    )
+                except ValueError:
+                    continue
+                if self._is_reachable(base_node, source_node_name):
+                    reachable.append(entry)
             if len(reachable) == 1:
                 return reachable[0]
             if reachable:
                 candidates = reachable
-            same_node = [entry for entry in candidates if entry.source_node == base_node]
+            same_node = []
+            for entry in candidates:
+                try:
+                    source_node_name = self.resolve_source_node_for_entry(
+                        entry,
+                        base_node,
+                        selected_nodes=selected_nodes,
+                    )
+                except ValueError:
+                    continue
+                if source_node_name == base_node:
+                    same_node.append(entry)
             if len(same_node) == 1:
                 return same_node[0]
         raise ValueError(
@@ -317,6 +389,22 @@ class QueryPlanner:
             self._register_path_group(catalog_entry, selected_path_groups)
             if catalog_entry.via_node:
                 selected_nodes.add(catalog_entry.via_node)
+        strict_event_visibility = bool(
+            lookahead_safe and catalog_entry and catalog_entry.lookahead_category == "published_event"
+        )
+        if catalog_entry and self._can_use_direct_source_table_binding(catalog_entry, base_node):
+            self._collect_direct_source_table_requirement(
+                field_name=field_name,
+                base_node=base_node,
+                catalog_entry=catalog_entry,
+                field_bindings=field_bindings,
+                resolved_fields=resolved_fields,
+                all_steps=all_steps,
+                step_by_edge=step_by_edge,
+                selected_nodes=selected_nodes,
+                strict_event_visibility=strict_event_visibility,
+            )
+            return
         node_name = self.registry.resolve_field_node(
             field_name,
             base_node,
@@ -332,9 +420,6 @@ class QueryPlanner:
         path_edges = self.registry.find_path(base_node, node_name)
         if catalog_entry and catalog_entry.via_node and catalog_entry.via_node not in {base_node, node_name}:
             path_edges = self.registry.find_path_via(base_node, node_name, catalog_entry.via_node)
-        strict_event_visibility = bool(
-            lookahead_safe and catalog_entry and catalog_entry.lookahead_category == "published_event"
-        )
         for edge in path_edges:
             if edge.name in step_by_edge:
                 if strict_event_visibility:
@@ -354,7 +439,94 @@ class QueryPlanner:
             step_by_edge[edge.name] = step
             selected_nodes.add(edge.to_node)
 
+    def _can_use_direct_source_table_binding(self, entry: FieldCatalogEntry, base_node: str) -> bool:
+        if not entry.source_table or entry.binding_mode != "source_table":
+            return False
+        base = self.registry.nodes[base_node]
+        if entry.source_table == base.table:
+            return True
+        return bool(entry.join_keys or entry.time_binding or entry.bridge_steps)
+
+    def _collect_direct_source_table_requirement(
+        self,
+        *,
+        field_name: str,
+        base_node: str,
+        catalog_entry: FieldCatalogEntry,
+        field_bindings: dict[str, str],
+        resolved_fields: dict[str, str],
+        all_steps: list[PlanStep],
+        step_by_edge: dict[str, PlanStep],
+        selected_nodes: set[str],
+        strict_event_visibility: bool,
+    ) -> None:
+        base = self.registry.nodes[base_node]
+        resolved_fields[field_name] = catalog_entry.source_field or self.registry.resolve_physical_field(field_name)
+        if catalog_entry.source_table == base.table:
+            field_bindings[field_name] = base_node
+            selected_nodes.add(base_node)
+            return
+
+        step_key = self._direct_table_step_key(base_node, catalog_entry)
+        field_bindings[field_name] = step_key
+        selected_nodes.add(step_key)
+        if step_key in step_by_edge:
+            if strict_event_visibility:
+                step_by_edge[step_key].lookahead_safe_for_event = True
+            return
+
+        relation_type = catalog_entry.relation_type or ("bridge" if catalog_entry.bridge_steps else "direct")
+        step = PlanStep(
+            edge_name=step_key,
+            from_node=base_node,
+            to_node=step_key,
+            to_table=catalog_entry.source_table,
+            relation_type=relation_type,
+            join_keys=list(catalog_entry.join_keys),
+            time_binding=catalog_entry.time_binding,
+            bridge_steps=list(catalog_entry.bridge_steps),
+            lookahead_safe_for_event=strict_event_visibility,
+        )
+        all_steps.append(step)
+        step_by_edge[step_key] = step
+
+    def _direct_table_step_key(self, base_node: str, entry: FieldCatalogEntry) -> str:
+        payload = {
+            "base_node": base_node,
+            "source_table": entry.source_table,
+            "relation_type": entry.relation_type or ("bridge" if entry.bridge_steps else "direct"),
+            "join_keys": entry.join_keys,
+            "time_binding": self._time_binding_signature(entry.time_binding),
+            "bridge_steps": [
+                {
+                    "table": step.table,
+                    "join_keys": step.join_keys,
+                    "time_binding": self._time_binding_signature(step.time_binding),
+                }
+                for step in entry.bridge_steps
+            ],
+        }
+        return "table__" + json.dumps(payload, sort_keys=True, ensure_ascii=True)
+
+    def _time_binding_signature(self, binding) -> dict[str, object] | None:
+        if not binding:
+            return None
+        return {
+            "mode": binding.mode,
+            "base_time_field": binding.base_time_field,
+            "source_time_field": binding.source_time_field,
+            "source_start_field": binding.source_start_field,
+            "source_end_field": binding.source_end_field,
+            "base_time_cast": binding.base_time_cast,
+            "source_time_cast": binding.source_time_cast,
+            "available_time_field": binding.available_time_field,
+            "allow_equal": binding.allow_equal,
+            "lookahead_safe": binding.lookahead_safe,
+        }
+
     def _register_path_group(self, entry: FieldCatalogEntry, selected_path_groups: dict[str, str]) -> None:
+        if entry.base_node:
+            return
         if not entry.path_domain or not entry.path_group:
             return
         current_group = selected_path_groups.get(entry.path_domain)

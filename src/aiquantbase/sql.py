@@ -31,10 +31,10 @@ class SqlRenderer:
         lines.append(f"FROM {base_node.table} {aliases[plan.base_node]}")
 
         for step in plan.steps:
-            to_node = self.registry.nodes[step.to_node]
             from_alias = aliases[step.from_node]
             to_alias = aliases.setdefault(step.to_node, f"t{len(aliases)}")
-            join_target = f"{to_node.table} {to_alias}"
+            target_table = step.to_table or self.registry.nodes[step.to_node].table
+            join_target = f"{target_table} {to_alias}"
             if step.relation_type == "bridge" and step.bridge_steps:
                 current_alias = from_alias
                 for bridge_step in step.bridge_steps:
@@ -63,7 +63,7 @@ class SqlRenderer:
                         self._render_time_binding(
                             current_alias,
                             to_alias,
-                            to_node.table,
+                            target_table,
                             step.join_keys,
                             step.time_binding,
                             lookahead_safe_for_event=step.lookahead_safe_for_event,
@@ -81,7 +81,7 @@ class SqlRenderer:
                     self._render_time_binding(
                         from_alias,
                         to_alias,
-                        to_node.table,
+                        target_table,
                         step.join_keys,
                         step.time_binding,
                         lookahead_safe_for_event=step.lookahead_safe_for_event,

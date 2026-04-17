@@ -6,9 +6,10 @@ AIQuantBase 当前已经具备：
 
 1. 图谱驱动的 Query Intent 查询规划
 2. 基于标准字段协议的 SQL 生成
-3. 返回 `sql + DataFrame` 的 Python SDK
+3. 面向上层应用的 `ApplicationRuntime`
 4. 中文字段说明、时间语义、路径约束、lookahead 第一阶段控制
-5. SSR 网页图谱管理台
+5. Nuxt 工作台
+6. 纯字段直连图谱协议
 
 ## 2. 默认配置位置
 
@@ -18,15 +19,28 @@ AIQuantBase 当前已经具备：
 2. `config/fields.yaml`
 3. `config/runtime.local.yaml`
 
-默认情况下：
+## 3. 上层应用怎么用
 
-1. Python SDK 读这里
-2. Flask 服务端也读这里
-3. 网页工作台默认也读这里
+### 推荐入口
 
-## 3. Python SDK 怎么用
+```python
+from aiquantbase import ApplicationRuntime
 
-### 初始化
+runtime = ApplicationRuntime.from_defaults()
+```
+
+### 推荐调用方式
+
+1. `resolve_symbols(symbols)`
+2. `get_supported_fields(...)`
+3. `validate_query_request(...)`
+4. `query_daily(...)` / `query_minute(...)`
+5. `build_intent_from_requirement(...)`
+6. `execute_requirement(...)`
+
+## 4. 底层能力怎么用
+
+如果需要直接调图谱底层能力，再用：
 
 ```python
 from aiquantbase import GraphRuntime
@@ -34,38 +48,43 @@ from aiquantbase import GraphRuntime
 runtime = GraphRuntime.from_defaults()
 ```
 
-### 获取字段清单
+适合：
+
+1. 调试图谱
+2. 查看元数据
+3. 渲染底层 Query Intent
+4. 执行原生 SQL
+
+如果只想先看当前协议摘要，推荐优先调用：
 
 ```python
-result = runtime.get_real_fields_json()
+runtime.get_protocol_summary()
 ```
 
-### 执行 Query Intent
+## 5. 网页怎么启动
 
-```python
-result = runtime.execute_intent(intent)
+当前工作台默认是前后端两个开发进程：
+
+### 启动 Python backend
+
+```bash
+PYTHONPATH=src /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m aiquantbase.cli studio --host 127.0.0.1 --port 8011
 ```
 
-返回：
+### 启动 Nuxt frontend
 
-```python
-{
-    "code": 0,
-    "message": "success",
-    "sql": "...",
-    "df": DataFrame(...),
-}
+```bash
+cd studio
+npm run dev
 ```
 
-### 执行原生 SQL
+常用页面：
 
-```python
-result = runtime.execute_sql("SELECT ...")
-```
+1. `http://localhost:3000/database`
+2. `http://localhost:3000/query`
+3. `http://localhost:3000/settings`
 
-## 4. 当前建议默认开放的主入口节点
-
-当前建议对外默认开放：
+## 6. 当前推荐主入口节点
 
 1. `stock_daily_real`
 2. `stock_minute_real`
@@ -77,22 +96,28 @@ result = runtime.execute_sql("SELECT ...")
 8. `kzz_issuance_real`
 9. `kzz_conv_real`
 10. `margin_summary_real`
+11. `etf_daily_real`
+12. `index_daily_real`
+13. `etf_minute_real`
+14. `index_minute_real`
 
-## 5. 网页怎么启动
+## 7. 文档导航
 
-```bash
-PYTHONPATH=src /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m aiquantbase.cli studio --host 127.0.0.1 --port 8000
-```
+1. [docs/application-api-usage.md](/Users/zhao/Desktop/git/AIQuantBase/docs/application-api-usage.md)
+2. [docs/application-runtime-examples.md](/Users/zhao/Desktop/git/AIQuantBase/docs/application-runtime-examples.md)
+3. [docs/application-runtime-api-reference.md](/Users/zhao/Desktop/git/AIQuantBase/docs/application-runtime-api-reference.md)
+4. [docs/application-runtime-quickstart.md](/Users/zhao/Desktop/git/AIQuantBase/docs/application-runtime-quickstart.md)
+5. [docs/alphablocks-integration-example.md](/Users/zhao/Desktop/git/AIQuantBase/docs/alphablocks-integration-example.md)
+6. [docs/python-sdk-usage.md](/Users/zhao/Desktop/git/AIQuantBase/docs/python-sdk-usage.md)
+7. [docs/query-intent-templates.md](/Users/zhao/Desktop/git/AIQuantBase/docs/query-intent-templates.md)
+8. [docs/public-entry-nodes.md](/Users/zhao/Desktop/git/AIQuantBase/docs/public-entry-nodes.md)
+9. [docs/trusted-query-boundary.md](/Users/zhao/Desktop/git/AIQuantBase/docs/trusted-query-boundary.md)
+10. [docs/release-notes-v1.md](/Users/zhao/Desktop/git/AIQuantBase/docs/release-notes-v1.md)
+11. [docs/migration-notes.md](/Users/zhao/Desktop/git/AIQuantBase/docs/migration-notes.md)
+12. [docs/go-live-checklist.md](/Users/zhao/Desktop/git/AIQuantBase/docs/go-live-checklist.md)
+13. [docs/direct-field-runtime-protocol.md](/Users/zhao/Desktop/git/AIQuantBase/docs/direct-field-runtime-protocol.md)
 
-打开：
-
-1. `http://127.0.0.1:8000/`
-2. `http://127.0.0.1:8000/nodes`
-3. `http://127.0.0.1:8000/edges`
-4. `http://127.0.0.1:8000/graph/view`
-5. `http://127.0.0.1:8000/llm-query`
-
-## 6. 当前可信边界
+## 8. 当前可信边界
 
 当前系统可信的前提是：
 
@@ -106,41 +131,3 @@ PYTHONPATH=src /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m
 1. 全自动选入口
 2. 全自动跨多个业务主体拼接查询
 3. 完全自动拆查询
-
-## 7. lookahead 当前规则
-
-当前 `lookahead_safe = true` 第一阶段只对：
-
-1. 公告类字段
-2. 事件类字段
-3. 条款生效类字段
-
-生效。
-
-当前明确不影响：
-
-1. `close`
-2. `high`
-3. `low`
-4. `volume`
-5. `amount`
-6. `market_cap`
-7. `turnover_rate`
-
-## 8. 推荐先看的文档
-
-1. [python-sdk-usage.md](/Users/zhao/Desktop/git/AIQuantBase/docs/python-sdk-usage.md)
-2. [query-intent-templates.md](/Users/zhao/Desktop/git/AIQuantBase/docs/query-intent-templates.md)
-3. [public-entry-nodes.md](/Users/zhao/Desktop/git/AIQuantBase/docs/public-entry-nodes.md)
-4. [trusted-query-boundary.md](/Users/zhao/Desktop/git/AIQuantBase/docs/trusted-query-boundary.md)
-5. [field-description-catalog.md](/Users/zhao/Desktop/git/AIQuantBase/docs/field-description-catalog.md)
-
-## 9. 一句话怎么理解现在的项目
-
-当前阶段，AIQuantBase 已经可以作为：
-
-1. 图谱约束查询中间件
-2. Python 查询 SDK
-3. 图谱管理网页后台
-
-稳定使用。

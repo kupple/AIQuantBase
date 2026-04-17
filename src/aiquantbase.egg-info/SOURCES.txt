@@ -1,5 +1,7 @@
+README.md
 pyproject.toml
 src/aiquantbase/__init__.py
+src/aiquantbase/application_runtime.py
 src/aiquantbase/cli.py
 src/aiquantbase/config.py
 src/aiquantbase/discovery.py
@@ -22,11 +24,7 @@ src/aiquantbase/static/css/graph.css
 src/aiquantbase/static/js/graph-manage.js
 src/aiquantbase/static/js/graph-view.js
 src/aiquantbase/static/vendor/cytoscape.min.js
-src/aiquantbase/templates/base.html
-src/aiquantbase/templates/graph_edges.html
-src/aiquantbase/templates/graph_llm_query.html
-src/aiquantbase/templates/graph_nodes.html
-src/aiquantbase/templates/graph_view.html
+tests/test_application_runtime.py
 tests/test_discovery.py
 tests/test_executor.py
 tests/test_inference.py

@@ -5,15 +5,19 @@
 当前建议对外默认开放的主入口节点如下：
 
 1. `stock_daily_real`
-2. `stock_minute_real`
-3. `industry_daily_real`
-4. `treasury_yield_real`
-5. `fund_iopv_real`
-6. `fund_share_real`
-7. `etf_pcf_real`
-8. `kzz_issuance_real`
-9. `kzz_conv_real`
-10. `margin_summary_real`
+2. `etf_daily_real`
+3. `index_daily_real`
+4. `stock_minute_real`
+5. `etf_minute_real`
+6. `index_minute_real`
+7. `industry_daily_real`
+8. `treasury_yield_real`
+9. `fund_iopv_real`
+10. `fund_share_real`
+11. `etf_pcf_real`
+12. `kzz_issuance_real`
+13. `kzz_conv_real`
+14. `margin_summary_real`
 
 ## 说明
 
@@ -23,6 +27,7 @@
 2. 查询语义清楚
 3. 适合作为外部模块和 AI 的主查询入口
 4. 不需要依赖太多中间节点才能理解其用途
+5. `stock / etf / index` 在逻辑入口层已经拆分，但底层继续复用同一批日线/分钟行情物理表
 
 ## 暂不默认开放的节点
 

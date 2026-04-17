@@ -29,3 +29,4 @@ discovery:
     - ad_market_kline_minute
     - ad_adj_factor
     - ad_history_stock_status
+  trading_calendar_table: starlight.ad_trade_calendar

@@ -4,11 +4,10 @@
 
 这份文档说明 AIQuantBase 在本地 Python 项目中的使用方式。
 
-当前推荐的使用方式是：
+当前推荐分两层理解：
 
-1. 通过 Python SDK 引入
-2. 使用正式默认配置 `config/graph.yaml` 与 `config/fields.yaml`
-3. 通过 `Query Intent` 或原生 SQL 获取 `sql + df`
+1. 上层应用优先使用 `ApplicationRuntime`
+2. 底层图谱能力调试时再使用 `GraphRuntime`
 
 ## 1. 安装方式
 
@@ -32,12 +31,12 @@
 
 ## 2. 初始化
 
-### 默认初始化
+### 上层应用推荐初始化
 
 ```python
-from aiquantbase import GraphRuntime
+from aiquantbase import ApplicationRuntime
 
-runtime = GraphRuntime.from_defaults()
+runtime = ApplicationRuntime.from_defaults()
 ```
 
 默认读取：
@@ -49,107 +48,231 @@ runtime = GraphRuntime.from_defaults()
 ### 显式传路径初始化
 
 ```python
-from aiquantbase import GraphRuntime
+from aiquantbase import ApplicationRuntime
 
-runtime = GraphRuntime(
+runtime = ApplicationRuntime(
     graph_path="/Users/zhao/Desktop/git/AIQuantBase/config/graph.yaml",
     fields_path="/Users/zhao/Desktop/git/AIQuantBase/config/fields.yaml",
     runtime_path="/Users/zhao/Desktop/git/AIQuantBase/config/runtime.local.yaml",
 )
 ```
 
-如果你的调用方不在项目根目录运行，建议显式传绝对路径。
+### 底层调试初始化
 
-## 3. 当前推荐暴露的主入口节点
+```python
+from aiquantbase import GraphRuntime
 
-当前对外默认主入口节点为：
+runtime = GraphRuntime.from_defaults()
+```
 
-1. `stock_daily_real`
-2. `stock_minute_real`
-3. `industry_daily_real`
-4. `treasury_yield_real`
-5. `fund_iopv_real`
-6. `fund_share_real`
-7. `etf_pcf_real`
-8. `kzz_issuance_real`
-9. `kzz_conv_real`
-10. `margin_summary_real`
+## 3. 上层应用推荐接口
 
-说明：
+当前 `ApplicationRuntime` 推荐优先使用：
 
-1. 这批主入口已经足够支撑大多数查询场景
-2. 其他 `*_real` 节点仍保留在内部图谱中，但不建议默认暴露给外部模块
+1. `resolve_symbols(symbols)`
+2. `resolve_best_node(...)`
+3. `get_supported_fields(...)`
+4. `validate_query_request(request)`
+5. `query_daily(...)`
+6. `query_minute(...)`
+7. `build_intent_from_requirement(data_requirement)`
+8. `execute_requirement(data_requirement)`
 
-## 4. 获取字段目录
+如果需要先快速理解当前启用协议规模，再决定查哪个入口，推荐补充使用：
+
+9. `GraphRuntime.get_protocol_summary()`
+
+## 4. 典型调用方式
+
+### 先解析 symbol
+
+```python
+resolved = runtime.resolve_symbols(["000001.SZ", "159102.SZ"])
+```
+
+### 看字段支持清单
+
+```python
+fields = runtime.get_supported_fields(asset_type="stock", freq="1d")
+```
+
+### 校验请求
+
+```python
+validation = runtime.validate_query_request(
+    {
+        "symbols": ["000001.SZ"],
+        "universe": None,
+        "fields": ["close_adj", "market_cap"],
+        "start": "2025-01-01",
+        "end": "2025-01-31",
+        "freq": "1d",
+        "asset_type": "auto",
+    }
+)
+```
+
+### 直接执行日频查询
+
+```python
+result = runtime.query_daily(
+    symbols=["000001.SZ"],
+    fields=["close_adj", "market_cap", "industry_name"],
+    start="2025-01-01 00:00:00",
+    end="2025-01-31 23:59:59",
+)
+```
+
+### 直接执行分钟查询
+
+```python
+result = runtime.query_minute(
+    symbols=["000001.SZ"],
+    fields=["minute_close", "minute_volume"],
+    start="2024-01-02 09:30:00",
+    end="2024-01-02 10:30:00",
+)
+```
+
+### 执行 requirement
+
+```python
+data_requirement = {
+    "fields": ["close_adj", "open"],
+    "scope": {
+        "symbols": ["000001.SZ"],
+        "freq": "1d",
+        "start": "2024-01-01",
+        "end": "2024-01-31",
+    },
+}
+
+result = runtime.execute_requirement(data_requirement)
+```
+
+## 5. 返回结构
+
+### `query_daily()` / `query_minute()` / `execute_requirement()`
+
+```python
+{
+    "ok": True,
+    "df": DataFrame(...),
+    "issues": [],
+    "meta": {...},
+    "debug": {
+        "intent": {...},
+        "sql": "...",
+    },
+}
+```
+
+### 错误时
+
+```python
+{
+    "ok": False,
+    "df": DataFrame(),
+    "issues": [...],
+    "meta": {...},
+    "debug": {
+        "intent": None,
+        "sql": "",
+    },
+}
+```
+
+## 6. 字段能力接口
+
+### 获取字段清单
+
+```python
+result = runtime.get_supported_fields(asset_type="stock", freq="1d")
+```
+
+### 按节点过滤
+
+```python
+result = runtime.get_supported_fields(
+    asset_type="stock",
+    freq="1d",
+    node="stock_daily_real",
+)
+```
+
+### 按字段角色过滤
+
+```python
+result = runtime.get_supported_fields(
+    asset_type="stock",
+    freq="1d",
+    field_role="financial_field",
+)
+```
+
+### 只看派生字段
+
+```python
+result = runtime.get_supported_fields(
+    asset_type="stock",
+    freq="1d",
+    derived_only=True,
+)
+```
+
+## 7. 底层调试接口
+
+如果你需要直接看图谱底层元数据或手动打 SQL，可以使用 `GraphRuntime`。
+
+### 当前协议摘要
+
+```python
+from aiquantbase import GraphRuntime
+
+runtime = GraphRuntime.from_defaults()
+summary = runtime.get_protocol_summary()
+```
+
+这个接口适合先快速查看：
+
+1. 当前启用的入口节点数量
+2. 每个入口节点的粒度、资产类型、字段数量
+3. 每个入口节点的示例字段
 
 ### 全量元数据目录
 
 ```python
+from aiquantbase import GraphRuntime
+
+runtime = GraphRuntime.from_defaults()
 catalog = runtime.get_metadata_catalog()
 ```
 
-返回：
-
-1. `nodes`
-2. `edges`
-3. `fields`
-
-字段项里会包含：
-
-1. `standard_field`
-2. `description_zh`
-3. `field_role`
-4. `path_domain`
-5. `path_group`
-6. `time_semantics`
-7. `lookahead_category`
-
-### 获取 real 节点字段 JSON
+### real 节点字段 JSON
 
 ```python
 result = runtime.get_real_fields_json()
 ```
 
-返回：
+推荐顺序：
 
-```python
-{
-    "code": 0,
-    "message": "success",
-    "items": [
-        {
-            "name": "stock_daily_real",
-            "table": "starlight.ad_market_kline_daily",
-            "grain": "daily",
-            "description_zh": "股票日线行情主表",
-            "is_ai_entry": True,
-            "fields": [
-                {"field_name": "code", "field_label_zh": "代码"},
-                {"field_name": "trade_time", "field_label_zh": "交易时间"},
-                {"field_name": "close", "field_label_zh": "收盘价"}
-            ]
-        }
-    ]
-}
-```
+1. 先 `get_protocol_summary()`
+2. 再 `get_real_fields_json()`
+3. 最后按需 `get_supported_fields(...)`
 
-这个接口适合给外部模块先做字段选择。
-
-## 5. 执行 Query Intent
-
-### 渲染 SQL
+### 渲染 Query Intent
 
 ```python
 sql = runtime.render_intent(intent)
 ```
 
-### 执行 Query Intent
+### 执行原生 SQL
 
 ```python
-result = runtime.execute_intent(intent)
+result = runtime.execute_sql("SELECT 1 AS x")
 ```
 
-返回结构：
+返回：
 
 ```python
 {
@@ -158,69 +281,6 @@ result = runtime.execute_intent(intent)
     "sql": "...",
     "df": DataFrame(...),
 }
-```
-
-### 最小示例
-
-```python
-intent = {
-    "from": "stock_daily_real",
-    "select": ["close", "market_cap", "industry_name"],
-    "where": {
-        "mode": "and",
-        "items": [
-            {"field": "code", "op": "=", "value": "000001.SZ"}
-        ]
-    },
-    "time_range": {
-        "field": "trade_time",
-        "start": "2025-01-01 00:00:00",
-        "end": "2025-12-31 23:59:59"
-    },
-    "page": 1,
-    "page_size": 20,
-    "safety": {
-        "lookahead_safe": False,
-        "strict_mode": True
-    }
-}
-
-result = runtime.execute_intent(intent)
-```
-
-## 6. 执行原生 SQL
-
-```python
-result = runtime.execute_sql("SELECT 1 AS x")
-```
-
-返回结构和 `execute_intent()` 一致：
-
-```python
-{
-    "code": 0,
-    "message": "success",
-    "sql": "SELECT 1 AS x\nFORMAT JSON",
-    "df": DataFrame(...),
-}
-```
-
-## 7. 错误处理
-
-当前最小错误码规则：
-
-1. `code = 0`
-   成功
-
-2. `code = 1`
-   执行失败
-   `message` 中会带异常信息
-
-### 示例
-
-```python
-if result["code"] != 0:
-    print(result["message"])
 ```
 
 ## 8. 当前 lookahead 规则
@@ -237,76 +297,43 @@ if result["code"] != 0:
 6. `market_cap`
 7. `turnover_rate`
 
-### 当前主要影响：
-
-1. 财报公告字段
-2. 分红配股公告字段
-3. 股东公告字段
-4. 可转债公告/条款字段
-
 ## 9. 最佳实践
 
 ### 推荐
 
-1. 先用 `get_real_fields_json()` 给外部模块选字段
-2. 再用 `execute_intent()` 执行查询
-3. 保留返回的 `sql` 做审计和排查
+1. 上层应用用 `ApplicationRuntime`
+2. 先 `resolve_symbols()` / `get_supported_fields()` / `validate_query_request()`
+3. 再 `query_daily()` / `query_minute()` / `execute_requirement()`
+4. 保留 `debug.sql` 做审计和排查
 
 ### 不推荐
 
-1. 外部模块自己记底层表名
-2. 外部模块自己拼 join
-3. 外部模块直接推测原始字段名
+1. 上层业务直接使用底层表名
+2. 上层自己拼复杂 Query Intent 作为默认路径
+3. 上层自己处理图谱 join
 
 ## 10. 一句话用法
 
 ```python
-from aiquantbase import GraphRuntime
+from aiquantbase import ApplicationRuntime
 
-runtime = GraphRuntime.from_defaults()
-result = runtime.execute_intent(intent)
-sql = result["sql"]
+runtime = ApplicationRuntime.from_defaults()
+result = runtime.execute_requirement(data_requirement)
 df = result["df"]
+sql = result["debug"]["sql"]
 ```
 
 ## 11. 多个代码过滤
 
-如果要查询多个股票代码，不要写多个 `=`，推荐直接使用：
+如果底层最终构造成 Query Intent，要查询多个代码，推荐使用：
 
 ```python
-intent = {
-    "from": "stock_daily_real",
-    "select": ["code", "trade_time", "close"],
-    "where": {
-        "mode": "and",
-        "items": [
-            {
-                "field": "code",
-                "op": "in",
-                "value": ["000001.SZ", "000002.SZ", "000004.SZ"]
-            }
-        ]
-    },
-    "time_range": {
-        "field": "trade_time",
-        "start": "2024-01-01",
-        "end": "2024-01-31"
-    },
-    "page": 1,
-    "page_size": 20,
-    "safety": {
-        "lookahead_safe": False,
-        "strict_mode": True
-    }
+{
+    "field": "code",
+    "op": "in",
+    "value": ["000001.SZ", "000002.SZ", "000004.SZ"]
 }
 ```
-
-这会渲染成：
-
-```sql
-code IN ('000001.SZ', '000002.SZ', '000004.SZ')
-```
-
 
 ## 12. 常用过滤写法
 
@@ -344,22 +371,4 @@ code IN ('000001.SZ', '000002.SZ', '000004.SZ')
 
 ```python
 {"field": "industry_name", "op": "is_not_null", "value": None}
-```
-
-### 模糊匹配 contains
-
-```python
-{"field": "security_name", "op": "contains", "value": "银行"}
-```
-
-### like
-
-```python
-{"field": "symbol", "op": "like", "value": "000%"}
-```
-
-### 不区分大小写 ilike
-
-```python
-{"field": "comp_name_eng", "op": "ilike", "value": "%bank%"}
 ```

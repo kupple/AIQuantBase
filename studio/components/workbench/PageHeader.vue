@@ -16,7 +16,7 @@ defineProps({
 </script>
 
 <template>
-  <div class="page-header">
+  <div class="page-header-block">
     <div class="page-header-copy">
       <p class="page-eyebrow">{{ eyebrow }}</p>
       <h2 class="page-title">{{ title }}</h2>

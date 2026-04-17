@@ -45,7 +45,7 @@ def load_nodes_and_edges(path: str | Path) -> tuple[list[Node], list[Edge]]:
 
 def load_field_catalog(path: str | Path) -> list[FieldCatalogEntry]:
     data = load_yaml(path)
-    return [FieldCatalogEntry(**item) for item in data.get("fields", [])]
+    return [_parse_field_catalog_entry(item) for item in data.get("fields", [])]
 
 
 def load_query_intent(path: str | Path) -> QueryIntent:
@@ -142,7 +142,11 @@ def _parse_node(item: dict[str, Any]) -> Node:
         description=item.get("description"),
         description_zh=item.get("description_zh"),
         node_role=item.get("node_role"),
-        is_ai_entry=item.get("is_ai_entry", False),
+        status=item.get("status", "enabled"),
+        physical_node=item.get("physical_node"),
+        asset_type=item.get("asset_type"),
+        query_freq=item.get("query_freq"),
+        base_filters=list(item.get("base_filters", [])),
     )
 
 
@@ -170,4 +174,42 @@ def _parse_edge(item: dict[str, Any]) -> Edge:
         priority=item.get("priority", 100),
         description=item.get("description"),
         description_zh=item.get("description_zh"),
+    )
+
+
+def _parse_field_catalog_entry(item: dict[str, Any]) -> FieldCatalogEntry:
+    binding = item.get("time_binding")
+    bridge_steps = []
+    for step in item.get("bridge_steps", []):
+        step_binding = step.get("time_binding")
+        bridge_steps.append(
+            BridgeStep(
+                table=step["table"],
+                join_keys=list(step.get("join_keys", [])),
+                time_binding=TimeBinding(**step_binding) if step_binding else None,
+            )
+        )
+    return FieldCatalogEntry(
+        standard_field=item["standard_field"],
+        source_node=item.get("source_node"),
+        source_field=item.get("source_field"),
+        field_role=item["field_role"],
+        base_node=item.get("base_node"),
+        binding_mode=item.get("binding_mode"),
+        source_table=item.get("source_table"),
+        relation_type=item.get("relation_type"),
+        join_keys=list(item.get("join_keys", [])),
+        time_binding=TimeBinding(**binding) if binding else None,
+        bridge_steps=bridge_steps,
+        resolver_type=item.get("resolver_type", "direct"),
+        depends_on=list(item.get("depends_on", [])),
+        formula=item.get("formula"),
+        applies_to_grain=item.get("applies_to_grain"),
+        path_domain=item.get("path_domain"),
+        path_group=item.get("path_group"),
+        via_node=item.get("via_node"),
+        time_semantics=item.get("time_semantics"),
+        lookahead_category=item.get("lookahead_category"),
+        description_zh=item.get("description_zh"),
+        notes=list(item.get("notes", [])),
     )

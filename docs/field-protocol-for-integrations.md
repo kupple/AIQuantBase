@@ -15,9 +15,9 @@
 推荐接入方式：
 
 ```python
-from aiquantbase import GraphRuntime
+from aiquantbase import ApplicationRuntime
 
-runtime = GraphRuntime.from_defaults()
+runtime = ApplicationRuntime.from_defaults()
 ```
 
 ### 先拿字段目录
@@ -90,9 +90,9 @@ catalog = runtime.get_metadata_catalog()
 
 ## 4. 其他模块如何发查询
 
-其他模块不要传 SQL。
+其他模块不要传 SQL，也不建议直接自己拼完整 Query Intent。
 
-统一传 `Query Intent`：
+当前推荐优先通过 `ApplicationRuntime` 的 requirement 级接口发起查询；底层 `Query Intent` 仍可作为内部协议保留：
 
 ```python
 intent = {
@@ -121,7 +121,7 @@ intent = {
 然后执行：
 
 ```python
-result = runtime.execute_intent(intent)
+result = runtime.execute_requirement(data_requirement)
 ```
 
 返回：
@@ -184,7 +184,7 @@ result = runtime.execute_intent(intent)
 1. `runtime.get_metadata_catalog()` 拉字段目录
 2. 其他模块只保存 `standard_field`
 3. 查询时只构造 `Query Intent`
-4. 通过 `runtime.execute_intent()` 获取 `sql + df`
+4. 通过 `runtime.execute_requirement()` 获取 `sql + df`
 
 ### 不推荐
 
@@ -197,18 +197,21 @@ result = runtime.execute_intent(intent)
 ### Python SDK
 
 ```python
-from aiquantbase import GraphRuntime
+from aiquantbase import ApplicationRuntime
 
-runtime = GraphRuntime.from_defaults()
+runtime = ApplicationRuntime.from_defaults()
 ```
 
 高频方法：
 
-1. `runtime.get_metadata_catalog()`
-2. `runtime.get_real_fields_json()`
-3. `runtime.render_intent(intent)`
-4. `runtime.execute_intent(intent)`
-5. `runtime.execute_sql(sql)`
+1. `runtime.resolve_symbols(symbols)`
+2. `runtime.resolve_best_node(...)`
+3. `runtime.get_supported_fields(...)`
+4. `runtime.validate_query_request(request)`
+5. `runtime.query_daily(...)`
+6. `runtime.query_minute(...)`
+7. `runtime.build_intent_from_requirement(data_requirement)`
+8. `runtime.execute_requirement(data_requirement)`
 
 ## 9. 一句话接入原则
 

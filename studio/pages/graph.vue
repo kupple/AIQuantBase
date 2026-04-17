@@ -1,181 +1,214 @@
 <script setup>
+import { computed, ref } from 'vue'
+import { VueFlow } from '@vue-flow/core'
+import { Controls } from '@vue-flow/controls'
+import { MiniMap } from '@vue-flow/minimap'
+import { navigateTo } from '#imports'
 import { useWorkbench } from '~/composables/useWorkbench'
 
-const {
-  graph,
-  nodeForm,
-  edgeForm,
-  editNode,
-  editEdge,
-  removeItem,
-  saveNode,
-  saveEdge,
-  notifyAction,
-} = useWorkbench()
+const { graph, protocolSummary } = useWorkbench()
+const selectedNodeId = ref('')
+const graphSearch = ref('')
+const graphAssetFilter = ref('all')
+
+const assetFilterOptions = [
+  { label: '全部资产', value: 'all' },
+  { label: '股票', value: 'stock' },
+  { label: 'ETF', value: 'etf' },
+  { label: '指数', value: 'index' },
+  { label: '基金', value: 'fund' },
+  { label: '宏观', value: 'macro' },
+  { label: '可转债', value: 'kzz' },
+]
+
+const protocolSummaryMap = computed(() =>
+  new Map((protocolSummary.value?.items || []).map((item) => [item.name, item]))
+)
+
+const filteredGraphNodes = computed(() => {
+  const keyword = graphSearch.value.trim().toLowerCase()
+
+  return graph.value.nodes.filter((node) => {
+    if (node.status !== 'enabled') return false
+    if (graphAssetFilter.value !== 'all' && node.asset_type !== graphAssetFilter.value) return false
+
+    if (!keyword) return true
+
+    const haystack = [
+      node.name,
+      node.table,
+      node.asset_type,
+      node.query_freq,
+      node.grain,
+      node.description,
+      node.description_zh,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+
+    return haystack.includes(keyword)
+  })
+})
+
+const visibleNodeIds = computed(() => new Set(filteredGraphNodes.value.map((node) => node.name)))
+
+const graphNodes = computed(() =>
+  filteredGraphNodes.value.map((node, index) => ({
+    id: node.name,
+    position: {
+      x: 80 + (index % 3) * 320,
+      y: 60 + Math.floor(index / 3) * 140,
+    },
+    data: node,
+    type: 'default',
+  }))
+)
+
+const graphEdges = computed(() =>
+  graph.value.edges
+    .filter((edge) => visibleNodeIds.value.has(edge.from) && visibleNodeIds.value.has(edge.to))
+    .map((edge, index) => ({
+      id: `${edge.name}-${index}`,
+      source: edge.from,
+      target: edge.to,
+      label: edge.time_binding?.mode || edge.relation_type,
+      style: { stroke: '#409eff', strokeWidth: 2 },
+      labelStyle: { fill: '#606266', fontWeight: 600 },
+      animated: edge.time_binding?.mode === 'asof',
+    }))
+)
+
+const selectedNode = computed(() =>
+  graph.value.nodes.find((node) => node.name === selectedNodeId.value) || null
+)
+
+const selectedNodeSummary = computed(() =>
+  protocolSummaryMap.value.get(selectedNodeId.value) || null
+)
+
+const selectedRelations = computed(() => {
+  if (!selectedNodeId.value) return []
+  return graph.value.edges
+    .filter((edge) => edge.from === selectedNodeId.value || edge.to === selectedNodeId.value)
+    .map((edge) => ({
+      edge_name: edge.name,
+      from_node: edge.from,
+      to_node: edge.to,
+      relation_type: edge.relation_type,
+      time_mode: edge.time_binding?.mode || '-',
+      join_keys_text: edge.join_keys?.map((item) => `${item.base} -> ${item.source}`).join(', ') || '-',
+    }))
+})
+
+async function jumpToDatabaseNode(nodeName) {
+  if (!nodeName) return
+  await navigateTo({
+    path: '/database',
+    query: { node: nodeName },
+  })
+}
+
+function handleNodeClick(event) {
+  selectedNodeId.value = event.node.id
+}
 </script>
 
 <template>
   <div class="page-stack">
-    <el-card shadow="never" class="page-card">
-      <WorkbenchPageHeader
-        title="图谱配置"
-        description="节点、关系和编辑表单都收在这个页面里，便于集中维护图谱结构。"
-      />
-    </el-card>
+    <section class="workbench-grid workbench-grid-graph-page">
+      <el-card shadow="never" class="surface-card surface-card-strong">
+        <template #header>
+          <div class="panel-heading panel-heading-space">
+            <div>
+              <span class="panel-title">图谱关系</span>
+              <p class="panel-subtitle">这里展示当前启用节点之间仍然保留的关系边，用于核对入口结构和 Join 规则。</p>
+            </div>
+            <div class="panel-actions panel-actions-compact graph-filter-toolbar">
+              <el-input
+                v-model="graphSearch"
+                clearable
+                placeholder="搜索节点 / 主表 / 资产类型"
+                class="panel-search panel-search-wide"
+              />
+              <el-select v-model="graphAssetFilter" style="width: 150px">
+                <el-option v-for="option in assetFilterOptions" :key="option.value" :label="option.label" :value="option.value" />
+              </el-select>
+            </div>
+          </div>
+        </template>
 
-    <el-row :gutter="20" class="page-grid">
-      <el-col :xl="15" :lg="14" :md="24">
-        <div class="stack-grid">
-          <el-card shadow="never" class="page-card">
-            <template #header>
-              <div class="card-header">
-                <div>
-                  <span>节点列表</span>
-                  <p class="card-caption">点击编辑会把当前节点带到右侧表单。</p>
+        <ClientOnly>
+          <div v-if="graphNodes.length" class="graph-page-canvas">
+            <VueFlow :nodes="graphNodes" :edges="graphEdges" fit-view-on-init @node-click="handleNodeClick">
+              <Controls />
+              <MiniMap />
+
+              <template #node-default="nodeProps">
+                <div class="graph-page-node" :class="{ 'is-selected': selectedNodeId === nodeProps.id }">
+                  <strong>{{ nodeProps.data.name }}</strong>
+                  <span>{{ nodeProps.data.table }}</span>
                 </div>
+              </template>
+            </VueFlow>
+          </div>
+          <el-empty v-else description="当前没有可展示的图谱节点" :image-size="88" />
+        </ClientOnly>
+      </el-card>
+
+      <div class="stack-block">
+        <el-card shadow="never" class="surface-card">
+          <template #header>
+            <div class="panel-heading">
+              <div>
+                <span class="panel-title">节点摘要</span>
+                <p class="panel-subtitle">点击节点后，这里展示它的主表、粒度和字段规模。</p>
               </div>
-            </template>
+            </div>
+          </template>
 
-            <el-table :data="graph.nodes" max-height="320" empty-text="当前没有节点">
-              <el-table-column prop="name" label="节点名" min-width="160" />
-              <el-table-column prop="table" label="表名" min-width="240" />
-              <el-table-column prop="grain" label="粒度" width="120" />
-              <el-table-column label="操作" width="160">
-                <template #default="scope">
-                  <el-button link type="primary" @click="editNode(scope.row, scope.$index)">编辑</el-button>
-                  <el-button link type="danger" @click="removeItem(graph.nodes, scope.$index)">删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
+          <div v-if="selectedNode" class="stack-block">
+            <el-descriptions :column="1" border>
+              <el-descriptions-item label="节点">{{ selectedNode.name }}</el-descriptions-item>
+              <el-descriptions-item label="主表">{{ selectedNode.table }}</el-descriptions-item>
+              <el-descriptions-item label="状态">{{ selectedNode.status === 'enabled' ? '启用' : '停用' }}</el-descriptions-item>
+              <el-descriptions-item label="资产类型">{{ selectedNode.asset_type || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="查询频率">{{ selectedNode.query_freq || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="粒度">{{ selectedNode.grain || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="时间键">{{ selectedNode.time_key || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="字段数">{{ selectedNodeSummary?.field_count || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="主键">{{ (selectedNodeSummary?.identity_fields || []).join(', ') || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="示例字段">{{ (selectedNodeSummary?.sample_fields || []).join(', ') || '-' }}</el-descriptions-item>
+            </el-descriptions>
+            <div class="panel-actions panel-actions-compact">
+              <el-button type="primary" plain @click="jumpToDatabaseNode(selectedNode.name)">
+                打开节点工作台
+              </el-button>
+            </div>
+          </div>
+          <el-empty v-else description="请先点击图谱中的一个节点" :image-size="72" />
+        </el-card>
 
-          <el-card shadow="never" class="page-card">
-            <template #header>
-              <div class="card-header">
-                <div>
-                  <span>关系列表</span>
-                  <p class="card-caption">这里用于维护边、Join Key 和时间绑定模式。</p>
-                </div>
+        <el-card shadow="never" class="surface-card">
+          <template #header>
+            <div class="panel-heading">
+              <div>
+                <span class="panel-title">关系边</span>
+                <p class="panel-subtitle">这里展示当前选中节点关联的边、时间模式和 Join Keys。</p>
               </div>
-            </template>
+            </div>
+          </template>
 
-            <el-table :data="graph.edges" max-height="320" empty-text="当前没有关系">
-              <el-table-column prop="name" label="关系名" min-width="220" />
-              <el-table-column prop="from" label="From" min-width="140" />
-              <el-table-column prop="to" label="To" min-width="140" />
-              <el-table-column label="模式" width="140">
-                <template #default="scope">
-                  {{ scope.row.time_binding?.mode || '-' }}
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="160">
-                <template #default="scope">
-                  <el-button link type="primary" @click="editEdge(scope.row, scope.$index)">编辑</el-button>
-                  <el-button link type="danger" @click="removeItem(graph.edges, scope.$index)">删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-        </div>
-      </el-col>
-
-      <el-col :xl="9" :lg="10" :md="24">
-        <div class="stack-grid">
-          <el-card shadow="never" class="page-card">
-            <template #header>
-              <div class="card-header">
-                <div>
-                  <span>节点编辑</span>
-                  <p class="card-caption">节点名、时间键和字段列表都在这里维护。</p>
-                </div>
-              </div>
-            </template>
-
-            <el-form label-position="top">
-              <el-form-item label="节点名">
-                <el-input v-model="nodeForm.name" />
-              </el-form-item>
-              <el-form-item label="表名">
-                <el-input v-model="nodeForm.table" />
-              </el-form-item>
-              <el-form-item label="实体键">
-                <el-input v-model="nodeForm.entity_keys" />
-              </el-form-item>
-              <el-form-item label="时间键">
-                <el-input v-model="nodeForm.time_key" />
-              </el-form-item>
-              <el-form-item label="粒度">
-                <el-input v-model="nodeForm.grain" />
-              </el-form-item>
-              <el-form-item label="字段列表">
-                <el-input v-model="nodeForm.fields" type="textarea" :rows="4" />
-              </el-form-item>
-              <el-form-item label="描述">
-                <el-input v-model="nodeForm.description" type="textarea" :rows="3" />
-              </el-form-item>
-            </el-form>
-
-            <el-button type="primary" @click="notifyAction('节点已保存', saveNode)">保存节点</el-button>
-          </el-card>
-
-          <el-card shadow="never" class="page-card">
-            <template #header>
-              <div class="card-header">
-                <div>
-                  <span>关系编辑</span>
-                  <p class="card-caption">编辑时间模式、Join Keys 和关联方向。</p>
-                </div>
-              </div>
-            </template>
-
-            <el-form label-position="top">
-              <el-form-item label="关系名">
-                <el-input v-model="edgeForm.name" />
-              </el-form-item>
-              <el-form-item label="来源节点">
-                <el-input v-model="edgeForm.from" />
-              </el-form-item>
-              <el-form-item label="目标节点">
-                <el-input v-model="edgeForm.to" />
-              </el-form-item>
-              <el-form-item label="关系类型">
-                <el-select v-model="edgeForm.relation_type" style="width: 100%">
-                  <el-option label="direct" value="direct" />
-                  <el-option label="bridge" value="bridge" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="Join Keys">
-                <el-input v-model="edgeForm.join_keys" type="textarea" :rows="3" />
-              </el-form-item>
-              <el-form-item label="时间模式">
-                <el-select v-model="edgeForm.time_mode" style="width: 100%">
-                  <el-option label="same_date" value="same_date" />
-                  <el-option label="same_timestamp" value="same_timestamp" />
-                  <el-option label="asof" value="asof" />
-                  <el-option label="effective_range" value="effective_range" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="Base Time Field">
-                <el-input v-model="edgeForm.base_time_field" />
-              </el-form-item>
-              <el-form-item label="Base Time Cast">
-                <el-input v-model="edgeForm.base_time_cast" />
-              </el-form-item>
-              <el-form-item label="Source Time Field">
-                <el-input v-model="edgeForm.source_time_field" />
-              </el-form-item>
-              <el-form-item label="Source Start / End">
-                <el-input v-model="edgeForm.source_range" />
-              </el-form-item>
-              <el-form-item label="描述">
-                <el-input v-model="edgeForm.description" type="textarea" :rows="3" />
-              </el-form-item>
-            </el-form>
-
-            <el-button type="primary" @click="notifyAction('关系已保存', saveEdge)">保存关系</el-button>
-          </el-card>
-        </div>
-      </el-col>
-    </el-row>
+          <el-table :data="selectedRelations" height="360" empty-text="当前节点没有关联边">
+            <el-table-column prop="edge_name" label="边名" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="from_node" label="From" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="to_node" label="To" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="relation_type" label="关系类型" min-width="110" />
+            <el-table-column prop="time_mode" label="时间模式" min-width="120" />
+            <el-table-column prop="join_keys_text" label="Join Keys" min-width="200" show-overflow-tooltip />
+          </el-table>
+        </el-card>
+      </div>
+    </section>
   </div>
 </template>

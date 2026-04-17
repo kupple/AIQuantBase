@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import load_yaml
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(slots=True)
@@ -37,6 +38,7 @@ class DatasourceConfig:
 class DiscoveryConfig:
     allow_databases: list[str] = field(default_factory=list)
     allow_tables: list[str] = field(default_factory=list)
+    trading_calendar_table: str = ""
 
 
 @dataclass(slots=True)
@@ -46,12 +48,18 @@ class RuntimeConfig:
     discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
 
 
-DEFAULT_RUNTIME_CONFIG_PATH = Path("config/runtime.local.yaml")
-DEFAULT_RUNTIME_EXAMPLE_PATH = Path("config/runtime.example.yaml")
+DEFAULT_RUNTIME_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.local.yaml"
+DEFAULT_RUNTIME_EXAMPLE_PATH = PROJECT_ROOT / "config" / "runtime.example.yaml"
 
 
 def load_runtime_config(path: str | Path = DEFAULT_RUNTIME_CONFIG_PATH) -> RuntimeConfig:
-    data = load_yaml(path)
+    resolved_path = Path(path)
+    if not resolved_path.is_absolute():
+        resolved_path = PROJECT_ROOT / resolved_path
+    if not resolved_path.exists() and resolved_path.name == "runtime.local.yaml" and DEFAULT_RUNTIME_EXAMPLE_PATH.exists():
+        resolved_path = DEFAULT_RUNTIME_EXAMPLE_PATH
+
+    data = load_yaml(resolved_path)
     if "llm" not in data or "datasource" not in data:
         raise ValueError("Runtime config must contain 'llm' and 'datasource'")
     return RuntimeConfig(

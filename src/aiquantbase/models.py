@@ -28,7 +28,11 @@ class Node:
     description: str | None = None
     description_zh: str | None = None
     node_role: str | None = None
-    is_ai_entry: bool = False
+    status: str = "enabled"
+    physical_node: str | None = None
+    asset_type: str | None = None
+    query_freq: str | None = None
+    base_filters: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -169,6 +173,7 @@ class PlanStep:
     to_node: str
     relation_type: str
     join_keys: list[dict[str, str]]
+    to_table: str | None = None
     time_binding: TimeBinding | None = None
     bridge_steps: list[BridgeStep] = field(default_factory=list)
     lookahead_safe_for_event: bool = False
@@ -199,6 +204,13 @@ class FieldCatalogEntry:
     source_node: str | None
     source_field: str | None
     field_role: str
+    base_node: str | None = None
+    binding_mode: str | None = None
+    source_table: str | None = None
+    relation_type: str | None = None
+    join_keys: list[dict[str, str]] = field(default_factory=list)
+    time_binding: TimeBinding | None = None
+    bridge_steps: list[BridgeStep] = field(default_factory=list)
     resolver_type: str = "direct"
     depends_on: list[str] = field(default_factory=list)
     formula: str | None = None

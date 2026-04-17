@@ -1,9 +1,10 @@
 import { computed, toRef } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useRuntimeConfig, useState } from '#imports'
+import { useState } from '#imports'
+
+const SUPPORT_NODE_PREFIX = 'support__'
 
 export function useWorkbench() {
-  const config = useRuntimeConfig()
   const state = useState('workbench-state', createWorkbenchState)
   const loading = useState('workbench-loading', () => false)
   const saveMessage = useState('workbench-save-message', () => '等待加载工作区')
@@ -14,48 +15,199 @@ export function useWorkbench() {
   const runtime = toRef(state.value, 'runtime')
   const graph = toRef(state.value, 'graph')
   const fields = toRef(state.value, 'fields')
+  const protocolSummary = toRef(state.value, 'protocolSummary')
   const schema = toRef(state.value, 'schema')
+  const attach = toRef(state.value, 'attach')
   const queryLab = toRef(state.value, 'queryLab')
   const nodeForm = toRef(state.value, 'nodeForm')
-  const edgeForm = toRef(state.value, 'edgeForm')
-  const fieldForm = toRef(state.value, 'fieldForm')
+  const bindingForm = toRef(state.value, 'bindingForm')
+  const selectedNodeName = toRef(state.value, 'selectedNodeName')
 
   const graphSummary = computed(() => ({
     nodes: graph.value.nodes.length,
-    edges: graph.value.edges.length,
     fields: fields.value.length,
   }))
 
-  const flowNodes = computed(() =>
-    graph.value.nodes.map((node, index) => ({
+  const visibleNodes = computed(() =>
+    graph.value.nodes.filter((node) => node.node_role !== 'support' && !String(node.name || '').startsWith(SUPPORT_NODE_PREFIX))
+  )
+
+  const currentTableProfile = computed(() => ({
+    database: nodeForm.value.database,
+    table: nodeForm.value.tableName,
+    columnCount: schema.value.columns.length,
+    selectedCount: nodeForm.value.fields.length,
+  }))
+
+  const currentNodeFieldBindings = computed(() => {
+    const nodeName = selectedNodeName.value || nodeForm.value.name
+    if (!nodeName) return []
+
+    const nodeLookup = new Map(graph.value.nodes.map((node) => [node.name, node]))
+    const currentNode = nodeLookup.get(nodeName)
+    const currentBaseNodeName = String(currentNode?.physical_node || currentNode?.name || '')
+    const relatedEdges = graph.value.edges.filter(
+      (edge) => edge.from === nodeName || (currentBaseNodeName && edge.from === currentBaseNodeName)
+    )
+    const edgeLookup = new Map(relatedEdges.map((edge) => [edge.to, edge]))
+
+    const supportNodeNames = new Set(relatedEdges.map((edge) => edge.to))
+    supportNodeNames.add(nodeName)
+    if (currentBaseNodeName) {
+      supportNodeNames.add(currentBaseNodeName)
+    }
+
+    const catalogRows = fields.value
+      .map((field) => {
+        const bindingMode = field.binding_mode || (field.source_table ? 'source_table' : (field.source_node ? 'source_node' : 'derived'))
+        const fieldBaseNode = String(field.base_node || '')
+        const belongsToCurrentNode = fieldBaseNode
+          ? [nodeName, currentBaseNodeName].includes(fieldBaseNode)
+          : (
+              field.source_table === currentNode?.table ||
+              supportNodeNames.has(String(field.source_node || '')) ||
+              relatedEdges.some((edge) => {
+                const targetNode = nodeLookup.get(edge.to)
+                return targetNode?.table === field.source_table
+              })
+            )
+
+        if (!belongsToCurrentNode) {
+          return null
+        }
+
+        let resolvedSourceNodeName = bindingMode === 'source_node' ? (field.source_node || '') : ''
+        if (!resolvedSourceNodeName && !fieldBaseNode && field.source_table) {
+          if (field.source_table === currentNode?.table) {
+            resolvedSourceNodeName = nodeName
+          } else {
+            const matchedEdge = relatedEdges.find((edge) => {
+              const targetNode = nodeLookup.get(edge.to)
+              return targetNode?.table === field.source_table
+            })
+            resolvedSourceNodeName = matchedEdge?.to || ''
+          }
+        }
+        const sourceNode = nodeLookup.get(resolvedSourceNodeName)
+        const relationEdge = resolvedSourceNodeName === nodeName ? null : edgeLookup.get(resolvedSourceNodeName)
+        const joinKeys = field.join_keys?.length ? field.join_keys : (relationEdge?.join_keys || [])
+        const timeBinding = field.time_binding || relationEdge?.time_binding || null
+        const joinKeysText = joinKeys.map((item) => `${item.base} -> ${item.source}`).join(', ')
+        const sourceTableRef = field.source_table || sourceNode?.table || ''
+        const bindingType = bindingMode === 'derived'
+          ? 'derived'
+          : (sourceTableRef === currentNode?.table || resolvedSourceNodeName === nodeName ? 'base' : 'relation')
+
+        return {
+          ...field,
+          base_node: fieldBaseNode || currentBaseNodeName || nodeName,
+          binding_mode: bindingMode,
+          source_node: bindingMode === 'source_node' ? (resolvedSourceNodeName || field.source_node || '') : '',
+          source_table: sourceTableRef,
+          binding_type: bindingType,
+          relation_mode: timeBinding?.mode || '',
+          join_keys_text: joinKeysText,
+          edge_name: relationEdge?.name || '',
+          base_join_field: joinKeys?.[0]?.base || '',
+          source_join_field: joinKeys?.[0]?.source || '',
+          base_time_field: timeBinding?.base_time_field || '',
+          source_time_field: timeBinding?.source_time_field || '',
+          source_start_field: timeBinding?.source_start_field || '',
+          source_end_field: timeBinding?.source_end_field || '',
+        }
+      })
+      .filter(Boolean)
+
+    const existingBaseFields = new Set(
+      catalogRows.filter((item) => item.binding_type === 'base').map((item) => item.source_field)
+    )
+
+    const rawBaseRows = (currentNode?.fields || [])
+      .filter((fieldName) => !existingBaseFields.has(fieldName))
+      .map((fieldName) => ({
+        standard_field: fieldName,
+        binding_mode: 'source_table',
+        base_node: currentBaseNodeName || nodeName,
+        source_node: '',
+        source_field: fieldName,
+        source_table: currentNode?.table || '',
+        field_role: 'base_field',
+        binding_type: 'base',
+        relation_mode: '',
+        join_keys_text: '',
+        edge_name: '',
+        base_join_field: '',
+        source_join_field: '',
+        base_time_field: '',
+        source_time_field: '',
+        source_start_field: '',
+        source_end_field: '',
+        notes: ['来自节点主表字段'],
+        __isRawOnly: true,
+      }))
+
+    return [...rawBaseRows, ...catalogRows]
+  })
+
+  const currentNodeGraph = computed(() => {
+    const nodeName = selectedNodeName.value || nodeForm.value.name
+    if (!nodeName) return { nodes: [], edges: [], related: [] }
+
+    const currentNode = graph.value.nodes.find((node) => node.name === nodeName)
+    const outgoing = graph.value.edges.filter((edge) => getEdgeFrom(edge) === nodeName)
+    const relatedNodes = outgoing
+      .map((edge) => graph.value.nodes.find((node) => node.name === getEdgeTo(edge)))
+      .filter(Boolean)
+
+    const nodes = [currentNode, ...relatedNodes].filter(Boolean).map((node, index) => ({
       id: node.name,
       position: {
-        x: 120 + (index % 3) * 320,
-        y: 100 + Math.floor(index / 3) * 200,
+        x: index === 0 ? 80 : 420,
+        y: index === 0 ? 160 : 80 + (index - 1) * 120,
       },
       data: node,
       type: 'default',
     }))
-  )
 
-  const flowEdges = computed(() =>
-    graph.value.edges.map((edge, index) => ({
+    const edges = outgoing.map((edge, index) => ({
       id: `${edge.name}-${index}`,
-      source: edge.from,
-      target: edge.to,
+      source: getEdgeFrom(edge),
+      target: getEdgeTo(edge),
       label: edge.time_binding?.mode || edge.relation_type,
+      style: { stroke: '#409eff', strokeWidth: 2 },
+      labelStyle: { fill: '#606266', fontWeight: 600 },
       animated: edge.time_binding?.mode === 'asof',
-      style: { stroke: '#25635f', strokeWidth: 2.2 },
-      labelStyle: { fill: '#25635f', fontWeight: 700 },
     }))
-  )
 
-  const graphPreview = computed(() => toYaml({ nodes: graph.value.nodes, edges: graph.value.edges }))
-  const fieldsPreview = computed(() => toYaml({ fields: fields.value }))
+    return {
+      nodes,
+      edges,
+      related: outgoing.map((edge) => {
+        const target = graph.value.nodes.find((node) => node.name === edge.to)
+        return {
+          edge_name: edge.name,
+          target_node: getEdgeTo(edge),
+          target_table: target?.table || '',
+          relation_type: edge.relation_type,
+          time_mode: edge.time_binding?.mode || '-',
+          join_keys_text: edge.join_keys?.map((item) => `${item.base} -> ${item.source}`).join(', ') || '-',
+        }
+      }),
+    }
+  })
+
+  const hasDatasourceConfigured = computed(() => {
+    const datasource = runtime.value.datasource || {}
+    return Boolean(datasource.db_type && datasource.host && datasource.port && datasource.username)
+  })
+
+  const hasLlmConfigured = computed(() => {
+    const llm = runtime.value.llm || {}
+    return Boolean(llm.enabled && llm.base_url && llm.model_name && llm.api_key)
+  })
 
   async function api(path, options = {}) {
-    const base = config.public.backendBase || ''
-    const response = await fetch(`${base}${path}`, {
+    const response = await fetch(path, {
       headers: {
         'Content-Type': 'application/json',
         ...(options.headers || {}),
@@ -63,23 +215,38 @@ export function useWorkbench() {
       ...options,
     })
 
+    const contentType = response.headers.get('content-type') || ''
+    const isJson = contentType.includes('application/json')
+    const payload = isJson ? await response.json() : await response.text()
+
     if (!response.ok) {
-      throw new Error(await response.text())
+      const message = typeof payload === 'string'
+        ? payload
+        : payload?.message || payload?.error || JSON.stringify(payload)
+      throw new Error(message || '请求失败')
     }
 
-    return response.json()
+    return payload
   }
 
   async function notifyAction(successMessage, action) {
     try {
       const result = await action()
       if (successMessage) {
-        ElMessage.success(successMessage)
+        ElMessage.success({
+          message: successMessage,
+          duration: 1800,
+          grouping: true,
+        })
       }
       return result
     } catch (error) {
       const message = error instanceof Error ? error.message : '操作失败'
-      ElMessage.error(message)
+      ElMessage.error({
+        message,
+        duration: 2600,
+        grouping: true,
+      })
       throw error
     }
   }
@@ -100,16 +267,42 @@ export function useWorkbench() {
       )
 
       runtime.value.datasource = payload.runtime?.datasource || {}
+      runtime.value.llm = payload.runtime?.llm || {}
       runtime.value.discovery = payload.runtime?.discovery || {}
       graph.value.nodes = payload.graph?.nodes || []
-      graph.value.edges = payload.graph?.edges || []
-      fields.value = payload.fields || []
+      graph.value.edges = normalizeEdges(payload.graph?.edges || [])
+      fields.value = normalizeFieldCatalog(payload.fields || [], graph.value.nodes, graph.value.edges)
+      protocolSummary.value = await loadProtocolSummary()
 
       saveMessage.value = '工作区已载入'
       initialized.value = true
       lastLoadedSignature.value = currentWorkspaceSignature(workspace.value)
 
-      await loadDatabases()
+      let schemaReady = true
+      try {
+        await loadDatabases()
+      } catch (error) {
+        schemaReady = false
+        schema.value.databases = []
+        schema.value.tables = []
+        schema.value.columns = []
+        attach.value.databases = []
+        attach.value.tables = []
+        attach.value.columns = []
+        saveMessage.value = `数据库未连接: ${error instanceof Error ? error.message : '请检查设置'}`
+      }
+
+      const firstNode = visibleNodes.value[0]
+      if (firstNode) {
+        if (schemaReady) {
+          await editNode(firstNode)
+        } else {
+          applyNodeSnapshot(firstNode)
+        }
+      } else {
+        startNewNode()
+      }
+
       return payload
     } catch (error) {
       saveMessage.value = `载入失败: ${error.message}`
@@ -130,10 +323,12 @@ export function useWorkbench() {
             fields_path: workspace.value.fieldsPath,
             runtime_path: workspace.value.runtimePath,
           },
+          runtime: runtime.value,
           graph: graph.value,
           fields: fields.value,
         }),
       })
+      protocolSummary.value = await loadProtocolSummary()
 
       saveMessage.value = '配置已保存到工作目录'
       return true
@@ -147,157 +342,609 @@ export function useWorkbench() {
 
   async function loadDatabases() {
     const payload = await api(`/api/schema/databases?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}`)
-    schema.value.databases = payload.items || []
+    const items = payload.items || []
+    schema.value.databases = items
+    attach.value.databases = items
+  }
+
+  async function loadProtocolSummary() {
+    const payload = await api(
+      `/api/metadata/protocol-summary?graph_path=${encodeURIComponent(workspace.value.graphPath)}&fields_path=${encodeURIComponent(workspace.value.fieldsPath)}&runtime_path=${encodeURIComponent(workspace.value.runtimePath)}`
+    )
+    return payload
+  }
+
+  async function testDatasourceConnection() {
+    const payload = await api(`/api/schema/databases?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}`)
+    const items = payload.items || []
+    schema.value.databases = items
+    attach.value.databases = items
+    saveMessage.value = items.length ? '数据库连接成功' : '数据库连接成功，但没有可见库'
+    return payload
   }
 
   async function selectDatabase(value) {
-    schema.value.selectedDatabase = value
+    nodeForm.value.database = value || ''
+    nodeForm.value.tableName = ''
+    nodeForm.value.entity_keys = []
+    nodeForm.value.time_key = ''
+    nodeForm.value.fields = []
+
+    schema.value.selectedDatabase = value || ''
     schema.value.tables = []
-    schema.value.selectedTable = ''
     schema.value.columns = []
-    schema.value.selectedColumns = []
+
+    if (!value) return []
 
     const payload = await api(
       `/api/schema/tables?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}&database=${encodeURIComponent(value)}`
     )
     schema.value.tables = payload.items || []
+    return schema.value.tables
   }
 
   async function selectTable(name) {
-    schema.value.selectedTable = name
+    nodeForm.value.tableName = name || ''
+    nodeForm.value.fields = []
+    schema.value.selectedTable = name || ''
     schema.value.columns = []
-    schema.value.selectedColumns = []
+
+    if (!schema.value.selectedDatabase || !name) return []
 
     const payload = await api(
       `/api/schema/columns?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}&database=${encodeURIComponent(schema.value.selectedDatabase)}&table=${encodeURIComponent(name)}`
     )
     schema.value.columns = payload.items || []
+    syncNodeSelectionDefaults()
+    return schema.value.columns
   }
 
-  function toggleColumn(name) {
-    if (schema.value.selectedColumns.includes(name)) {
-      schema.value.selectedColumns = schema.value.selectedColumns.filter((item) => item !== name)
-      return
-    }
+  async function selectAttachDatabase(value) {
+    attach.value.selectedDatabase = value || ''
+    attach.value.selectedTable = ''
+    attach.value.tables = []
+    attach.value.columns = []
+    resetBindingSourceSelection()
 
-    schema.value.selectedColumns = [...schema.value.selectedColumns, name]
+    if (!value) return []
+
+    const payload = await api(
+      `/api/schema/tables?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}&database=${encodeURIComponent(value)}`
+    )
+    attach.value.tables = payload.items || []
+    return attach.value.tables
   }
 
-  function clearSelectedColumns() {
-    schema.value.selectedColumns = []
+  async function selectAttachTable(name) {
+    attach.value.selectedTable = name || ''
+    attach.value.columns = []
+    resetBindingSourceSelection({ keepDatabase: true, keepTable: true })
+
+    if (!attach.value.selectedDatabase || !name) return []
+
+    const payload = await api(
+      `/api/schema/columns?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}&database=${encodeURIComponent(attach.value.selectedDatabase)}&table=${encodeURIComponent(name)}`
+    )
+    attach.value.columns = payload.items || []
+    syncBindingDefaults()
+    return attach.value.columns
   }
 
   function inferNodeTemplate() {
-    const selectedTable = String(schema.value.selectedTable || '')
+    const selectedTable = String(nodeForm.value.tableName || '')
     const allFields = schema.value.columns.map((item) => item.name)
-    const selected = schema.value.selectedColumns.length ? schema.value.selectedColumns : allFields
 
+    if (!nodeForm.value.name) {
+      nodeForm.value.name = selectedTable.replace(/^ad_/, '')
+    }
+    nodeForm.value.grain = inferGrain(selectedTable)
+    nodeForm.value.entity_keys = nodeForm.value.entity_keys.length ? nodeForm.value.entity_keys : inferEntityKeys(allFields)
+    nodeForm.value.time_key = nodeForm.value.time_key || inferTimeKey(allFields)
+    nodeForm.value.fields = nodeForm.value.fields.length ? nodeForm.value.fields : allFields
+
+    if (!nodeForm.value.description) {
+      nodeForm.value.description = `从 ${nodeForm.value.database}.${selectedTable} 生成`
+    }
+
+    syncBindingDefaults()
+  }
+
+  function startNewNode() {
+    selectedNodeName.value = ''
+    Object.assign(nodeForm.value, blankNode())
+    Object.assign(bindingForm.value, blankBinding())
+    schema.value.selectedDatabase = ''
+    schema.value.selectedTable = ''
+    schema.value.tables = []
+    schema.value.columns = []
+    attach.value.selectedDatabase = ''
+    attach.value.selectedTable = ''
+    attach.value.tables = []
+    attach.value.columns = []
+  }
+
+  function applyNodeSnapshot(target) {
+    const { database, tableName } = parseTableRef(target.table)
     Object.assign(nodeForm.value, {
       editIndex: '',
-      name: selectedTable.replace(/^ad_/, ''),
-      table: `${schema.value.selectedDatabase}.${selectedTable}`,
-      entity_keys: selected.includes('code') ? 'code' : selected.includes('market_code') ? 'market_code' : '',
-      time_key: selected.includes('trade_time')
-        ? 'trade_time'
-        : selected.includes('trade_date')
-          ? 'trade_date'
-          : selected.includes('change_date')
-            ? 'change_date'
-            : '',
-      grain: inferGrain(selectedTable),
-      fields: selected.join(', '),
-      description: `从 ${schema.value.selectedDatabase}.${selectedTable} 生成`,
+      name: target.name || '',
+      database,
+      tableName,
+      entity_keys: Array.isArray(target.entity_keys) ? [...target.entity_keys] : [],
+      time_key: target.time_key || '',
+      grain: target.grain || inferGrain(tableName),
+      fields: Array.isArray(target.fields) ? [...target.fields] : [],
+      description: target.description || target.description_zh || '',
+      node_role: target.node_role || 'real',
+      status: target.status || 'enabled',
+      physical_node: target.physical_node || '',
+      asset_type: target.asset_type || '',
+      query_freq: target.query_freq || '',
+      base_filters: normalizeBaseFilters(target.base_filters),
     })
+    selectedNodeName.value = target.name || ''
+    syncBindingDefaults()
   }
 
-  function addSelectedColumnsAsFields() {
-    const sourceNode = nodeForm.value.name || String(schema.value.selectedTable || '').replace(/^ad_/, '')
-
-    schema.value.selectedColumns.forEach((column) => {
-      fields.value.push({
-        standard_field: column,
-        source_node: sourceNode,
-        source_field: column,
-        field_role: 'direct_field',
-        resolver_type: 'direct',
-        applies_to_grain: inferGrain(schema.value.selectedTable),
-        depends_on: [],
-        formula: null,
-        notes: ['从数据库字段批量加入'],
-      })
-    })
+  function resetBindingForm() {
+    Object.assign(bindingForm.value, blankBinding())
+    syncBindingDefaults()
   }
 
-  function addSingleField(column) {
-    Object.assign(fieldForm.value, {
-      editIndex: '',
-      standard_field: column,
-      source_node: nodeForm.value.name || String(schema.value.selectedTable || '').replace(/^ad_/, ''),
-      source_field: column,
-      field_role: 'direct_field',
-      resolver_type: 'direct',
-      applies_to_grain: inferGrain(schema.value.selectedTable),
-      depends_on: '',
-      formula: '',
-      notes: '从数据库字段直接加入',
+  async function editNode(node, explicitIndex = null) {
+    const target = typeof node === 'string'
+      ? graph.value.nodes.find((item) => item.name === node)
+      : node
+
+    if (!target) return null
+
+    const nodeIndex = explicitIndex !== null && explicitIndex !== undefined
+      ? explicitIndex
+      : graph.value.nodes.findIndex((item) => item.name === target.name)
+
+    const { database, tableName } = parseTableRef(target.table)
+
+    if (database) {
+      await selectDatabase(database)
+    }
+    if (tableName) {
+      await selectTable(tableName)
+    }
+
+    Object.assign(nodeForm.value, {
+      editIndex: nodeIndex >= 0 ? String(nodeIndex) : '',
+      name: target.name || '',
+      database,
+      tableName,
+      entity_keys: Array.isArray(target.entity_keys) ? [...target.entity_keys] : [],
+      time_key: target.time_key || '',
+      grain: target.grain || inferGrain(tableName),
+      fields: Array.isArray(target.fields) ? [...target.fields] : [],
+      description: target.description || target.description_zh || '',
+      node_role: target.node_role || 'real',
+      status: target.status || 'enabled',
+      physical_node: target.physical_node || '',
+      asset_type: target.asset_type || '',
+      query_freq: target.query_freq || '',
+      base_filters: normalizeBaseFilters(target.base_filters),
     })
+
+    selectedNodeName.value = target.name || ''
+
+    syncBindingDefaults()
+    return target
   }
 
   function saveNode() {
-    const payload = {
-      name: nodeForm.value.name.trim(),
-      table: nodeForm.value.table.trim(),
-      entity_keys: splitCsv(nodeForm.value.entity_keys),
-      time_key: nodeForm.value.time_key.trim() || null,
-      grain: nodeForm.value.grain.trim() || null,
-      fields: splitCsv(nodeForm.value.fields),
-      description: nodeForm.value.description.trim() || null,
+    const name = String(nodeForm.value.name || '').trim()
+    const database = String(nodeForm.value.database || '').trim()
+    const tableName = String(nodeForm.value.tableName || '').trim()
+
+    if (!name) {
+      throw new Error('请先填写节点名')
+    }
+    if (!database || !tableName) {
+      throw new Error('请先为节点选择主表')
     }
 
-    upsert(graph.value.nodes, nodeForm.value.editIndex, payload)
-    Object.assign(nodeForm.value, blankNode())
+    const payload = {
+      name,
+      table: `${database}.${tableName}`,
+      entity_keys: uniqueList(nodeForm.value.entity_keys),
+      time_key: nodeForm.value.time_key || null,
+      grain: nodeForm.value.grain || inferGrain(tableName),
+      fields: uniqueList(nodeForm.value.fields),
+      description: String(nodeForm.value.description || '').trim() || null,
+      node_role: nodeForm.value.node_role || 'real',
+      status: String(nodeForm.value.status || 'enabled'),
+      physical_node: String(nodeForm.value.physical_node || '').trim() || null,
+      asset_type: String(nodeForm.value.asset_type || '').trim() || null,
+      query_freq: String(nodeForm.value.query_freq || '').trim() || null,
+      base_filters: normalizeBaseFilters(nodeForm.value.base_filters),
+    }
+
+    const index = upsert(graph.value.nodes, nodeForm.value.editIndex, payload, (item) => item.name === payload.name)
+    nodeForm.value.editIndex = String(index)
+    selectedNodeName.value = payload.name
+    return payload
   }
 
-  function saveEdge() {
-    const [sourceStartField, sourceEndField] = splitCsv(edgeForm.value.source_range)
-    const payload = {
-      name: edgeForm.value.name.trim(),
-      from: edgeForm.value.from.trim(),
-      to: edgeForm.value.to.trim(),
-      relation_type: edgeForm.value.relation_type,
-      join_keys: parseJoinKeys(edgeForm.value.join_keys),
-      time_binding: edgeForm.value.time_mode
-        ? {
-            mode: edgeForm.value.time_mode,
-            base_time_field: edgeForm.value.base_time_field.trim() || null,
-            base_time_cast: edgeForm.value.base_time_cast.trim() || null,
-            source_time_field: edgeForm.value.source_time_field.trim() || null,
-            source_start_field: sourceStartField || null,
-            source_end_field: sourceEndField || null,
-          }
-        : null,
-      description: edgeForm.value.description.trim() || null,
+  function saveRelatedFieldBinding() {
+    const currentNode = saveNode()
+    const standardField = String(bindingForm.value.standard_field || '').trim()
+    const sourceDatabase = String(attach.value.selectedDatabase || '').trim()
+    const sourceTable = String(attach.value.selectedTable || '').trim()
+    const sourceField = String(bindingForm.value.source_field || '').trim()
+    const baseJoinField = String(bindingForm.value.base_join_field || '').trim()
+    const sourceJoinField = String(bindingForm.value.source_join_field || '').trim()
+
+    if (!standardField) {
+      throw new Error('请选择或填写标准字段名')
     }
 
-    upsert(graph.value.edges, edgeForm.value.editIndex, payload)
-    Object.assign(edgeForm.value, blankEdge())
+    if (
+      bindingForm.value.edit_mode &&
+      bindingForm.value.original_standard_field &&
+      (bindingForm.value.original_source_node || bindingForm.value.original_source_table)
+    ) {
+      removeFieldBindingByKey(
+        bindingForm.value.original_standard_field,
+        bindingForm.value.original_base_node,
+        bindingForm.value.original_source_node,
+        bindingForm.value.original_source_table,
+        bindingForm.value.original_source_field,
+      )
+      cleanupSupportNodeIfUnused(bindingForm.value.original_source_node)
+    }
+
+    if (bindingForm.value.binding_mode === 'source_node') {
+      if (!bindingForm.value.source_node || !sourceField) {
+        throw new Error('请先选择来源节点和来源字段')
+      }
+      upsertField(fields.value, {
+        base_node: String(currentNode.physical_node || currentNode.name),
+        standard_field: standardField,
+        binding_mode: 'source_node',
+        source_table: null,
+        source_node: bindingForm.value.source_node,
+        source_field: sourceField,
+        relation_type: null,
+        join_keys: [],
+        time_binding: null,
+        bridge_steps: [],
+        field_role: bindingForm.value.field_role || 'direct_field',
+        resolver_type: bindingForm.value.resolver_type || 'direct',
+        depends_on: [],
+        formula: null,
+        applies_to_grain: currentNode.grain,
+        notes: uniqueList([String(bindingForm.value.notes || '').trim()]),
+      })
+
+      Object.assign(bindingForm.value, {
+        ...blankBinding(),
+        binding_mode: 'source_table',
+        field_role: bindingForm.value.field_role,
+        resolver_type: bindingForm.value.resolver_type,
+        base_join_field: currentNode.entity_keys[0] || '',
+        base_time_field: currentNode.time_key || '',
+        time_mode: inferDefaultTimeMode(currentNode.grain),
+      })
+      return
+    }
+
+    if (!sourceDatabase || !sourceTable || !sourceField) {
+      throw new Error('请先选择关联来源表和来源字段')
+    }
+    if (!baseJoinField || !sourceJoinField) {
+      throw new Error('请先选择主表键和来源表键')
+    }
+
+    const sourceTableRef = `${sourceDatabase}.${sourceTable}`
+    const baseNodeName = String(currentNode.physical_node || currentNode.name)
+    const timeBinding = buildTimeBinding(bindingForm.value)
+    ensureNodeFields(currentNode.name, [baseJoinField, currentNode.time_key])
+
+    upsertField(fields.value, {
+      base_node: baseNodeName,
+      standard_field: standardField,
+      binding_mode: 'source_table',
+      source_table: sourceTableRef,
+      source_node: null,
+      source_field: sourceField,
+      relation_type: 'direct',
+      join_keys: [{ base: baseJoinField, source: sourceJoinField }],
+      time_binding: timeBinding,
+      bridge_steps: [],
+      field_role: bindingForm.value.field_role || 'direct_field',
+      resolver_type: bindingForm.value.resolver_type || 'direct',
+      depends_on: [],
+      formula: null,
+      applies_to_grain: currentNode.grain,
+      notes: uniqueList([
+        `挂载自 ${sourceTableRef}.${sourceField}`,
+        String(bindingForm.value.notes || '').trim(),
+      ]),
+    })
+
+    Object.assign(bindingForm.value, {
+      ...blankBinding(),
+      binding_mode: 'source_table',
+      field_role: bindingForm.value.field_role,
+      resolver_type: bindingForm.value.resolver_type,
+      base_join_field: currentNode.entity_keys[0] || '',
+      base_time_field: currentNode.time_key || '',
+      time_mode: inferDefaultTimeMode(currentNode.grain),
+    })
   }
 
-  function saveField() {
-    const payload = {
-      standard_field: fieldForm.value.standard_field.trim(),
-      source_node: fieldForm.value.source_node.trim() || null,
-      source_field: fieldForm.value.source_field.trim() || null,
-      field_role: fieldForm.value.field_role.trim() || null,
-      resolver_type: fieldForm.value.resolver_type,
-      depends_on: splitCsv(fieldForm.value.depends_on),
-      formula: fieldForm.value.formula.trim() || null,
-      applies_to_grain: fieldForm.value.applies_to_grain.trim() || null,
-      notes: splitLines(fieldForm.value.notes),
+  function addBaseFieldBinding() {
+    const currentNode = saveNode()
+    const sourceField = String(bindingForm.value.base_source_field || '').trim()
+    const standardField = String(bindingForm.value.standard_field || '').trim() || sourceField
+
+    if (!sourceField) {
+      throw new Error('请先选择主表字段')
     }
 
-    upsert(fields.value, fieldForm.value.editIndex, payload)
-    Object.assign(fieldForm.value, blankField())
+    if (
+      bindingForm.value.edit_mode &&
+      bindingForm.value.original_standard_field &&
+      (bindingForm.value.original_source_node || bindingForm.value.original_source_table || bindingForm.value.original_base_node)
+    ) {
+      removeFieldBindingByKey(
+        bindingForm.value.original_standard_field,
+        bindingForm.value.original_base_node,
+        bindingForm.value.original_source_node,
+        bindingForm.value.original_source_table,
+        bindingForm.value.original_source_field,
+      )
+      cleanupSupportNodeIfUnused(bindingForm.value.original_source_node)
+    }
+
+    ensureNodeFields(currentNode.name, [sourceField])
+
+    upsertField(fields.value, {
+      base_node: String(currentNode.physical_node || currentNode.name),
+      standard_field: standardField,
+      binding_mode: 'source_table',
+      source_table: currentNode.table,
+      source_node: null,
+      source_field: sourceField,
+      relation_type: null,
+      join_keys: [],
+      time_binding: null,
+      bridge_steps: [],
+      field_role: bindingForm.value.field_role || 'direct_field',
+      resolver_type: bindingForm.value.resolver_type || 'direct',
+      depends_on: [],
+      formula: null,
+      applies_to_grain: currentNode.grain,
+      notes: uniqueList([
+        `挂载自主表字段 ${currentNode.table}.${sourceField}`,
+        String(bindingForm.value.notes || '').trim(),
+      ]),
+    })
+
+    Object.assign(bindingForm.value, {
+      ...blankBinding(),
+      binding_mode: 'source_table',
+      field_role: bindingForm.value.field_role,
+      resolver_type: bindingForm.value.resolver_type,
+      base_join_field: currentNode.entity_keys[0] || '',
+      base_time_field: currentNode.time_key || '',
+      time_mode: inferDefaultTimeMode(currentNode.grain),
+    })
+  }
+
+  function saveDerivedFieldBinding() {
+    const currentNode = saveNode()
+    const standardField = String(bindingForm.value.standard_field || '').trim()
+    const formula = String(bindingForm.value.formula || '').trim()
+    const dependsOn = uniqueList(bindingForm.value.depends_on || [])
+
+    if (!standardField) {
+      throw new Error('请先填写标准字段名')
+    }
+    if (!formula) {
+      throw new Error('请先填写派生公式')
+    }
+    if (!dependsOn.length) {
+      throw new Error('请至少选择一个依赖字段')
+    }
+
+    if (
+      bindingForm.value.edit_mode &&
+      bindingForm.value.original_standard_field &&
+      (bindingForm.value.original_source_node || bindingForm.value.original_source_table || bindingForm.value.original_base_node)
+    ) {
+      removeFieldBindingByKey(
+        bindingForm.value.original_standard_field,
+        bindingForm.value.original_base_node,
+        bindingForm.value.original_source_node,
+        bindingForm.value.original_source_table,
+        bindingForm.value.original_source_field,
+      )
+      cleanupSupportNodeIfUnused(bindingForm.value.original_source_node)
+    }
+
+    upsertField(fields.value, {
+      base_node: String(currentNode.physical_node || currentNode.name),
+      standard_field: standardField,
+      binding_mode: 'derived',
+      source_table: null,
+      source_node: null,
+      source_field: null,
+      relation_type: null,
+      join_keys: [],
+      time_binding: null,
+      bridge_steps: [],
+      field_role: bindingForm.value.field_role || 'derived_field',
+      resolver_type: 'derived',
+      depends_on: dependsOn,
+      formula,
+      applies_to_grain: currentNode.grain,
+      notes: uniqueList([String(bindingForm.value.notes || '').trim()]),
+    })
+
+    Object.assign(bindingForm.value, {
+      ...blankBinding(),
+      field_role: 'derived_field',
+      resolver_type: 'derived',
+    })
+  }
+
+  function ensureSupportNodeAndEdge(currentNode) {
+    const sourceDatabase = attach.value.selectedDatabase
+    const sourceTable = attach.value.selectedTable
+    const sourceTableRef = `${sourceDatabase}.${sourceTable}`
+    const supportNodeName = makeSupportNodeName(currentNode.name, sourceDatabase, sourceTable)
+    const timeBinding = buildTimeBinding(bindingForm.value)
+    const supportFields = uniqueList([
+      bindingForm.value.source_field,
+      bindingForm.value.source_join_field,
+      bindingForm.value.source_time_field,
+      bindingForm.value.source_start_field,
+      bindingForm.value.source_end_field,
+    ])
+
+    const existingSupportNode = graph.value.nodes.find((item) => item.name === supportNodeName)
+    const supportNodePayload = {
+      name: supportNodeName,
+      table: sourceTableRef,
+      entity_keys: uniqueList([bindingForm.value.source_join_field]),
+      time_key: inferSupportTimeKey(bindingForm.value),
+      grain: inferGrain(sourceTable),
+      fields: uniqueList([...(existingSupportNode?.fields || []), ...supportFields]),
+      description: `${currentNode.name} 的关联来源表`,
+      node_role: 'support',
+      status: 'disabled',
+    }
+    upsert(graph.value.nodes, null, supportNodePayload, (item) => item.name === supportNodePayload.name)
+
+    const edgePayload = {
+      name: makeEdgeName(currentNode.name, supportNodeName),
+      from: currentNode.name,
+      to: supportNodeName,
+      relation_type: 'direct',
+      source_table: sourceTableRef,
+      join_keys: [{ base: bindingForm.value.base_join_field, source: bindingForm.value.source_join_field }],
+      time_binding: timeBinding,
+      description: `${currentNode.name} 关联 ${sourceTableRef}`,
+    }
+    upsert(graph.value.edges, null, edgePayload, (item) => item.name === edgePayload.name)
+
+    ensureNodeFields(currentNode.name, [bindingForm.value.base_join_field, bindingForm.value.base_time_field])
+    return supportNodeName
+  }
+
+  function ensureNodeFields(nodeName, extraFields) {
+    const node = graph.value.nodes.find((item) => item.name === nodeName)
+    if (!node) return
+    node.fields = uniqueList([...(node.fields || []), ...extraFields])
+  }
+
+  function getNodeDeleteImpact(nodeName) {
+    const supportPrefix = `${SUPPORT_NODE_PREFIX}${nodeName}__`
+    const targetNode = graph.value.nodes.find((node) => node.name === nodeName)
+    const targetTable = String(targetNode?.table || '')
+    const referencedByPhysicalNodes = graph.value.nodes.filter(
+      (node) => node.name !== nodeName && String(node.physical_node || '') === nodeName
+    )
+    const referencedBySourceFields = fields.value.filter(
+      (field) => String(field.base_node || '') !== nodeName && String(field.source_node || '') === nodeName
+    )
+    const referencedByLegacyTableFields = fields.value.filter(
+      (field) =>
+        String(field.base_node || '') !== nodeName &&
+        String(field.source_table || '') === targetTable &&
+        !hasDirectFieldRelation(field)
+    )
+    const referencedByEdges = graph.value.edges.filter((edge) => {
+      const fromName = String(edge.from || edge.from_node || '')
+      const toName = String(edge.to || edge.to_node || '')
+      if (fromName === nodeName && toName.startsWith(supportPrefix)) return false
+      if (toName === nodeName && fromName === nodeName) return false
+      return fromName === nodeName || toName === nodeName
+    })
+    return {
+      referencedByPhysicalNodes,
+      referencedBySourceFields,
+      referencedByLegacyTableFields,
+      referencedByEdges,
+      canDelete:
+        referencedByPhysicalNodes.length === 0 &&
+        referencedBySourceFields.length === 0 &&
+        referencedByLegacyTableFields.length === 0,
+    }
+  }
+
+  function deleteNode(nodeName) {
+    const supportPrefix = `${SUPPORT_NODE_PREFIX}${nodeName}__`
+    const impact = getNodeDeleteImpact(nodeName)
+    if (!impact.canDelete) {
+      const messages = []
+      if (impact.referencedByPhysicalNodes.length) {
+        messages.push(`被 ${impact.referencedByPhysicalNodes.length} 个节点作为 physical_node 引用`)
+      }
+      if (impact.referencedBySourceFields.length) {
+        messages.push(`被 ${impact.referencedBySourceFields.length} 个字段作为 source_node 引用`)
+      }
+      if (impact.referencedByLegacyTableFields.length) {
+        messages.push(`仍有 ${impact.referencedByLegacyTableFields.length} 个旧版 source_table 字段依赖这个节点`)
+      }
+      throw new Error(`节点仍被引用，不能删除：${messages.join('；')}`)
+    }
+
+    graph.value.nodes = graph.value.nodes.filter((node) => node.name !== nodeName && !node.name.startsWith(supportPrefix))
+    graph.value.edges = graph.value.edges.filter(
+      (edge) => edge.from !== nodeName && edge.to !== nodeName && !String(edge.to || '').startsWith(supportPrefix)
+    )
+    fields.value = fields.value.filter(
+      (field) =>
+        String(field.base_node || '') !== nodeName &&
+        field.source_node !== nodeName &&
+        !String(field.source_node || '').startsWith(supportPrefix)
+    )
+
+    if (selectedNodeName.value === nodeName) {
+      const nextNode = visibleNodes.value[0]
+      if (nextNode) {
+        editNode(nextNode)
+      } else {
+        startNewNode()
+      }
+    }
+  }
+
+  function removeFieldBindingByKey(standardField, baseNode = '', sourceNode = '', sourceTable = '', sourceField = '') {
+    fields.value = fields.value.filter(
+      (field) => !(
+        field.standard_field === standardField &&
+        String(field.base_node || '') === String(baseNode || '') &&
+        String(field.source_node || '') === String(sourceNode || '') &&
+        String(field.source_table || '') === String(sourceTable || '') &&
+        String(field.source_field || '') === String(sourceField || '')
+      )
+    )
+  }
+
+  function cleanupSupportNodeIfUnused(nodeName) {
+    if (!String(nodeName || '').startsWith(SUPPORT_NODE_PREFIX)) return
+    const stillReferenced = fields.value.some((field) => field.source_node === nodeName)
+    if (stillReferenced) return
+    graph.value.nodes = graph.value.nodes.filter((node) => node.name !== nodeName)
+    graph.value.edges = graph.value.edges.filter((edge) => edge.from !== nodeName && edge.to !== nodeName)
+  }
+
+  function removeFieldBinding(fieldEntry) {
+    removeFieldBindingByKey(
+      fieldEntry.standard_field,
+      fieldEntry.base_node,
+      fieldEntry.source_node,
+      fieldEntry.source_table,
+      fieldEntry.source_field,
+    )
+    cleanupSupportNodeIfUnused(fieldEntry.source_node)
   }
 
   async function runNaturalLanguageQuery() {
@@ -312,6 +959,14 @@ export function useWorkbench() {
           query: queryLab.value.naturalQuery,
         }),
       })
+
+      if (payload && payload.ok === false) {
+        queryLab.value.queryIntent = payload.query_intent || null
+        queryLab.value.sql = payload.sql || ''
+        queryLab.value.result = payload
+        queryLab.value.error = payload.error || '生成失败'
+        return payload
+      }
 
       queryLab.value.queryIntent = payload.query_intent
       queryLab.value.sql = payload.sql
@@ -335,6 +990,12 @@ export function useWorkbench() {
         }),
       })
 
+      if (payload && payload.ok === false) {
+        queryLab.value.error = payload.error || 'SQL 执行失败'
+        queryLab.value.result = payload
+        return payload
+      }
+
       queryLab.value.result = payload
       return payload
     } catch (error) {
@@ -344,53 +1005,40 @@ export function useWorkbench() {
     }
   }
 
-  function editNode(node, index) {
-    Object.assign(nodeForm.value, {
-      editIndex: String(index),
-      name: node.name || '',
-      table: node.table || '',
-      entity_keys: (node.entity_keys || []).join(', '),
-      time_key: node.time_key || '',
-      grain: node.grain || '',
-      fields: (node.fields || []).join(', '),
-      description: node.description || '',
-    })
+  function syncNodeSelectionDefaults() {
+    const columnNames = schema.value.columns.map((item) => item.name)
+    if (!nodeForm.value.entity_keys.length) {
+      nodeForm.value.entity_keys = inferEntityKeys(columnNames)
+    }
+    if (!nodeForm.value.time_key) {
+      nodeForm.value.time_key = inferTimeKey(columnNames)
+    }
+    if (!nodeForm.value.grain) {
+      nodeForm.value.grain = inferGrain(nodeForm.value.tableName)
+    }
+    if (!nodeForm.value.name && nodeForm.value.tableName) {
+      nodeForm.value.name = String(nodeForm.value.tableName).replace(/^ad_/, '')
+    }
+    syncBindingDefaults()
   }
 
-  function editEdge(edge, index) {
-    Object.assign(edgeForm.value, {
-      editIndex: String(index),
-      name: edge.name || '',
-      from: edge.from || '',
-      to: edge.to || '',
-      relation_type: edge.relation_type || 'direct',
-      join_keys: (edge.join_keys || []).map((item) => `base:${item.base} -> source:${item.source}`).join('\n'),
-      time_mode: edge.time_binding?.mode || '',
-      base_time_field: edge.time_binding?.base_time_field || '',
-      base_time_cast: edge.time_binding?.base_time_cast || '',
-      source_time_field: edge.time_binding?.source_time_field || '',
-      source_range: [edge.time_binding?.source_start_field, edge.time_binding?.source_end_field].filter(Boolean).join(', '),
-      description: edge.description || '',
-    })
+  function syncBindingDefaults() {
+    bindingForm.value.base_join_field = bindingForm.value.base_join_field || nodeForm.value.entity_keys[0] || ''
+    bindingForm.value.base_time_field = bindingForm.value.base_time_field || nodeForm.value.time_key || ''
+    bindingForm.value.time_mode = bindingForm.value.time_mode || inferDefaultTimeMode(nodeForm.value.grain)
+    bindingForm.value.field_role = bindingForm.value.field_role || 'direct_field'
+    bindingForm.value.resolver_type = bindingForm.value.resolver_type || 'direct'
   }
 
-  function editField(field, index) {
-    Object.assign(fieldForm.value, {
-      editIndex: String(index),
-      standard_field: field.standard_field || '',
-      source_node: field.source_node || '',
-      source_field: field.source_field || '',
-      field_role: field.field_role || '',
-      resolver_type: field.resolver_type || 'direct',
-      applies_to_grain: field.applies_to_grain || '',
-      depends_on: (field.depends_on || []).join(', '),
-      formula: field.formula || '',
-      notes: (field.notes || []).join('\n'),
-    })
-  }
-
-  function removeItem(collection, index) {
-    collection.splice(index, 1)
+  function resetBindingSourceSelection(options = {}) {
+    bindingForm.value.source_field = ''
+    bindingForm.value.source_join_field = ''
+    bindingForm.value.source_time_field = ''
+    bindingForm.value.source_start_field = ''
+    bindingForm.value.source_end_field = ''
+    if (!options.keepTable) {
+      bindingForm.value.standard_field = ''
+    }
   }
 
   return {
@@ -401,37 +1049,44 @@ export function useWorkbench() {
     runtime,
     graph,
     fields,
+    protocolSummary,
     schema,
+    attach,
     queryLab,
     nodeForm,
-    edgeForm,
-    fieldForm,
+    bindingForm,
+    selectedNodeName,
     graphSummary,
-    flowNodes,
-    flowEdges,
-    graphPreview,
-    fieldsPreview,
+    hasDatasourceConfigured,
+    hasLlmConfigured,
+    visibleNodes,
+    currentTableProfile,
+    currentNodeFieldBindings,
+    currentNodeGraph,
     notifyAction,
     ensureWorkspaceLoaded,
     loadWorkspace,
     saveWorkspace,
+    loadProtocolSummary,
     loadDatabases,
+    testDatasourceConnection,
     selectDatabase,
     selectTable,
-    toggleColumn,
-    clearSelectedColumns,
+    selectAttachDatabase,
+    selectAttachTable,
     inferNodeTemplate,
-    addSelectedColumnsAsFields,
-    addSingleField,
+    startNewNode,
+    resetBindingForm,
     saveNode,
-    saveEdge,
-    saveField,
+    addBaseFieldBinding,
+    saveDerivedFieldBinding,
+    saveRelatedFieldBinding,
+    deleteNode,
+    getNodeDeleteImpact,
+    removeFieldBinding,
     runNaturalLanguageQuery,
     runSql,
     editNode,
-    editEdge,
-    editField,
-    removeItem,
   }
 }
 
@@ -443,6 +1098,7 @@ function createWorkbenchState() {
       runtimePath: 'config/runtime.local.yaml',
     },
     runtime: {
+      llm: {},
       datasource: {},
       discovery: {},
     },
@@ -451,13 +1107,30 @@ function createWorkbenchState() {
       edges: [],
     },
     fields: [],
+    protocolSummary: {
+      code: 0,
+      message: '',
+      summary: {
+        enabled_real_nodes: 0,
+        disabled_real_nodes: 0,
+        total_fields_across_enabled_nodes: 0,
+        edge_count: 0,
+      },
+      items: [],
+    },
     schema: {
       databases: [],
       selectedDatabase: '',
       tables: [],
       selectedTable: '',
       columns: [],
-      selectedColumns: [],
+    },
+    attach: {
+      databases: [],
+      selectedDatabase: '',
+      tables: [],
+      selectedTable: '',
+      columns: [],
     },
     queryLab: {
       naturalQuery: '查询 2026年4月1日到2026年4月7日 000004.SZ 的市值、流通市值和换手率，按日期升序返回',
@@ -466,9 +1139,9 @@ function createWorkbenchState() {
       result: null,
       error: '',
     },
+    selectedNodeName: '',
     nodeForm: blankNode(),
-    edgeForm: blankEdge(),
-    fieldForm: blankField(),
+    bindingForm: blankBinding(),
   }
 }
 
@@ -476,49 +1149,174 @@ function blankNode() {
   return {
     editIndex: '',
     name: '',
-    table: '',
-    entity_keys: '',
+    database: '',
+    tableName: '',
+    entity_keys: [],
     time_key: '',
-    grain: '',
-    fields: '',
+    grain: 'daily',
+    fields: [],
     description: '',
+    node_role: 'real',
+    status: 'enabled',
+    physical_node: '',
+    asset_type: '',
+    query_freq: '',
+    base_filters: [],
   }
 }
 
-function blankEdge() {
+function blankBinding() {
   return {
-    editIndex: '',
-    name: '',
-    from: '',
-    to: '',
-    relation_type: 'direct',
-    join_keys: '',
-    time_mode: '',
-    base_time_field: '',
-    base_time_cast: '',
-    source_time_field: '',
-    source_range: '',
-    description: '',
-  }
-}
-
-function blankField() {
-  return {
-    editIndex: '',
+    base_source_field: '',
+    binding_mode: 'source_table',
     standard_field: '',
     source_node: '',
     source_field: '',
-    field_role: '',
+    field_role: 'direct_field',
     resolver_type: 'direct',
-    applies_to_grain: '',
-    depends_on: '',
+    base_join_field: '',
+    source_join_field: '',
+    time_mode: '',
+    base_time_field: '',
+    source_time_field: '',
+    source_start_field: '',
+    source_end_field: '',
+    depends_on: [],
     formula: '',
     notes: '',
+    edit_mode: false,
+    original_base_node: '',
+    original_source_table: '',
+    original_standard_field: '',
+    original_source_node: '',
+    original_source_field: '',
+    original_binding_type: '',
   }
 }
 
 function currentWorkspaceSignature(workspace) {
   return [workspace.graphPath, workspace.fieldsPath, workspace.runtimePath].join('::')
+}
+
+function getEdgeFrom(edge) {
+  return edge?.from || edge?.from_node || ''
+}
+
+function getEdgeTo(edge) {
+  return edge?.to || edge?.to_node || ''
+}
+
+function normalizeEdges(edges) {
+  return (edges || []).map((edge) => ({
+    ...edge,
+    from: edge?.from || edge?.from_node || '',
+    to: edge?.to || edge?.to_node || '',
+  }))
+}
+
+function normalizeFieldCatalog(fields, nodes, edges) {
+  const nodeLookup = new Map((nodes || []).map((node) => [node.name, node]))
+  const normalizedEdges = normalizeEdges(edges || [])
+  const realNodes = (nodes || []).filter((node) => node.node_role !== 'support' && !String(node.name || '').startsWith(SUPPORT_NODE_PREFIX))
+
+  return (fields || []).map((field) => {
+    const bindingMode = field.binding_mode || (field.source_table ? 'source_table' : (field.source_node ? 'source_node' : 'derived'))
+    const nextField = {
+      ...field,
+      binding_mode: bindingMode,
+      join_keys: Array.isArray(field.join_keys) ? field.join_keys : [],
+      bridge_steps: Array.isArray(field.bridge_steps) ? field.bridge_steps : [],
+    }
+
+    if (!nextField.base_node) {
+      const owner = inferBaseNodeForField(nextField, realNodes, nodeLookup, normalizedEdges)
+      if (owner) {
+        nextField.base_node = owner
+      }
+    }
+
+    if (
+      bindingMode === 'source_table' &&
+      nextField.source_table &&
+      !hasDirectFieldRelation(nextField) &&
+      nextField.base_node
+    ) {
+      const ownerEdge = inferDirectEdgeForField(nextField, nodeLookup, normalizedEdges)
+      if (ownerEdge) {
+        nextField.relation_type = nextField.relation_type || ownerEdge.relation_type || 'direct'
+        nextField.join_keys = ownerEdge.join_keys || []
+        nextField.time_binding = nextField.time_binding || ownerEdge.time_binding || null
+        nextField.bridge_steps = nextField.bridge_steps?.length ? nextField.bridge_steps : (ownerEdge.bridge_steps || [])
+      }
+    }
+
+    return nextField
+  })
+}
+
+function inferBaseNodeForField(field, realNodes, nodeLookup, edges) {
+  if (field.base_node) return String(field.base_node)
+
+  const grainMatchedNodes = (realNodes || []).filter((node) => {
+    if (!field.applies_to_grain) return true
+    return String(node.grain || '') === String(field.applies_to_grain || '')
+  })
+
+  if (field.binding_mode === 'source_table' && field.source_table) {
+    const byDirectTable = grainMatchedNodes.filter((node) => String(node.table || '') === String(field.source_table || ''))
+    if (byDirectTable.length === 1) {
+      return byDirectTable[0].name
+    }
+
+    const byDirectEdge = grainMatchedNodes.filter((node) =>
+      edges.some((edge) => {
+        if (String(edge.from || '') !== String(node.name || '')) return false
+        const targetNode = nodeLookup.get(String(edge.to || ''))
+        return String(targetNode?.table || '') === String(field.source_table || '')
+      })
+    )
+    if (byDirectEdge.length === 1) {
+      return byDirectEdge[0].name
+    }
+
+    if (field.via_node) {
+      const viaCandidates = grainMatchedNodes.filter((node) =>
+        edges.some((edge) => String(edge.from || '') === String(node.name || '') && String(edge.to || '') === String(field.via_node || ''))
+      )
+      if (viaCandidates.length === 1) {
+        return viaCandidates[0].name
+      }
+    }
+  }
+
+  if (field.binding_mode === 'source_node' && field.source_node) {
+    const byIncoming = grainMatchedNodes.filter((node) =>
+      edges.some((edge) => String(edge.from || '') === String(node.name || '') && String(edge.to || '') === String(field.source_node || ''))
+    )
+    if (byIncoming.length === 1) {
+      return byIncoming[0].name
+    }
+  }
+
+  return ''
+}
+
+function inferDirectEdgeForField(field, nodeLookup, edges) {
+  if (!field.base_node || !field.source_table) return null
+  const ownerNode = nodeLookup.get(String(field.base_node || ''))
+  if (!ownerNode || String(ownerNode.table || '') === String(field.source_table || '')) {
+    return null
+  }
+
+  const matches = edges.filter((edge) => {
+    if (String(edge.from || '') !== String(ownerNode.name || '')) return false
+    const targetNode = nodeLookup.get(String(edge.to || ''))
+    return String(targetNode?.table || '') === String(field.source_table || '')
+  })
+  if (matches.length !== 1) {
+    return null
+  }
+  return matches[0]
 }
 
 function inferGrain(tableName) {
@@ -529,26 +1327,128 @@ function inferGrain(tableName) {
   return 'daily'
 }
 
-function upsert(collection, index, payload) {
-  if (index !== null && index !== undefined && index !== '') {
-    collection[Number(index)] = payload
-  } else {
-    collection.push(payload)
+function inferEntityKeys(fields) {
+  const candidates = ['code', 'symbol', 'ts_code', 'market_code', 'index_code', 'fund_code', 'industry_code']
+  const hit = candidates.find((item) => fields.includes(item))
+  return hit ? [hit] : []
+}
+
+function inferTimeKey(fields) {
+  const candidates = ['trade_time', 'trade_date', 'date', 'change_date', 'ann_date', 'report_date', 'end_date']
+  return candidates.find((item) => fields.includes(item)) || ''
+}
+
+function inferDefaultTimeMode(grain) {
+  return String(grain || '').includes('minute') ? 'same_timestamp' : 'same_date'
+}
+
+function inferSupportTimeKey(bindingForm) {
+  if (bindingForm.time_mode === 'effective_range') {
+    return bindingForm.source_start_field || bindingForm.source_end_field || null
+  }
+  return bindingForm.source_time_field || null
+}
+
+function buildTimeBinding(bindingForm) {
+  const mode = String(bindingForm.time_mode || '').trim()
+  if (!mode || mode === 'none') return null
+
+  if (mode === 'effective_range') {
+    return {
+      mode,
+      base_time_field: bindingForm.base_time_field || null,
+      source_start_field: bindingForm.source_start_field || null,
+      source_end_field: bindingForm.source_end_field || null,
+    }
+  }
+
+  return {
+    mode,
+    base_time_field: bindingForm.base_time_field || null,
+    source_time_field: bindingForm.source_time_field || null,
   }
 }
 
+function parseTableRef(tableRef) {
+  const text = String(tableRef || '')
+  const dot = text.indexOf('.')
+  if (dot < 0) {
+    return { database: '', tableName: text }
+  }
+  return {
+    database: text.slice(0, dot),
+    tableName: text.slice(dot + 1),
+  }
+}
+
+function makeSupportNodeName(baseNodeName, database, table) {
+  return `${SUPPORT_NODE_PREFIX}${sanitizeName(baseNodeName)}__${sanitizeName(database)}__${sanitizeName(table)}`
+}
+
+function makeEdgeName(baseNodeName, supportNodeName) {
+  return `edge__${sanitizeName(baseNodeName)}__${sanitizeName(supportNodeName)}`
+}
+
+function sanitizeName(value) {
+  return String(value || '').replace(/[^a-zA-Z0-9_]+/g, '_')
+}
+
+function upsert(collection, index, payload, matcher = null) {
+  let targetIndex = index
+  if ((targetIndex === null || targetIndex === undefined || targetIndex === '') && matcher) {
+    targetIndex = collection.findIndex(matcher)
+  }
+
+  if (targetIndex !== null && targetIndex !== undefined && targetIndex !== '' && Number(targetIndex) >= 0) {
+    collection[Number(targetIndex)] = payload
+    return Number(targetIndex)
+  }
+
+  collection.push(payload)
+  return collection.length - 1
+}
+
+function upsertField(collection, payload) {
+  const index = collection.findIndex(
+    (item) =>
+      String(item.base_node || '') === String(payload.base_node || '') &&
+      item.standard_field === payload.standard_field &&
+      String(item.source_node || '') === String(payload.source_node || '') &&
+      String(item.source_table || '') === String(payload.source_table || '') &&
+      String(item.source_field || '') === String(payload.source_field || '') &&
+      String(item.binding_mode || '') === String(payload.binding_mode || '')
+  )
+
+  if (index >= 0) {
+    collection[index] = payload
+    return index
+  }
+
+  collection.push(payload)
+  return collection.length - 1
+}
+
+function hasDirectFieldRelation(field) {
+  return Boolean(
+    String(field.binding_mode || '') === 'source_table' &&
+    (
+      (Array.isArray(field.join_keys) && field.join_keys.length) ||
+      field.time_binding ||
+      (Array.isArray(field.bridge_steps) && field.bridge_steps.length)
+    )
+  )
+}
+
+function uniqueList(values) {
+  return [...new Set((values || []).map((item) => String(item || '').trim()).filter(Boolean))]
+}
+
 function splitCsv(value) {
-  return String(value || '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
+  return uniqueList(String(value || '').split(','))
 }
 
 function splitLines(value) {
-  return String(value || '')
-    .split('\n')
-    .map((item) => item.trim())
-    .filter(Boolean)
+  return uniqueList(String(value || '').split('\n'))
 }
 
 function parseJoinKeys(text) {
@@ -604,4 +1504,14 @@ function yamlScalar(value) {
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   const text = String(value)
   return /[:{}\[\],&*#?|\-<>=!%@`]/.test(text) ? JSON.stringify(text) : text
+}
+
+function normalizeBaseFilters(items) {
+  return (items || [])
+    .map((item) => ({
+      field: String(item?.field || '').trim(),
+      op: String(item?.op || '').trim() || '=',
+      value: item?.value === undefined || item?.value === null ? '' : String(item.value),
+    }))
+    .filter((item) => item.field)
 }
