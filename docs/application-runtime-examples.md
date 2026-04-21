@@ -74,7 +74,59 @@ print(result["debug"]["sql"])
 print(result["df"])
 ```
 
-## 5. 查询前先看字段支持清单
+## 5. 按交易日拉分钟执行窗口
+
+```python
+result = runtime.query_minute_window_by_trading_day(
+    symbols=["002545.SZ"],
+    trading_days=["2024-03-04"],
+    start_hhmm="14:30",
+    end_hhmm="14:31",
+    fields=["open", "is_limit_up", "limit_up_price"],
+    asset_type="stock",
+)
+
+print(result["ok"])
+print(result["meta"])
+print(result["debug"]["sql"])
+print(result["df"])
+```
+
+适合：
+
+1. 上层已经确定执行日
+2. 想直接查 `14:30-14:31` 这种分钟执行窗口
+
+## 6. 按锚点拉下一交易日分钟执行窗口
+
+```python
+result = runtime.query_next_trading_day_intraday_windows(
+    anchors=[
+        {
+            "anchor_id": "002545.SZ__2024-03-01__2024-03-04",
+            "code": "002545.SZ",
+            "signal_date": "2024-03-01",
+            "execution_date": "2024-03-04",
+        }
+    ],
+    start_hhmm="14:30",
+    end_hhmm="14:31",
+    fields=["open", "is_limit_up"],
+    asset_type="stock",
+)
+
+print(result["ok"])
+print(result["meta"])
+print(result["debug"]["sql"])
+print(result["df"])
+```
+
+适合：
+
+1. `AlphaBlocks intraday_requirement`
+2. 日线信号先算好，再让 AIQuantBase 只负责分钟窗口取数
+
+## 7. 查询前先看字段支持清单
 
 ### 按资产类型
 
@@ -113,7 +165,7 @@ result = runtime.get_supported_fields(
 )
 ```
 
-## 6. 查询前先校验请求
+## 8. 查询前先校验请求
 
 ```python
 request = {
@@ -132,7 +184,7 @@ print(result)
 
 这个例子里，ETF + `is_st` 会被提前拦住。
 
-## 7. 从 requirement 构造 intent
+## 9. 从 requirement 构造 intent
 
 ```python
 data_requirement = {
@@ -150,7 +202,7 @@ print(result["resolved"])
 print(result["intent"])
 ```
 
-## 8. 直接执行 requirement
+## 10. 直接执行 requirement
 
 ```python
 data_requirement = {
@@ -170,7 +222,7 @@ print(result["debug"]["sql"])
 print(result["df"])
 ```
 
-## 9. 原生 SQL 调试
+## 11. 原生 SQL 调试
 
 如果需要直接打底层 SQL：
 
@@ -181,22 +233,23 @@ print(result)
 
 更推荐只在排错或调试时这样用。
 
-## 10. 推荐调用顺序
+## 12. 推荐调用顺序
 
 上层项目最推荐的顺序：
 
 1. `resolve_symbols()`
 2. `get_supported_fields()`
 3. `validate_query_request()`
-4. `build_intent_from_requirement()`
-5. `execute_requirement()`
+4. `query_minute_window_by_trading_day()` 或 `query_next_trading_day_intraday_windows()`
+5. `build_intent_from_requirement()`
+6. `execute_requirement()`
 
 如果场景比较简单，也可以直接：
 
 1. `query_daily()`
 2. `query_minute()`
 
-## 11. 当前边界
+## 13. 当前边界
 
 当前 `ApplicationRuntime` 已支持：
 

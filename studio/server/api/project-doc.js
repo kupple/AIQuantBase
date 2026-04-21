@@ -16,11 +16,36 @@ export default defineEventHandler(async (event) => {
   }
   const docPath = resolve(docsDir, requested)
   const markdown = await readFile(docPath, 'utf8')
+  const availableItems = await Promise.all(
+    availableDocs.map(async (doc) => {
+      const path = resolve(docsDir, doc)
+      const content = await readFile(path, 'utf8')
+      return {
+        doc,
+        title: extractTitle(content, doc),
+      }
+    })
+  )
   return {
     ok: true,
     doc: requested,
     path: docPath,
     availableDocs,
+    availableItems,
     markdown,
   }
 })
+
+function extractTitle(markdown, fallback) {
+  const lines = String(markdown || '').replace(/\r\n/g, '\n').split('\n')
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    const headingMatch = trimmed.match(/^#\s+(.*)$/)
+    if (headingMatch) {
+      return headingMatch[1].trim()
+    }
+    break
+  }
+  return fallback
+}

@@ -5,9 +5,15 @@ from typing import Any
 
 import pandas as pd
 from datetime import datetime
+from time import perf_counter
 
 from .config import load_field_catalog, load_nodes_and_edges
 from .executor import ClickHouseExecutor
+from .membership import (
+    DEFAULT_MEMBERSHIP_PATH,
+    filter_symbols_by_membership as membership_filter_symbols,
+    query_membership as membership_query_membership,
+)
 from .planner import GraphRegistry, QueryPlanner
 from .runtime_config import DEFAULT_RUNTIME_CONFIG_PATH, load_runtime_config
 from .sql import SqlRenderer
@@ -30,6 +36,13 @@ ISSUE_ERROR_CODES = {
     'unsupported_field': 1109,
     'unsupported_asset_type': 1110,
     'missing_query_node': 1111,
+    'empty_result': 1112,
+    'query_failed': 1113,
+    'missing_anchors': 1114,
+    'missing_trading_days': 1115,
+    'invalid_intraday_time': 1116,
+    'trading_calendar_unavailable': 1117,
+    'missing_execution_date': 1118,
 }
 
 
@@ -92,6 +105,22 @@ ASSET_FIELD_ALLOWLIST = {
         'minute_open', 'minute_high', 'minute_low', 'minute_close', 'minute_volume', 'minute_amount',
         'security_type', 'security_name',
     },
+}
+
+INTRADAY_DIRECT_MINUTE_FIELDS = {
+    'open',
+    'high',
+    'low',
+    'close',
+    'volume',
+    'amount',
+}
+
+INTRADAY_LIMIT_DERIVED_FIELDS = {
+    'is_limit_up',
+    'is_limit_down',
+    'limit_up_price',
+    'limit_down_price',
 }
 
 
@@ -216,21 +245,31 @@ class GraphRuntime:
 
     def validate_query_request(self, request: dict[str, Any]) -> dict[str, Any]:
         symbols = list(request.get('symbols') or [])
+        universe = str(request.get('universe') or '').strip()
         fields = list(request.get('fields') or [])
         freq = request.get('freq', '1d')
         requested_asset_type = request.get('asset_type', 'auto')
         issues = []
 
-        if request.get('universe'):
+        supports_universe = universe == 'all_a' and freq == '1d'
+        if universe and universe != 'all_a':
             issues.append(
                 self._issue(
                     code='unsupported_universe',
-                    message='universe is not supported in current version',
+                    message=f'universe={universe} is not supported',
+                    path='universe',
+                )
+            )
+        elif universe == 'all_a' and freq != '1d':
+            issues.append(
+                self._issue(
+                    code='unsupported_universe',
+                    message='universe=all_a currently only supports freq=1d',
                     path='universe',
                 )
             )
 
-        if not symbols:
+        if not symbols and not supports_universe:
             issues.append(
                 self._issue(
                     code='missing_symbols',
@@ -272,7 +311,9 @@ class GraphRuntime:
 
         resolved_asset_type = requested_asset_type
         resolved_node = None
-        if requested_asset_type == 'auto' and symbols:
+        if requested_asset_type == 'auto' and supports_universe:
+            resolved_asset_type = 'stock'
+        elif requested_asset_type == 'auto' and symbols:
             resolved_symbols = self.resolve_symbols(symbols)
             issues.extend(
                 {
@@ -294,27 +335,29 @@ class GraphRuntime:
                         path='symbols',
                     )
                 )
-        if resolved_asset_type and not self.application_query_node_map.get(resolved_asset_type, {}).get(freq):
+        known_asset_types = set(self.asset_node_map.keys()) | set(self.application_query_node_map.keys())
+        if resolved_asset_type and resolved_asset_type not in known_asset_types:
             issues.append(
                 self._issue(
                     code='unsupported_asset_type',
-                    message=f'asset_type={resolved_asset_type} is not supported for freq={freq}',
+                    message=f'asset_type={resolved_asset_type} is not supported',
                     path='symbols.0' if symbols else 'asset_type',
                 )
             )
 
         resolved_best_node = self.resolve_best_node(
             symbols=symbols,
+            universe=universe or None,
             fields=fields,
             freq=freq,
             asset_type=resolved_asset_type,
         )
         resolved_node = resolved_best_node.get('node')
-        if not resolved_node and not any(issue['code'] == 'unsupported_asset_type' for issue in issues):
+        if not resolved_node and resolved_asset_type and not any(issue['code'] == 'unsupported_asset_type' for issue in issues):
             issues.append(
                 self._issue(
-                    code='unsupported_freq',
-                    message=f'freq={freq} is not supported for asset_type={resolved_asset_type}',
+                    code='missing_query_node',
+                    message=f'asset_type={resolved_asset_type} has no supported {freq} query node',
                     path='freq',
                 )
             )
@@ -343,13 +386,16 @@ class GraphRuntime:
         self,
         *,
         symbols: list[str] | None,
+        universe: str | None = None,
         fields: list[str],
         freq: str = '1d',
         asset_type: str = 'auto',
     ) -> dict[str, Any]:
         resolved_asset_type = asset_type
         issues = []
-        if asset_type == 'auto' and symbols:
+        if asset_type == 'auto' and universe == 'all_a' and freq == '1d':
+            resolved_asset_type = 'stock'
+        elif asset_type == 'auto' and symbols:
             resolved_symbols = self.resolve_symbols(list(symbols))
             asset_types = sorted({item['asset_type'] for item in resolved_symbols['items']})
             if len(asset_types) == 1:
@@ -364,6 +410,16 @@ class GraphRuntime:
                 resolved_asset_type = None
             else:
                 resolved_asset_type = None
+
+        known_asset_types = set(self.asset_node_map.keys()) | set(self.application_query_node_map.keys())
+        if resolved_asset_type and resolved_asset_type not in known_asset_types:
+            issues.append(
+                self._issue(
+                    code='unsupported_asset_type',
+                    message=f'asset_type={resolved_asset_type} is not supported',
+                )
+            )
+            resolved_asset_type = None
 
         candidates = self._candidate_nodes_for_asset_type(resolved_asset_type, freq)
         if resolved_asset_type and not candidates:
@@ -408,6 +464,8 @@ class GraphRuntime:
         end: str,
         asset_type: str = 'auto',
         freq: str = '1d',
+        memberships: dict[str, Any] | None = None,
+        membership_path: str | Path | None = None,
     ) -> dict[str, Any]:
         request = {
             'symbols': symbols or [],
@@ -417,73 +475,10 @@ class GraphRuntime:
             'end': end,
             'freq': freq,
             'asset_type': asset_type,
+            'memberships': memberships or None,
+            'membership_path': membership_path,
         }
-        validation = self.validate_query_request(request)
-        if not validation['ok']:
-            return {
-                'ok': False,
-                'df': pd.DataFrame(),
-                'issues': validation['issues'],
-                'meta': {
-                    'asset_type': validation['resolved']['asset_type'],
-                    'node': validation['resolved']['node'],
-                    'fields': fields,
-                    'row_count': 0,
-                    'symbol_count': len(symbols or []),
-                    'empty': True,
-                },
-                'debug': {
-                    'intent': None,
-                    'sql': '',
-                },
-            }
-
-        node = validation['resolved']['node']
-        identity_fields = self._identity_fields_for_node(node)
-        select_fields = list(dict.fromkeys(identity_fields + fields))
-        symbol_field = identity_fields[0] if identity_fields else 'code'
-        time_field = identity_fields[1] if len(identity_fields) > 1 else 'trade_time'
-        intent = {
-            'from': node,
-            'select': select_fields,
-            'where': {
-                'mode': 'and',
-                'items': (
-                    [{'field': symbol_field, 'op': 'in' if len(symbols or []) > 1 else '=', 'value': (symbols if len(symbols or []) > 1 else (symbols or [None])[0])}]
-                    if symbols
-                    else []
-                ),
-            },
-            'time_range': {
-                'field': time_field,
-                'start': start,
-                'end': end,
-            },
-            'page': 1,
-            'page_size': 500,
-            'safety': {
-                'lookahead_safe': False,
-                'strict_mode': True,
-            },
-        }
-        result = self.execute_intent(intent)
-        return {
-            'ok': result['code'] == 0,
-            'df': result['df'],
-            'issues': [],
-            'meta': {
-                'asset_type': validation['resolved']['asset_type'],
-                'node': node,
-                'fields': fields,
-                'row_count': int(len(result['df'])),
-                'symbol_count': len(symbols or []),
-                'empty': bool(result['df'].empty),
-            },
-            'debug': {
-                'intent': intent,
-                'sql': result['sql'],
-            },
-        }
+        return self._execute_query_request(request, page_size=None)
 
     def query_minute(
         self,
@@ -505,112 +500,412 @@ class GraphRuntime:
             'freq': freq,
             'asset_type': asset_type,
         }
-        validation = self.validate_query_request(request)
-        if not validation['ok']:
-            return {
-                'ok': False,
-                'df': pd.DataFrame(),
-                'issues': validation['issues'],
-                'meta': {
-                    'asset_type': validation['resolved']['asset_type'],
-                    'node': validation['resolved']['node'],
-                    'fields': fields,
-                    'row_count': 0,
-                    'symbol_count': len(symbols or []),
-                    'empty': True,
-                },
-                'debug': {
-                    'intent': None,
-                    'sql': '',
-                },
-            }
+        return self._execute_query_request(request, page_size=None)
 
-        node = validation['resolved']['node']
-        identity_fields = self._identity_fields_for_node(node)
-        select_fields = list(dict.fromkeys(identity_fields + fields))
-        symbol_field = identity_fields[0] if identity_fields else 'code'
-        time_field = identity_fields[1] if len(identity_fields) > 1 else 'trade_time'
-        intent = {
-            'from': node,
-            'select': select_fields,
-            'where': {
-                'mode': 'and',
-                'items': (
-                    [{'field': symbol_field, 'op': 'in' if len(symbols or []) > 1 else '=', 'value': (symbols if len(symbols or []) > 1 else (symbols or [None])[0])}]
-                    if symbols
-                    else []
-                ),
-            },
-            'time_range': {
-                'field': time_field,
-                'start': start,
-                'end': end,
-            },
-            'page': 1,
-            'page_size': 1000,
-            'safety': {
-                'lookahead_safe': False,
-                'strict_mode': True,
-            },
-        }
-        result = self.execute_intent(intent)
+    def query_membership(
+        self,
+        security_code: str,
+        *,
+        as_of_date: str,
+        security_type: str | None = None,
+        membership_path: str | Path | None = None,
+    ) -> dict[str, Any]:
+        items = membership_query_membership(
+            security_code,
+            as_of_date=as_of_date,
+            path=membership_path or DEFAULT_MEMBERSHIP_PATH,
+            security_type=security_type,
+            executor=self.executor,
+        )
         return {
-            'ok': result['code'] == 0,
-            'df': result['df'],
-            'issues': [],
-            'meta': {
-                'asset_type': validation['resolved']['asset_type'],
-                'node': node,
-                'fields': fields,
-                'row_count': int(len(result['df'])),
-                'symbol_count': len(symbols or []),
-                'empty': bool(result['df'].empty),
-            },
-            'debug': {
-                'intent': intent,
-                'sql': result['sql'],
-            },
+            'ok': True,
+            'items': items,
+            'count': len(items),
         }
 
-    def query_minute(
+    def filter_symbols_by_membership(
+        self,
+        memberships: dict[str, Any],
+        *,
+        as_of_date: str,
+        security_type: str | None = None,
+        membership_path: str | Path | None = None,
+    ) -> dict[str, Any]:
+        return membership_filter_symbols(
+            memberships,
+            as_of_date=as_of_date,
+            path=membership_path or DEFAULT_MEMBERSHIP_PATH,
+            security_type=security_type,
+            executor=self.executor,
+        )
+
+    def query_minute_window_by_trading_day(
         self,
         *,
-        symbols: list[str] | None = None,
-        universe: str | None = None,
+        symbols: list[str],
+        trading_days: list[str],
+        start_hhmm: str,
+        end_hhmm: str,
         fields: list[str],
-        start: str,
-        end: str,
-        asset_type: str = 'auto',
-        freq: str = '1m',
+        asset_type: str = 'stock',
     ) -> dict[str, Any]:
+        started = perf_counter()
         request = {
-            'symbols': symbols or [],
-            'universe': universe,
-            'fields': fields,
-            'start': start,
-            'end': end,
-            'freq': freq,
+            'symbols': list(symbols or []),
+            'trading_days': list(trading_days or []),
+            'start_hhmm': start_hhmm,
+            'end_hhmm': end_hhmm,
+            'fields': list(fields or []),
             'asset_type': asset_type,
         }
-        validation = self.validate_query_request(request)
+        validation = self._validate_intraday_window_request(request)
         if not validation['ok']:
-            return {
-                'ok': False,
-                'df': pd.DataFrame(),
-                'issues': validation['issues'],
-                'meta': {
-                    'asset_type': validation['resolved']['asset_type'],
-                    'node': validation['resolved']['node'],
-                    'fields': fields,
-                    'row_count': 0,
-                    'symbol_count': len(symbols or []),
-                    'empty': True,
+            return self._intraday_failure_result(
+                request=request,
+                validation=validation,
+                issues=validation['issues'],
+                elapsed_ms=int((perf_counter() - started) * 1000),
+                empty_reason='validation_failed',
+                row_count=0,
+                symbol_count=len(validation['resolved'].get('symbols') or list(symbols or [])),
+                trading_day_count=len(validation['resolved'].get('trading_days') or list(trading_days or [])),
+                query_count=0,
+            )
+
+        resolved = validation['resolved']
+        requested_fields = list(resolved['fields'])
+        symbols = list(resolved['symbols'])
+        trading_days = list(resolved['trading_days'])
+        minute_fields = list(resolved['minute_query_fields'])
+        direct_fields = list(resolved['direct_fields'])
+        limit_fields = list(resolved['limit_fields'])
+        daily_limit_fields = list(resolved['daily_limit_fields'])
+
+        frames: list[pd.DataFrame] = []
+        sqls: list[str] = []
+        query_attempts: list[dict[str, Any]] = []
+        query_issues: list[dict[str, Any]] = []
+        missing_trading_days: list[str] = []
+
+        for trading_day in trading_days:
+            day_start = f'{trading_day} {resolved["start_hhmm"]}:00'
+            day_end = f'{trading_day} {resolved["end_hhmm"]}:00'
+            day_result = self.query_minute(
+                symbols=symbols,
+                fields=minute_fields,
+                start=day_start,
+                end=day_end,
+                asset_type=resolved['asset_type'],
+                freq='1m',
+            )
+            day_debug = day_result.get('debug') or {}
+            sqls.append(str(day_debug.get('sql') or ''))
+            query_attempts.append(
+                {
+                    'trading_day': trading_day,
+                    'ok': bool(day_result.get('ok')),
+                    'issues': list(day_result.get('issues') or []),
+                    'intent': day_debug.get('intent'),
+                    'sql': day_debug.get('sql'),
+                }
+            )
+            if day_result.get('ok'):
+                day_df = day_result.get('df')
+                if isinstance(day_df, pd.DataFrame) and not day_df.empty:
+                    frames.append(day_df.copy())
+                    continue
+
+            day_issue_codes = {issue.get('code') for issue in day_result.get('issues') or [] if isinstance(issue, dict)}
+            if day_issue_codes and day_issue_codes.issubset({'empty_result'}):
+                missing_trading_days.append(trading_day)
+                continue
+            if not day_issue_codes and not day_result.get('ok'):
+                query_issues.append(
+                    self._issue(
+                        code='query_failed',
+                        message=f'intraday minute query failed for trading_day={trading_day}',
+                        path='query',
+                    )
+                )
+                continue
+            query_issues.extend(list(day_result.get('issues') or []))
+
+        if query_issues and not frames:
+            return self._intraday_failure_result(
+                request=request,
+                validation=validation,
+                issues=query_issues,
+                elapsed_ms=int((perf_counter() - started) * 1000),
+                empty_reason='query_failed',
+                row_count=0,
+                symbol_count=len(symbols),
+                trading_day_count=len(trading_days),
+                query_count=len(query_attempts),
+                extra_meta={'missing_trading_days': missing_trading_days},
+                debug_extra={'queries': query_attempts},
+                sqls=sqls,
+            )
+
+        if not frames:
+            return self._intraday_failure_result(
+                request=request,
+                validation=validation,
+                issues=[
+                    self._issue(
+                        code='empty_result',
+                        message='intraday minute query succeeded but returned no rows',
+                        path='query',
+                    )
+                ],
+                elapsed_ms=int((perf_counter() - started) * 1000),
+                empty_reason='no_rows',
+                row_count=0,
+                symbol_count=len(symbols),
+                trading_day_count=len(trading_days),
+                query_count=len(query_attempts),
+                extra_meta={'missing_trading_days': missing_trading_days},
+                debug_extra={'queries': query_attempts},
+                sqls=sqls,
+            )
+
+        df = pd.concat(frames, ignore_index=True)
+        df = self._normalize_intraday_trade_time(df)
+        if daily_limit_fields:
+            limit_bundle = self._fetch_intraday_limit_frame(
+                symbols=symbols,
+                trading_days=trading_days,
+                daily_fields=daily_limit_fields,
+            )
+            sqls.extend(limit_bundle.get('sqls') or [])
+            if limit_bundle['ok']:
+                daily_df = limit_bundle['df']
+                if not daily_df.empty:
+                    df = self._merge_intraday_limit_frame(df, daily_df)
+            else:
+                fatal_codes = {issue.get('code') for issue in limit_bundle.get('issues') or [] if isinstance(issue, dict)}
+                if fatal_codes and not fatal_codes.issubset({'empty_result'}):
+                    return self._intraday_failure_result(
+                        request=request,
+                        validation=validation,
+                        issues=list(limit_bundle.get('issues') or []),
+                        elapsed_ms=int((perf_counter() - started) * 1000),
+                        empty_reason='query_failed',
+                        row_count=0,
+                        symbol_count=len(symbols),
+                        trading_day_count=len(trading_days),
+                        query_count=len(query_attempts),
+                        extra_meta={'missing_trading_days': missing_trading_days},
+                        debug_extra={'queries': query_attempts},
+                        sqls=sqls,
+                    )
+            df = self._apply_intraday_limit_fields(df, limit_fields)
+
+        ordered_fields = list(dict.fromkeys(['code', 'trade_time'] + direct_fields + limit_fields))
+        df = df[[field for field in ordered_fields if field in df.columns]]
+        df = df.sort_values(['code', 'trade_time']).reset_index(drop=True)
+
+        return {
+            'ok': True,
+            'df': df,
+            'issues': [],
+            'meta': {
+                'asset_type': resolved['asset_type'],
+                'freq': '1m',
+                'node': resolved['node'],
+                'fields': requested_fields,
+                'row_count': int(len(df)),
+                'symbol_count': len(symbols),
+                'trading_day_count': len(trading_days),
+                'missing_trading_days': missing_trading_days,
+                'empty': False,
+                'empty_reason': None,
+                'elapsed_ms': int((perf_counter() - started) * 1000),
+                'query_count': len(query_attempts),
+            },
+            'debug': {
+                'request': request,
+                'validation': validation,
+                'resolved': resolved,
+                'intent': {
+                    'kind': 'minute_window_by_trading_day',
+                    'asset_type': resolved['asset_type'],
+                    'node': resolved['node'],
+                    'symbols': symbols,
+                    'trading_days': trading_days,
+                    'start_hhmm': resolved['start_hhmm'],
+                    'end_hhmm': resolved['end_hhmm'],
+                    'fields': requested_fields,
+                    'minute_query_fields': minute_fields,
+                    'daily_limit_fields': daily_limit_fields,
                 },
-                'debug': {
-                    'intent': None,
-                    'sql': '',
+                'sql': ';\n\n'.join(sql for sql in sqls if sql),
+                'sqls': [sql for sql in sqls if sql],
+                'queries': query_attempts,
+            },
+        }
+
+    def query_next_trading_day_intraday_windows(
+        self,
+        *,
+        anchors: list[dict[str, Any]],
+        start_hhmm: str,
+        end_hhmm: str,
+        fields: list[str],
+        asset_type: str = 'stock',
+    ) -> dict[str, Any]:
+        started = perf_counter()
+        request = {
+            'anchors': list(anchors or []),
+            'start_hhmm': start_hhmm,
+            'end_hhmm': end_hhmm,
+            'fields': list(fields or []),
+            'asset_type': asset_type,
+        }
+        anchor_bundle = self._resolve_intraday_anchors(list(anchors or []))
+        if not anchor_bundle['ok']:
+            validation = {
+                'ok': False,
+                'issues': list(anchor_bundle['issues']),
+                'resolved': {
+                    'asset_type': asset_type,
+                    'node': self.application_query_node_map.get(asset_type, {}).get('1m'),
+                    'fields': list(fields or []),
+                    'anchors': [],
                 },
             }
+            return self._intraday_failure_result(
+                request=request,
+                validation=validation,
+                issues=list(anchor_bundle['issues']),
+                elapsed_ms=int((perf_counter() - started) * 1000),
+                empty_reason='validation_failed',
+                row_count=0,
+                symbol_count=0,
+                trading_day_count=0,
+                query_count=0,
+            )
+
+        resolved_anchors = list(anchor_bundle['anchors'])
+        base_result = self.query_minute_window_by_trading_day(
+            symbols=sorted({item['code'] for item in resolved_anchors}),
+            trading_days=sorted({item['execution_date'] for item in resolved_anchors}),
+            start_hhmm=start_hhmm,
+            end_hhmm=end_hhmm,
+            fields=fields,
+            asset_type=asset_type,
+        )
+        df = base_result.get('df')
+        if isinstance(df, pd.DataFrame) and not df.empty:
+            enriched_df = df.copy()
+            if 'execution_date' not in enriched_df.columns:
+                trade_time = pd.to_datetime(enriched_df['trade_time'], errors='coerce')
+                enriched_df['execution_date'] = trade_time.dt.date.astype(str)
+            available_pairs = {
+                (str(row.get('code')), str(row.get('execution_date')))
+                for row in enriched_df[['code', 'execution_date']].to_dict(orient='records')
+            }
+            missing_anchor_ids = [
+                item['anchor_id']
+                for item in resolved_anchors
+                if (item['code'], item['execution_date']) not in available_pairs
+            ]
+            base_result['df'] = enriched_df
+            base_result['meta'] = {
+                **dict(base_result.get('meta') or {}),
+                'anchor_count': len(resolved_anchors),
+                'missing_anchor_count': len(missing_anchor_ids),
+                'missing_anchor_ids': missing_anchor_ids,
+            }
+            base_debug = dict(base_result.get('debug') or {})
+            base_debug['request'] = request
+            base_debug['intent'] = {
+                'kind': 'next_trading_day_intraday_windows',
+                'asset_type': asset_type,
+                'anchor_count': len(resolved_anchors),
+                'start_hhmm': start_hhmm,
+                'end_hhmm': end_hhmm,
+                'fields': list(fields or []),
+                'anchors': resolved_anchors,
+                'base_intent': (base_result.get('debug') or {}).get('intent'),
+            }
+            base_debug['resolved_anchors'] = resolved_anchors
+            base_result['debug'] = base_debug
+            return base_result
+
+        base_meta = dict(base_result.get('meta') or {})
+        base_meta.update(
+            {
+                'anchor_count': len(resolved_anchors),
+                'missing_anchor_count': len(resolved_anchors),
+                'missing_anchor_ids': [item['anchor_id'] for item in resolved_anchors],
+            }
+        )
+        base_result['meta'] = base_meta
+        base_debug = dict(base_result.get('debug') or {})
+        base_debug['request'] = request
+        base_debug['resolved_anchors'] = resolved_anchors
+        base_debug['intent'] = {
+            'kind': 'next_trading_day_intraday_windows',
+            'asset_type': asset_type,
+            'anchor_count': len(resolved_anchors),
+            'start_hhmm': start_hhmm,
+            'end_hhmm': end_hhmm,
+            'fields': list(fields or []),
+            'anchors': resolved_anchors,
+            'base_intent': (base_result.get('debug') or {}).get('intent'),
+        }
+        base_result['debug'] = base_debug
+        return base_result
+
+    def _execute_query_request(self, request: dict[str, Any], *, page_size: int | None) -> dict[str, Any]:
+        started = perf_counter()
+        membership_started = perf_counter()
+        membership_bundle = self._resolve_membership_request(request)
+        membership_finished = perf_counter()
+        if membership_bundle.get('failed'):
+            validation = {
+                'ok': False,
+                'issues': list(membership_bundle['issues']),
+                'resolved': {
+                    'asset_type': request.get('asset_type'),
+                    'node': None,
+                },
+            }
+            return self._query_failure_result(
+                request=request,
+                validation=validation,
+                issues=membership_bundle['issues'],
+                elapsed_ms=int((perf_counter() - started) * 1000),
+                empty_reason=membership_bundle.get('empty_reason') or 'validation_failed',
+                extra_meta={
+                    'timings': {
+                        'membership_seconds': round(membership_finished - membership_started, 6),
+                        'total_seconds': round(perf_counter() - started, 6),
+                    }
+                },
+            )
+
+        request = membership_bundle.get('request') or request
+        symbols = list(request.get('symbols') or [])
+        fields = list(request.get('fields') or [])
+        validation_started = perf_counter()
+        validation = self.validate_query_request(request)
+        validation_finished = perf_counter()
+        if not validation['ok']:
+            return self._query_failure_result(
+                request=request,
+                validation=validation,
+                issues=validation['issues'],
+                elapsed_ms=int((perf_counter() - started) * 1000),
+                empty_reason='validation_failed',
+                extra_meta={
+                    'timings': {
+                        'membership_seconds': round(membership_finished - membership_started, 6),
+                        'validation_seconds': round(validation_finished - validation_started, 6),
+                        'total_seconds': round(perf_counter() - started, 6),
+                    }
+                },
+            )
 
         node = validation['resolved']['node']
         identity_fields = self._identity_fields_for_node(node)
@@ -623,40 +918,92 @@ class GraphRuntime:
             'where': {
                 'mode': 'and',
                 'items': (
-                    [{'field': symbol_field, 'op': 'in' if len(symbols or []) > 1 else '=', 'value': (symbols if len(symbols or []) > 1 else (symbols or [None])[0])}]
+                    [{'field': symbol_field, 'op': 'in' if len(symbols) > 1 else '=', 'value': (symbols if len(symbols) > 1 else symbols[0])}]
                     if symbols
                     else []
                 ),
             },
             'time_range': {
                 'field': time_field,
-                'start': start,
-                'end': end,
+                'start': request.get('start'),
+                'end': request.get('end'),
             },
-            'page': 1,
-            'page_size': 1000,
             'safety': {
                 'lookahead_safe': False,
                 'strict_mode': True,
             },
         }
+        if page_size is not None:
+            intent['page'] = 1
+            intent['page_size'] = page_size
+        execute_started = perf_counter()
         result = self.execute_intent(intent)
+        execute_finished = perf_counter()
+        elapsed_ms = int((perf_counter() - started) * 1000)
+        issues = []
+        empty_reason = None
+        empty = False
+        if result['code'] != 0:
+            issues.append(
+                self._issue(
+                    code='query_failed',
+                    message=f"query failed for node={node} asset_type={validation['resolved']['asset_type']}",
+                    path='query',
+                )
+            )
+        elif result['df'].empty:
+            empty = True
+            empty_reason = 'no_rows'
+            issues.append(
+                self._issue(
+                    code='empty_result',
+                    message=f"query succeeded but returned no rows for node={node} asset_type={validation['resolved']['asset_type']}",
+                    path='query',
+                )
+            )
+
+        query_timings = {
+            'membership_seconds': round(membership_finished - membership_started, 6),
+            'validation_seconds': round(validation_finished - validation_started, 6),
+            'execute_seconds': round(execute_finished - execute_started, 6),
+            'total_seconds': round(perf_counter() - started, 6),
+        }
+        executor_stats = result.get('statistics') or {}
+        if executor_stats:
+            query_timings['executor'] = executor_stats
+
+        meta = self._build_query_meta(
+            validation=validation,
+            request=request,
+            row_count=int(len(result['df'])),
+            symbol_count=len(symbols),
+            empty=empty,
+            elapsed_ms=elapsed_ms,
+            empty_reason=empty_reason,
+        )
+        meta['timings'] = query_timings
+
+        debug = self._build_debug_bundle(
+            request=request,
+            validation=validation,
+            intent=intent,
+            sql=result['sql'],
+        )
+        debug['timings'] = query_timings
+        membership_info = {
+            'applied': bool(request.get('memberships')),
+            'resolved_symbol_count': len(symbols),
+        }
+        if membership_bundle.get('request') is not None:
+            membership_info['resolved_request'] = membership_bundle.get('request')
+        debug['membership'] = membership_info
+
         return {
-            'ok': result['code'] == 0,
+            'ok': result['code'] == 0 and not issues,
             'df': result['df'],
-            'issues': [],
-            'meta': {
-                'asset_type': validation['resolved']['asset_type'],
-                'node': node,
-                'fields': fields,
-                'row_count': int(len(result['df'])),
-                'symbol_count': len(symbols or []),
-                'empty': bool(result['df'].empty),
-            },
-            'debug': {
-                'intent': intent,
-                'sql': result['sql'],
-            },
+            'issues': issues,
+            'meta': meta,
+            'debug': debug,
         }
 
     def build_intent_from_requirement(self, data_requirement: dict[str, Any]) -> dict[str, Any]:
@@ -717,8 +1064,6 @@ class GraphRuntime:
                 {'field': time_field, 'direction': 'asc'},
                 {'field': symbol_field, 'direction': 'asc'},
             ],
-            'page': 1,
-            'page_size': 500,
             'safety': {
                 'lookahead_safe': False,
                 'strict_mode': True,
@@ -732,30 +1077,671 @@ class GraphRuntime:
         }
 
     def execute_requirement(self, data_requirement: dict[str, Any]) -> dict[str, Any]:
+        started = perf_counter()
         built = self.build_intent_from_requirement(data_requirement)
         if not built['ok']:
             return {
                 'ok': False,
                 'df': pd.DataFrame(),
                 'issues': built['issues'],
+                'meta': {
+                    'asset_type': built['resolved'].get('asset_type'),
+                    'node': built['resolved'].get('node'),
+                    'fields': list(data_requirement.get('fields') or []),
+                    'row_count': 0,
+                    'symbol_count': len(list((data_requirement.get('scope') or {}).get('symbols') or [])),
+                    'empty': True,
+                    'empty_reason': 'validation_failed',
+                    'elapsed_ms': int((perf_counter() - started) * 1000),
+                },
                 'resolved': built['resolved'],
                 'debug': {
+                    'request': data_requirement,
+                    'validation': {
+                        'issues': built['issues'],
+                        'resolved': built['resolved'],
+                    },
+                    'resolved': built['resolved'],
                     'intent': None,
                     'sql': '',
                 },
             }
 
         result = self.execute_intent(built['intent'])
+        issues = []
+        empty = False
+        if result['code'] != 0:
+            issues.append(
+                self._issue(
+                    code='query_failed',
+                    message=f"query execution failed for node={built['resolved'].get('node')}",
+                    path='query',
+                )
+            )
+        elif result['df'].empty:
+            empty = True
+            issues.append(
+                self._issue(
+                    code='empty_result',
+                    message=f"query succeeded but returned no rows for node={built['resolved'].get('node')} asset_type={built['resolved'].get('asset_type')}",
+                    path='query',
+                )
+            )
         return {
-            'ok': result['code'] == 0,
+            'ok': result['code'] == 0 and not issues,
             'df': result['df'],
-            'issues': [],
+            'issues': issues,
+            'meta': {
+                'asset_type': built['resolved'].get('asset_type'),
+                'node': built['resolved'].get('node'),
+                'fields': list(data_requirement.get('fields') or []),
+                'row_count': int(len(result['df'])),
+                'symbol_count': len(list((data_requirement.get('scope') or {}).get('symbols') or [])),
+                'empty': empty,
+                'empty_reason': 'no_rows' if result['df'].empty else None,
+                'elapsed_ms': int((perf_counter() - started) * 1000),
+            },
             'resolved': built['resolved'],
             'debug': {
+                'request': data_requirement,
+                'validation': {
+                    'issues': [],
+                    'resolved': built['resolved'],
+                },
+                'resolved': built['resolved'],
                 'intent': built['intent'],
                 'sql': result['sql'],
             },
         }
+
+    def _build_query_meta(
+        self,
+        *,
+        validation: dict[str, Any],
+        request: dict[str, Any],
+        row_count: int,
+        symbol_count: int,
+        empty: bool,
+        elapsed_ms: int,
+        empty_reason: str | None,
+    ) -> dict[str, Any]:
+        return {
+            'asset_type': validation['resolved'].get('asset_type'),
+            'node': validation['resolved'].get('node'),
+            'fields': list(request.get('fields') or []),
+            'row_count': row_count,
+            'symbol_count': symbol_count,
+            'empty': empty,
+            'empty_reason': empty_reason,
+            'elapsed_ms': elapsed_ms,
+        }
+
+    def _build_debug_bundle(
+        self,
+        *,
+        request: dict[str, Any],
+        validation: dict[str, Any],
+        intent: dict[str, Any] | None,
+        sql: str,
+    ) -> dict[str, Any]:
+        return {
+            'request': request,
+            'validation': validation,
+            'resolved': validation.get('resolved', {}),
+            'intent': intent,
+            'sql': sql,
+        }
+
+    def _resolve_membership_request(self, request: dict[str, Any]) -> dict[str, Any]:
+        memberships = request.get('memberships') or None
+        if not memberships:
+            return {'request': request, 'failed': False}
+
+        freq = str(request.get('freq') or '1d')
+        if freq != '1d':
+            return {
+                'failed': True,
+                'empty_reason': 'validation_failed',
+                'issues': [
+                    self._issue(
+                        code='unsupported_freq',
+                        message='memberships filter currently only supports freq=1d',
+                        path='freq',
+                    )
+                ],
+            }
+
+        end = str(request.get('end') or '').strip()
+        membership_date = end[:10] if len(end) >= 10 else ''
+        if not membership_date:
+            return {
+                'failed': True,
+                'empty_reason': 'validation_failed',
+                'issues': [
+                    self._issue(
+                        code='unsupported_field',
+                        message='memberships filter requires end date to resolve as_of_date',
+                        path='end',
+                    )
+                ],
+            }
+
+        asset_type = str(request.get('asset_type') or '').strip()
+        resolved_asset_type = None if asset_type in {'', 'auto'} else asset_type
+        membership_result = self.filter_symbols_by_membership(
+            memberships,
+            as_of_date=membership_date,
+            security_type=resolved_asset_type or 'stock',
+            membership_path=request.get('membership_path'),
+        )
+        membership_symbols = list(membership_result.get('symbols') or [])
+        original_symbols = list(request.get('symbols') or [])
+        if original_symbols:
+            membership_symbols = [symbol for symbol in original_symbols if symbol in set(membership_symbols)]
+
+        if not membership_symbols:
+            return {
+                'failed': True,
+                'empty_reason': 'no_rows',
+                'issues': [
+                    self._issue(
+                        code='empty_result',
+                        message='memberships filter matched no symbols',
+                        path='memberships',
+                    )
+                ],
+            }
+
+        resolved_request = {
+            **request,
+            'symbols': membership_symbols,
+            'universe': None,
+        }
+        return {
+            'request': resolved_request,
+            'failed': False,
+        }
+
+    def _query_failure_result(
+        self,
+        *,
+        request: dict[str, Any],
+        validation: dict[str, Any],
+        issues: list[dict[str, Any]],
+        elapsed_ms: int,
+        empty_reason: str,
+        extra_meta: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        symbols = list(request.get('symbols') or [])
+        meta = self._build_query_meta(
+            validation=validation,
+            request=request,
+            row_count=0,
+            symbol_count=len(symbols),
+            empty=True,
+            elapsed_ms=elapsed_ms,
+            empty_reason=empty_reason,
+        )
+        if extra_meta:
+            meta.update(extra_meta)
+        return {
+            'ok': False,
+            'df': pd.DataFrame(),
+            'issues': issues,
+            'meta': meta,
+            'debug': self._build_debug_bundle(
+                request=request,
+                validation=validation,
+                intent=None,
+                sql='',
+            ),
+        }
+
+    def _intraday_failure_result(
+        self,
+        *,
+        request: dict[str, Any],
+        validation: dict[str, Any],
+        issues: list[dict[str, Any]],
+        elapsed_ms: int,
+        empty_reason: str,
+        row_count: int,
+        symbol_count: int,
+        trading_day_count: int,
+        query_count: int,
+        extra_meta: dict[str, Any] | None = None,
+        debug_extra: dict[str, Any] | None = None,
+        sqls: list[str] | None = None,
+    ) -> dict[str, Any]:
+        sql_items = [sql for sql in (sqls or []) if sql]
+        meta = {
+            'asset_type': validation.get('resolved', {}).get('asset_type'),
+            'freq': '1m',
+            'node': validation.get('resolved', {}).get('node'),
+            'fields': list(validation.get('resolved', {}).get('fields') or request.get('fields') or []),
+            'row_count': row_count,
+            'symbol_count': symbol_count,
+            'trading_day_count': trading_day_count,
+            'empty': True,
+            'empty_reason': empty_reason,
+            'elapsed_ms': elapsed_ms,
+            'query_count': query_count,
+        }
+        if extra_meta:
+            meta.update(extra_meta)
+        debug = {
+            'request': request,
+            'validation': validation,
+            'resolved': validation.get('resolved', {}),
+            'intent': None,
+            'sql': ';\n\n'.join(sql_items),
+            'sqls': sql_items,
+        }
+        if debug_extra:
+            debug.update(debug_extra)
+        return {
+            'ok': False,
+            'df': pd.DataFrame(),
+            'issues': issues,
+            'meta': meta,
+            'debug': debug,
+        }
+
+    def _validate_intraday_window_request(self, request: dict[str, Any]) -> dict[str, Any]:
+        symbols = sorted({str(item).strip() for item in (request.get('symbols') or []) if str(item).strip()})
+        trading_days = sorted({str(item).strip() for item in (request.get('trading_days') or []) if str(item).strip()})
+        requested_fields = list(dict.fromkeys(str(item).strip() for item in (request.get('fields') or []) if str(item).strip()))
+        asset_type = str(request.get('asset_type') or 'stock').strip() or 'stock'
+        issues: list[dict[str, Any]] = []
+
+        if not symbols:
+            issues.append(
+                self._issue(
+                    code='missing_symbols',
+                    message='symbols is required for intraday minute window query',
+                    path='symbols',
+                )
+            )
+        if not trading_days:
+            issues.append(
+                self._issue(
+                    code='missing_trading_days',
+                    message='trading_days is required for intraday minute window query',
+                    path='trading_days',
+                )
+            )
+        if not requested_fields:
+            issues.append(
+                self._issue(
+                    code='unsupported_field',
+                    message='fields must not be empty for intraday minute window query',
+                    path='fields',
+                )
+            )
+
+        start_hhmm = self._normalize_hhmm(str(request.get('start_hhmm') or ''))
+        end_hhmm = self._normalize_hhmm(str(request.get('end_hhmm') or ''))
+        if not start_hhmm or not end_hhmm:
+            issues.append(
+                self._issue(
+                    code='invalid_intraday_time',
+                    message='start_hhmm and end_hhmm must use HH:MM format',
+                    path='time_window',
+                )
+            )
+        elif start_hhmm > end_hhmm:
+            issues.append(
+                self._issue(
+                    code='invalid_intraday_time',
+                    message='start_hhmm must be earlier than or equal to end_hhmm',
+                    path='time_window',
+                )
+            )
+
+        node_resolution = self.resolve_best_node(
+            symbols=symbols,
+            fields=['open'],
+            freq='1m',
+            asset_type=asset_type,
+        )
+        issues.extend(list(node_resolution.get('issues') or []))
+
+        direct_fields = [field for field in requested_fields if field in INTRADAY_DIRECT_MINUTE_FIELDS]
+        limit_fields = [field for field in requested_fields if field in INTRADAY_LIMIT_DERIVED_FIELDS]
+        unsupported_fields = [
+            field
+            for field in requested_fields
+            if field not in INTRADAY_DIRECT_MINUTE_FIELDS
+            and field not in INTRADAY_LIMIT_DERIVED_FIELDS
+            and field not in {'code', 'trade_time'}
+        ]
+        for field in unsupported_fields:
+            issues.append(
+                self._issue(
+                    code='unsupported_field',
+                    message=f'{field} is not supported by intraday execution interface',
+                    path=f'fields.{field}',
+                )
+            )
+
+        if limit_fields and node_resolution.get('asset_type') not in {None, 'stock'}:
+            for field in limit_fields:
+                issues.append(
+                    self._issue(
+                        code='unsupported_field',
+                        message=f'{field} currently only supports asset_type=stock in intraday execution interface',
+                        path=f'fields.{field}',
+                    )
+                )
+
+        minute_query_fields = list(dict.fromkeys(direct_fields + (['close'] if any(field in limit_fields for field in {'is_limit_up', 'is_limit_down'}) else [])))
+        if not minute_query_fields:
+            minute_query_fields = ['close']
+        daily_limit_fields: list[str] = []
+        if 'is_limit_up' in limit_fields or 'limit_up_price' in limit_fields:
+            daily_limit_fields.append('high_limited')
+        if 'is_limit_down' in limit_fields or 'limit_down_price' in limit_fields:
+            daily_limit_fields.append('low_limited')
+
+        return {
+            'ok': not issues,
+            'issues': issues,
+            'resolved': {
+                'asset_type': node_resolution.get('asset_type') or asset_type,
+                'node': node_resolution.get('node'),
+                'symbols': symbols,
+                'trading_days': trading_days,
+                'fields': requested_fields,
+                'direct_fields': direct_fields,
+                'limit_fields': limit_fields,
+                'minute_query_fields': minute_query_fields,
+                'daily_limit_fields': daily_limit_fields,
+                'start_hhmm': start_hhmm,
+                'end_hhmm': end_hhmm,
+            },
+        }
+
+    def _resolve_intraday_anchors(self, anchors: list[dict[str, Any]]) -> dict[str, Any]:
+        normalized: list[dict[str, str]] = []
+        issues: list[dict[str, Any]] = []
+        for index, item in enumerate(anchors):
+            if not isinstance(item, dict):
+                issues.append(
+                    self._issue(
+                        code='missing_anchors',
+                        message=f'anchors[{index}] must be an object',
+                        path=f'anchors.{index}',
+                    )
+                )
+                continue
+            code = str(item.get('code') or '').strip()
+            signal_date = str(item.get('signal_date') or '').strip()
+            execution_date = str(item.get('execution_date') or '').strip()
+            anchor_id = str(item.get('anchor_id') or '').strip() or f'{code}__{signal_date}__{execution_date or "next"}'
+            if not code:
+                issues.append(
+                    self._issue(
+                        code='missing_anchors',
+                        message=f'anchors[{index}].code is required',
+                        path=f'anchors.{index}.code',
+                    )
+                )
+                continue
+            if not signal_date:
+                issues.append(
+                    self._issue(
+                        code='missing_anchors',
+                        message=f'anchors[{index}].signal_date is required',
+                        path=f'anchors.{index}.signal_date',
+                    )
+                )
+                continue
+            normalized.append(
+                {
+                    'anchor_id': anchor_id,
+                    'code': code,
+                    'signal_date': signal_date,
+                    'execution_date': execution_date,
+                }
+            )
+
+        if issues:
+            return {
+                'ok': False,
+                'issues': issues,
+                'anchors': [],
+            }
+
+        if all(item.get('execution_date') for item in normalized):
+            return {
+                'ok': True,
+                'issues': [],
+                'anchors': normalized,
+            }
+
+        trading_calendar_table = str(self.runtime_config.discovery.trading_calendar_table or '').strip()
+        if not trading_calendar_table:
+            return {
+                'ok': False,
+                'issues': [
+                    self._issue(
+                        code='trading_calendar_unavailable',
+                        message='runtime config discovery.trading_calendar_table is required when anchors omit execution_date',
+                        path='anchors',
+                    )
+                ],
+                'anchors': [],
+            }
+
+        next_day_map = self._load_next_trading_day_map(
+            sorted({item['signal_date'] for item in normalized if not item.get('execution_date')})
+        )
+        if not next_day_map['ok']:
+            return {
+                'ok': False,
+                'issues': list(next_day_map['issues']),
+                'anchors': [],
+            }
+
+        resolved_anchors: list[dict[str, str]] = []
+        missing_execution_issues: list[dict[str, Any]] = []
+        for item in normalized:
+            execution_date = item.get('execution_date') or next_day_map['mapping'].get(item['signal_date'])
+            if not execution_date:
+                missing_execution_issues.append(
+                    self._issue(
+                        code='missing_execution_date',
+                        message=f'cannot resolve next trading day for signal_date={item["signal_date"]}',
+                        path=f'anchors.{item["anchor_id"]}.execution_date',
+                    )
+                )
+                continue
+            resolved_anchors.append(
+                {
+                    **item,
+                    'execution_date': execution_date,
+                }
+            )
+
+        return {
+            'ok': not missing_execution_issues,
+            'issues': missing_execution_issues,
+            'anchors': resolved_anchors,
+        }
+
+    def _load_next_trading_day_map(self, signal_dates: list[str]) -> dict[str, Any]:
+        if not signal_dates:
+            return {
+                'ok': True,
+                'issues': [],
+                'mapping': {},
+            }
+        trading_calendar_table = str(self.runtime_config.discovery.trading_calendar_table or '').strip()
+        if not trading_calendar_table:
+            return {
+                'ok': False,
+                'issues': [
+                    self._issue(
+                        code='trading_calendar_unavailable',
+                        message='runtime config discovery.trading_calendar_table is not configured',
+                        path='runtime.discovery.trading_calendar_table',
+                    )
+                ],
+                'mapping': {},
+            }
+
+        start_date = min(signal_dates)
+        sql = (
+            f'SELECT DISTINCT trade_date '
+            f'FROM {trading_calendar_table} '
+            f"WHERE trade_date > toDate('{start_date}') "
+            f'ORDER BY trade_date ASC'
+        )
+        result = self.execute_sql(sql)
+        if result['code'] != 0:
+            return {
+                'ok': False,
+                'issues': [
+                    self._issue(
+                        code='query_failed',
+                        message='failed to load trading calendar while resolving next trading day',
+                        path='runtime.discovery.trading_calendar_table',
+                    )
+                ],
+                'mapping': {},
+            }
+
+        calendar_df = result['df']
+        if calendar_df.empty or 'trade_date' not in calendar_df.columns:
+            return {
+                'ok': False,
+                'issues': [
+                    self._issue(
+                        code='trading_calendar_unavailable',
+                        message='trading calendar query returned no trade_date column',
+                        path='runtime.discovery.trading_calendar_table',
+                    )
+                ],
+                'mapping': {},
+            }
+
+        calendar_dates = sorted(
+            {
+                str(value)
+                for value in pd.to_datetime(calendar_df['trade_date'], errors='coerce').dt.date.astype(str).tolist()
+                if value and value != 'NaT'
+            }
+        )
+        mapping: dict[str, str] = {}
+        for signal_date in signal_dates:
+            next_date = next((trade_date for trade_date in calendar_dates if trade_date > signal_date), None)
+            if next_date:
+                mapping[signal_date] = next_date
+        return {
+            'ok': True,
+            'issues': [],
+            'mapping': mapping,
+        }
+
+    def _fetch_intraday_limit_frame(
+        self,
+        *,
+        symbols: list[str],
+        trading_days: list[str],
+        daily_fields: list[str],
+    ) -> dict[str, Any]:
+        if not daily_fields:
+            return {
+                'ok': True,
+                'df': pd.DataFrame(),
+                'issues': [],
+                'sqls': [],
+            }
+        daily_result = self.query_daily(
+            symbols=symbols,
+            fields=daily_fields,
+            start=f'{min(trading_days)} 00:00:00',
+            end=f'{max(trading_days)} 23:59:59',
+            asset_type='stock',
+            freq='1d',
+        )
+        debug = dict(daily_result.get('debug') or {})
+        if daily_result.get('ok'):
+            df = daily_result.get('df')
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                daily_df = df.copy()
+                trade_time = pd.to_datetime(daily_df['trade_time'], errors='coerce')
+                daily_df['trade_date'] = trade_time.dt.date.astype(str)
+                daily_df = daily_df[daily_df['trade_date'].isin(set(trading_days))].reset_index(drop=True)
+                return {
+                    'ok': True,
+                    'df': daily_df,
+                    'issues': [],
+                    'sqls': [str(debug.get('sql') or '')],
+                }
+            return {
+                'ok': True,
+                'df': pd.DataFrame(),
+                'issues': [],
+                'sqls': [str(debug.get('sql') or '')],
+            }
+
+        issue_codes = {issue.get('code') for issue in daily_result.get('issues') or [] if isinstance(issue, dict)}
+        return {
+            'ok': False,
+            'df': pd.DataFrame(),
+            'issues': list(daily_result.get('issues') or []),
+            'sqls': [str(debug.get('sql') or '')],
+            'empty_only': bool(issue_codes and issue_codes.issubset({'empty_result'})),
+        }
+
+    def _normalize_intraday_trade_time(self, df: pd.DataFrame) -> pd.DataFrame:
+        normalized = df.copy()
+        trade_time = pd.to_datetime(normalized['trade_time'], errors='coerce')
+        normalized = normalized.loc[~trade_time.isna()].copy()
+        normalized['trade_time'] = trade_time.loc[~trade_time.isna()].dt.strftime('%Y-%m-%d %H:%M:%S')
+        normalized['trade_date'] = trade_time.loc[~trade_time.isna()].dt.date.astype(str).values
+        return normalized.reset_index(drop=True)
+
+    def _merge_intraday_limit_frame(self, minute_df: pd.DataFrame, daily_df: pd.DataFrame) -> pd.DataFrame:
+        merged = minute_df.merge(
+            daily_df[['code', 'trade_date'] + [field for field in ['high_limited', 'low_limited'] if field in daily_df.columns]],
+            how='left',
+            left_on=['code', 'trade_date'],
+            right_on=['code', 'trade_date'],
+        )
+        return merged
+
+    def _apply_intraday_limit_fields(self, df: pd.DataFrame, limit_fields: list[str]) -> pd.DataFrame:
+        enriched = df.copy()
+        high_limited = pd.to_numeric(
+            enriched['high_limited'] if 'high_limited' in enriched.columns else pd.Series([None] * len(enriched), index=enriched.index),
+            errors='coerce',
+        )
+        low_limited = pd.to_numeric(
+            enriched['low_limited'] if 'low_limited' in enriched.columns else pd.Series([None] * len(enriched), index=enriched.index),
+            errors='coerce',
+        )
+        close_values = pd.to_numeric(
+            enriched['close'] if 'close' in enriched.columns else pd.Series([None] * len(enriched), index=enriched.index),
+            errors='coerce',
+        )
+        if 'limit_up_price' in limit_fields:
+            enriched['limit_up_price'] = high_limited
+        if 'limit_down_price' in limit_fields:
+            enriched['limit_down_price'] = low_limited
+        if 'is_limit_up' in limit_fields:
+            enriched['is_limit_up'] = ((close_values >= high_limited) & high_limited.notna()).astype(int)
+        if 'is_limit_down' in limit_fields:
+            enriched['is_limit_down'] = ((close_values <= low_limited) & low_limited.notna()).astype(int)
+        return enriched
+
+    def _normalize_hhmm(self, value: str) -> str | None:
+        try:
+            parsed = datetime.strptime(value.strip(), '%H:%M')
+        except Exception:
+            return None
+        return parsed.strftime('%H:%M')
 
     def get_metadata_catalog(self) -> dict[str, Any]:
         return {
@@ -946,12 +1932,39 @@ class GraphRuntime:
     def execute_sql(self, sql: str) -> dict[str, Any]:
         """直接执行原生 SQL，并返回标准结果结构。"""
         try:
+            if hasattr(self.executor, 'execute_sql_df_timed'):
+                payload = self.executor.execute_sql_df_timed(sql)
+                return self._build_result(
+                    code=SUCCESS_CODE,
+                    message='success',
+                    sql=payload.get('sql') or sql,
+                    df=payload.get('df') if isinstance(payload.get('df'), pd.DataFrame) else pd.DataFrame(),
+                    statistics={
+                        'executor_timings': payload.get('timings') or {},
+                        'response_bytes': payload.get('response_bytes'),
+                        'row_count': payload.get('row_count'),
+                        'parser_engine': payload.get('parser_engine'),
+                    },
+                )
+            if hasattr(self.executor, 'execute_sql_df'):
+                df = self.executor.execute_sql_df(sql)
+                return self._build_result(
+                    code=SUCCESS_CODE,
+                    message='success',
+                    sql=sql,
+                    df=df,
+                )
             result = self.executor.execute_sql(sql)
             return self._build_result(
                 code=SUCCESS_CODE,
                 message='success',
                 sql=result.sql,
                 df=pd.DataFrame(result.data),
+                statistics={
+                    'rows': result.rows,
+                    'statistics': result.statistics,
+                    'meta': result.meta,
+                },
             )
         except Exception as exc:  # pragma: no cover - defensive path
             return self._build_result(
@@ -976,7 +1989,7 @@ class GraphRuntime:
                     'name': node.name,
                     'table': node.table,
                     'grain': node.grain,
-                    'description_zh': node.description_zh,
+                    'description_zh': node.description_zh or node.description or node.name,
                     'status': node.status,
                     'physical_node': node.physical_node,
                     'asset_type': node.asset_type,
@@ -999,13 +2012,23 @@ class GraphRuntime:
             'items': items,
         }
 
-    def _build_result(self, code: int, message: str, sql: str, df: pd.DataFrame) -> dict[str, Any]:
-        return {
+    def _build_result(
+        self,
+        code: int,
+        message: str,
+        sql: str,
+        df: pd.DataFrame,
+        statistics: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload = {
             'code': code,
             'message': message,
             'sql': sql,
             'df': df,
         }
+        if statistics:
+            payload['statistics'] = statistics
+        return payload
 
     def _analyze_disabled_node_cleanup(
         self,

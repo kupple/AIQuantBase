@@ -75,8 +75,10 @@ runtime = GraphRuntime.from_defaults()
 4. `validate_query_request(request)`
 5. `query_daily(...)`
 6. `query_minute(...)`
-7. `build_intent_from_requirement(data_requirement)`
-8. `execute_requirement(data_requirement)`
+7. `query_minute_window_by_trading_day(...)`
+8. `query_next_trading_day_intraday_windows(...)`
+9. `build_intent_from_requirement(data_requirement)`
+10. `execute_requirement(data_requirement)`
 
 如果需要先快速理解当前启用协议规模，再决定查哪个入口，推荐补充使用：
 
@@ -112,12 +114,28 @@ validation = runtime.validate_query_request(
 )
 ```
 
+当前也支持：
+
+```python
+validation = runtime.validate_query_request(
+    {
+        "symbols": [],
+        "universe": "all_a",
+        "fields": ["close_adj", "open", "is_st", "listed_days"],
+        "start": "2024-01-01",
+        "end": "2024-06-30",
+        "freq": "1d",
+        "asset_type": "auto",
+    }
+)
+```
+
 ### 直接执行日频查询
 
 ```python
 result = runtime.query_daily(
     symbols=["000001.SZ"],
-    fields=["close_adj", "market_cap", "industry_name"],
+    fields=["close_adj", "market_cap", "industry_name", "listed_days"],
     start="2025-01-01 00:00:00",
     end="2025-01-31 23:59:59",
 )
@@ -134,16 +152,48 @@ result = runtime.query_minute(
 )
 ```
 
+### 按交易日批量拉分钟执行窗口
+
+```python
+result = runtime.query_minute_window_by_trading_day(
+    symbols=["002545.SZ"],
+    trading_days=["2024-03-04"],
+    start_hhmm="14:30",
+    end_hhmm="14:31",
+    fields=["open", "is_limit_up", "limit_up_price"],
+    asset_type="stock",
+)
+```
+
+### 按锚点拉下一交易日分钟执行窗口
+
+```python
+result = runtime.query_next_trading_day_intraday_windows(
+    anchors=[
+        {
+            "anchor_id": "002545.SZ__2024-03-01__2024-03-04",
+            "code": "002545.SZ",
+            "signal_date": "2024-03-01",
+            "execution_date": "2024-03-04",
+        }
+    ],
+    start_hhmm="14:30",
+    end_hhmm="14:31",
+    fields=["open", "is_limit_up"],
+    asset_type="stock",
+)
+```
+
 ### 执行 requirement
 
 ```python
 data_requirement = {
-    "fields": ["close_adj", "open"],
+    "fields": ["close_adj", "open", "listed_days"],
     "scope": {
-        "symbols": ["000001.SZ"],
         "freq": "1d",
         "start": "2024-01-01",
         "end": "2024-01-31",
+        "universe": "all_a",
     },
 }
 
@@ -159,10 +209,89 @@ result = runtime.execute_requirement(data_requirement)
     "ok": True,
     "df": DataFrame(...),
     "issues": [],
-    "meta": {...},
+    "meta": {
+        "asset_type": "...",
+        "node": "...",
+        "fields": [...],
+        "row_count": 0,
+        "symbol_count": 0,
+        "empty": False,
+        "empty_reason": None,
+        "elapsed_ms": 123,
+    },
     "debug": {
+        "request": {...},
+        "validation": {...},
+        "resolved": {...},
         "intent": {...},
         "sql": "...",
+    },
+}
+```
+
+### 补充说明
+
+当前运行时主路径已经优先走：
+
+1. `ClickHouse -> DataFrame`
+
+而不是：
+
+1. `ClickHouse -> JSON -> list[dict] -> DataFrame`
+
+所以在 Python SDK 中，最应该直接消费的是：
+
+1. `result["df"]`
+
+而不是先依赖中间 JSON 结构。
+
+这对下面这些场景尤其重要：
+
+1. `all_a` 大结果查询
+2. 多字段多表 join 查询
+3. 日线研究 / 回测数据准备
+
+### 推荐使用方式
+
+```python
+result = runtime.query_daily(
+    universe="all_a",
+    fields=["close_adj", "open", "is_st", "listed_days"],
+    start="2024-01-01 00:00:00",
+    end="2024-01-31 23:59:59",
+)
+
+df = result["df"]
+```
+
+如果你只是调试或做 HTTP / CLI 输出，再把 `df` 转成记录列表即可。
+
+### `query_minute_window_by_trading_day()` / `query_next_trading_day_intraday_windows()`
+
+```python
+{
+    "ok": True,
+    "df": DataFrame(...),
+    "issues": [],
+    "meta": {
+        "asset_type": "stock",
+        "freq": "1m",
+        "node": "stock_minute_real",
+        "fields": [...],
+        "row_count": 0,
+        "symbol_count": 0,
+        "trading_day_count": 0,
+        "empty": False,
+        "empty_reason": None,
+        "elapsed_ms": 0,
+    },
+    "debug": {
+        "request": {...},
+        "validation": {...},
+        "resolved": {...},
+        "intent": {...},
+        "sql": "...",
+        "sqls": [...],
     },
 }
 ```

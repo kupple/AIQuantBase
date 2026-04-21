@@ -116,6 +116,7 @@ npm run dev
 11. [docs/migration-notes.md](/Users/zhao/Desktop/git/AIQuantBase/docs/migration-notes.md)
 12. [docs/go-live-checklist.md](/Users/zhao/Desktop/git/AIQuantBase/docs/go-live-checklist.md)
 13. [docs/direct-field-runtime-protocol.md](/Users/zhao/Desktop/git/AIQuantBase/docs/direct-field-runtime-protocol.md)
+14. [docs/alphablocks-query-optimization-summary.md](/Users/zhao/Desktop/git/AIQuantBase/docs/alphablocks-query-optimization-summary.md)
 
 ## 8. 当前可信边界
 

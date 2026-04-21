@@ -16,7 +16,7 @@ fields:
   - Interpreted as forward adjustment factor
   path_domain: null
   path_group: null
-  relation_type: direct
+  relation_type: any
   resolver_type: direct
   source_field: factor_value
   source_node: null
@@ -37,18 +37,54 @@ fields:
   via_node: null
 - applies_to_grain: daily
   base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 后复权因子
+  field_role: adjustment_factor
+  formula: null
+  join_keys:
+  - base: code
+    source: code
+  lookahead_category: none
+  notes:
+  - Mapped from ad_backward_factor
+  - Interpreted as backward adjustment factor
+  path_domain: null
+  path_group: null
+  relation_type: any
+  resolver_type: direct
+  source_field: factor_value
+  source_node: null
+  source_table: starlight.ad_backward_factor
+  standard_field: backward_adj_factor
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
   - close
-  - forward_adj_factor
-  description_zh: 基于原始收盘价与前复权因子计算的复权收盘价
+  - backward_adj_factor
+  description_zh: 基于原始收盘价与后复权因子计算的复权收盘价
   field_role: derived_field
-  formula: '{close} * {forward_adj_factor}'
+  formula: '{close} * {backward_adj_factor}'
   join_keys: []
   lookahead_category: none
   notes:
-  - Derived adjusted close based on raw close and forward adjustment factor
+  - Derived adjusted close based on raw close and backward adjustment factor
   path_domain: null
   path_group: null
   relation_type: null
@@ -66,14 +102,14 @@ fields:
   bridge_steps: []
   depends_on:
   - open
-  - forward_adj_factor
-  description_zh: 基于原始开盘价与前复权因子计算的复权开盘价
+  - backward_adj_factor
+  description_zh: 基于原始开盘价与后复权因子计算的复权开盘价
   field_role: derived_field
-  formula: '{open} * {forward_adj_factor}'
+  formula: '{open} * {backward_adj_factor}'
   join_keys: []
   lookahead_category: none
   notes:
-  - Derived adjusted open based on raw open and forward adjustment factor
+  - Derived adjusted open based on raw open and backward adjustment factor
   path_domain: null
   path_group: null
   relation_type: null
@@ -91,14 +127,14 @@ fields:
   bridge_steps: []
   depends_on:
   - high
-  - forward_adj_factor
-  description_zh: 基于原始最高价与前复权因子计算的复权最高价
+  - backward_adj_factor
+  description_zh: 基于原始最高价与后复权因子计算的复权最高价
   field_role: derived_field
-  formula: '{high} * {forward_adj_factor}'
+  formula: '{high} * {backward_adj_factor}'
   join_keys: []
   lookahead_category: none
   notes:
-  - Derived adjusted high based on raw high and forward adjustment factor
+  - Derived adjusted high based on raw high and backward adjustment factor
   path_domain: null
   path_group: null
   relation_type: null
@@ -116,14 +152,14 @@ fields:
   bridge_steps: []
   depends_on:
   - low
-  - forward_adj_factor
-  description_zh: 基于原始最低价与前复权因子计算的复权最低价
+  - backward_adj_factor
+  description_zh: 基于原始最低价与后复权因子计算的复权最低价
   field_role: derived_field
-  formula: '{low} * {forward_adj_factor}'
+  formula: '{low} * {backward_adj_factor}'
   join_keys: []
   lookahead_category: none
   notes:
-  - Derived adjusted low based on raw low and forward adjustment factor
+  - Derived adjusted low based on raw low and backward adjustment factor
   path_domain: null
   path_group: null
   relation_type: null
@@ -176,7 +212,7 @@ fields:
   - Mapped from status snapshot table
   path_domain: null
   path_group: null
-  relation_type: direct
+  relation_type: any
   resolver_type: direct
   source_field: preclose
   source_node: null
@@ -212,7 +248,7 @@ fields:
   - Share unit is 10k shares
   path_domain: null
   path_group: null
-  relation_type: direct
+  relation_type: any
   resolver_type: direct
   source_field: tot_share
   source_node: null
@@ -248,7 +284,7 @@ fields:
   - Share unit is 10k shares
   path_domain: null
   path_group: null
-  relation_type: direct
+  relation_type: any
   resolver_type: direct
   source_field: float_share
   source_node: null
@@ -467,7 +503,7 @@ fields:
   - Mapped from status snapshot table
   path_domain: null
   path_group: null
-  relation_type: direct
+  relation_type: any
   resolver_type: direct
   source_field: is_st_sec
   source_node: null
@@ -2340,20 +2376,37 @@ fields:
   resolver_type: direct
   source_field: list_date
   source_node: null
-  source_table: starlight.ad_stock_basic
+  source_table: "(SELECT market_code, argMax(list_date, snapshot_date) AS list_date,\n\
+    \ argMax(delist_date, snapshot_date) AS delist_date FROM starlight.ad_stock_basic GROUP\
+    \ BY market_code)"
   standard_field: list_date
-  time_binding:
-    allow_equal: true
-    available_time_field: null
-    base_time_cast: date
-    base_time_field: trade_time
-    lookahead_safe: true
-    mode: asof
-    source_end_field: null
-    source_start_field: null
-    source_time_cast: null
-    source_time_field: snapshot_date
+  time_binding: null
   time_semantics: listing_start_date
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: derived
+  bridge_steps: []
+  depends_on:
+  - list_date
+  - trade_time
+  description_zh: 上市天数
+  field_role: derived_field
+  formula: greatest(dateDiff('day', toDate({list_date}), toDate({trade_time})), 0)
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - Derived listed days from list_date and trade_time
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: listed_days
+  time_binding: null
+  time_semantics: listing_age_days
   via_node: null
 - applies_to_grain: daily
   base_node: stock_daily_real
@@ -2375,19 +2428,11 @@ fields:
   resolver_type: direct
   source_field: delist_date
   source_node: null
-  source_table: starlight.ad_stock_basic
+  source_table: "(SELECT market_code, argMax(list_date, snapshot_date) AS list_date,\n\
+    \ argMax(delist_date, snapshot_date) AS delist_date FROM starlight.ad_stock_basic GROUP\
+    \ BY market_code)"
   standard_field: delist_date
-  time_binding:
-    allow_equal: true
-    available_time_field: null
-    base_time_cast: date
-    base_time_field: trade_time
-    lookahead_safe: true
-    mode: asof
-    source_end_field: null
-    source_start_field: null
-    source_time_cast: null
-    source_time_field: snapshot_date
+  time_binding: null
   time_semantics: listing_end_date
   via_node: null
 - applies_to_grain: daily
@@ -8931,6 +8976,56 @@ fields:
   source_node: null
   source_table: starlight.ad_market_kline_daily
   standard_field: code
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: derived
+  bridge_steps: []
+  depends_on:
+  - code
+  description_zh: 派生科创板标记
+  field_role: derived_field
+  formula: startsWith({code}, '688')
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - Derived board flag for STAR Market stocks
+  - Returns true when stock code starts with 688
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: is_star_board
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: derived
+  bridge_steps: []
+  depends_on:
+  - code
+  description_zh: 派生创业板标记
+  field_role: derived_field
+  formula: startsWith({code}, '30')
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - Derived board flag for GEM stocks
+  - Returns true when stock code starts with 30
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: is_gem_board
   time_binding: null
   time_semantics: null
   via_node: null

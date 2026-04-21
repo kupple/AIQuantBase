@@ -1246,6 +1246,13 @@ body {
   gap: 16px;
 }
 
+.workbench-switchbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
 .hero-panel .surface-card,
 .hero-panel .page-card,
 .hero-panel {

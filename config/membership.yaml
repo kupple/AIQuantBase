@@ -1,0 +1,99 @@
+version: 1
+sources:
+- id: source::板块列表
+  source_name: 板块列表
+  source_kind: member_dimension
+  database: starlight
+  table: ad_industry_constituent
+  domain: industry
+  taxonomy: shenwang
+  security_type: stock
+  status: enabled
+  description: ''
+  lookup_database: starlight
+  lookup_table: ad_industry_base_info
+  lookup_source_field: con_code
+  lookup_target_field: index_code
+  lookup_member_name_field: ''
+  member_code_field: index_code
+  member_name_field: index_name
+  security_code_field: ''
+  effective_from_field: ''
+  effective_to_field: ''
+  source_system_field: ''
+  member_code_value: ''
+  member_name_value: ''
+  source_system_value: source_mapping
+  attribute_mappings:
+  - key: attr_1
+    label: 一级行业名称
+    field: level1_name
+  - key: attr_2
+    label: 二级行业名称
+    field: level2_name
+  - key: attr_3
+    label: 三级行业名称
+    field: level3_name
+  mapping:
+    member_code: index_code
+    member_name: index_name
+    security_code: ''
+    effective_from: ''
+    effective_to: ''
+    source_system: ''
+  updated_at: '2026-04-20T21:21:03'
+  extra_payload: {}
+- id: source::中小综指成分
+  source_name: 中小综指成分
+  source_kind: relation
+  database: starlight
+  table: ad_index_constituent
+  domain: index
+  taxonomy: csi_index
+  security_type: stock
+  status: enabled
+  description: 中小综指成分关系
+  lookup_database: ''
+  lookup_table: ''
+  lookup_source_field: ''
+  lookup_target_field: ''
+  lookup_member_name_field: ''
+  member_code_field: index_code
+  member_name_field: index_name
+  security_code_field: con_code
+  effective_from_field: in_date
+  effective_to_field: out_date
+  source_system_field: ''
+  member_code_value: ''
+  member_name_value: ''
+  source_system_value: source_mapping
+  attribute_mappings: []
+  mapping:
+    member_code: index_code
+    member_name: index_name
+    security_code: con_code
+    effective_from: in_date
+    effective_to: out_date
+    source_system: ''
+  updated_at: '2026-04-21T00:00:00'
+  extra_payload: {}
+taxonomies:
+- id: index::csi_index
+  domain: index
+  taxonomy: csi_index
+  display_name: 中证指数
+  description: 中证指数相关成分关系
+  status: enabled
+  updated_at: '2026-04-21T00:00:00'
+  extra_payload: {}
+members:
+- id: index::csi_index::399101.SZ
+  domain: index
+  taxonomy: csi_index
+  member_code: 399101.SZ
+  member_name: 中小综指
+  sort_order: 0
+  status: enabled
+  updated_at: '2026-04-21T00:00:00'
+  extra_payload: {}
+relations: []

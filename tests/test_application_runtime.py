@@ -13,6 +13,49 @@ class FakeExecutor:
         )
 
 
+class EmptyExecutor:
+    def execute_sql(self, sql: str) -> QueryExecutionResult:
+        return QueryExecutionResult(
+            sql=sql,
+            data=[],
+            rows=0,
+            statistics={},
+            meta=[],
+        )
+
+
+class IntradayExecutor:
+    def execute_sql(self, sql: str) -> QueryExecutionResult:
+        if "FROM starlight.ad_market_kline_minute" in sql:
+            return QueryExecutionResult(
+                sql=sql,
+                data=[
+                    {"code": "002545.SZ", "trade_time": "2024-03-04 14:30:00", "open": 11.90, "close": 11.90},
+                    {"code": "002545.SZ", "trade_time": "2024-03-04 14:31:00", "open": 12.00, "close": 12.00},
+                ],
+                rows=2,
+                statistics={},
+                meta=[],
+            )
+        if "high_limited" in sql and "starlight.ad_market_kline_daily" in sql:
+            return QueryExecutionResult(
+                sql=sql,
+                data=[
+                    {"code": "002545.SZ", "trade_time": "2024-03-04 00:00:00", "high_limited": 12.00, "low_limited": 10.80},
+                ],
+                rows=1,
+                statistics={},
+                meta=[],
+            )
+        return QueryExecutionResult(
+            sql=sql,
+            data=[],
+            rows=0,
+            statistics={},
+            meta=[],
+        )
+
+
 def test_application_runtime_resolve_symbols():
     runtime = ApplicationRuntime.from_defaults()
     result = runtime.resolve_symbols(["000001.SZ", "159102.SZ", "000300.SH"])
@@ -58,6 +101,25 @@ def test_application_runtime_execute_requirement():
     assert result["resolved"]["node"] == "stock_daily_real"
 
 
+def test_application_runtime_execute_requirement_supports_all_a():
+    runtime = ApplicationRuntime.from_defaults()
+    runtime.graph_runtime.executor = FakeExecutor()
+    result = runtime.execute_requirement(
+        {
+            "fields": ["close_adj", "open", "listed_days"],
+            "scope": {
+                "universe": "all_a",
+                "freq": "1d",
+                "start": "2024-01-01",
+                "end": "2024-01-31",
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    assert result["resolved"]["node"] == "stock_daily_real"
+
+
 def test_application_runtime_query_daily_for_etf():
     runtime = ApplicationRuntime.from_defaults()
     runtime.graph_runtime.executor = FakeExecutor()
@@ -71,3 +133,59 @@ def test_application_runtime_query_daily_for_etf():
     assert result["ok"] is True
     assert result["meta"]["node"] == "etf_daily_real"
     assert "EXTRA_ETF" in result["debug"]["sql"]
+
+
+def test_application_runtime_query_daily_for_etf_empty_result():
+    runtime = ApplicationRuntime.from_defaults()
+    runtime.graph_runtime.executor = EmptyExecutor()
+    result = runtime.query_daily(
+        symbols=["159102.SZ"],
+        fields=["close_adj"],
+        start="2024-01-01 00:00:00",
+        end="2024-01-31 23:59:59",
+    )
+
+    assert result["ok"] is False
+    assert any(issue["code"] == "empty_result" for issue in result["issues"])
+    assert result["meta"]["node"] == "etf_daily_real"
+
+
+def test_application_runtime_query_minute_window_by_trading_day():
+    runtime = ApplicationRuntime.from_defaults()
+    runtime.graph_runtime.executor = IntradayExecutor()
+    result = runtime.query_minute_window_by_trading_day(
+        symbols=["002545.SZ"],
+        trading_days=["2024-03-04"],
+        start_hhmm="14:30",
+        end_hhmm="14:31",
+        fields=["open", "is_limit_up"],
+        asset_type="stock",
+    )
+
+    assert result["ok"] is True
+    assert result["meta"]["freq"] == "1m"
+    assert result["df"].shape[0] == 2
+    assert result["df"]["is_limit_up"].tolist() == [0, 1]
+
+
+def test_application_runtime_query_next_trading_day_intraday_windows():
+    runtime = ApplicationRuntime.from_defaults()
+    runtime.graph_runtime.executor = IntradayExecutor()
+    result = runtime.query_next_trading_day_intraday_windows(
+        anchors=[
+            {
+                "anchor_id": "002545.SZ__2024-03-01__2024-03-04",
+                "code": "002545.SZ",
+                "signal_date": "2024-03-01",
+                "execution_date": "2024-03-04",
+            }
+        ],
+        start_hhmm="14:30",
+        end_hhmm="14:31",
+        fields=["open", "is_limit_up"],
+        asset_type="stock",
+    )
+
+    assert result["ok"] is True
+    assert result["meta"]["anchor_count"] == 1
+    assert "execution_date" in result["df"].columns

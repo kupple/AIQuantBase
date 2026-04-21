@@ -20,6 +20,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     backendBase: process.env.NUXT_BACKEND_BASE || process.env.NUXT_PUBLIC_BACKEND_BASE || 'http://127.0.0.1:8000',
+    syncBackendBase: process.env.NUXT_SYNC_BACKEND_BASE || process.env.NUXT_PUBLIC_SYNC_BACKEND_BASE || 'http://127.0.0.1:18080',
     public: {
       appName: 'AIQuantBase Workbench',
     },

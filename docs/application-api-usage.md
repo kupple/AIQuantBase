@@ -177,12 +177,31 @@ result = runtime.validate_query_request({
 }
 ```
 
+补充：
+
+1. `universe="all_a"` 现在已支持原生日频校验路径
+2. 当前仅支持 `freq="1d"`
+
+例如：
+
+```python
+result = runtime.validate_query_request({
+    "symbols": [],
+    "universe": "all_a",
+    "fields": ["close_adj", "open", "is_st", "listed_days"],
+    "start": "2024-01-01",
+    "end": "2024-06-30",
+    "freq": "1d",
+    "asset_type": "auto",
+})
+```
+
 ## 5. query_daily
 
 ```python
 result = runtime.query_daily(
     symbols=["000001.SZ"],
-    fields=["close_adj", "is_st"],
+    fields=["close_adj", "is_st", "listed_days"],
     start="2024-01-01 00:00:00",
     end="2024-01-31 23:59:59",
 )
@@ -198,10 +217,32 @@ result = runtime.query_daily(
     "meta": {
         "asset_type": "stock",
         "node": "stock_daily_real",
-        "fields": ["close_adj", "is_st"],
+        "fields": ["close_adj", "is_st", "listed_days"],
         "row_count": 22,
         "symbol_count": 1,
         "empty": False,
+        "empty_reason": None,
+        "elapsed_ms": 123,
+    },
+    "debug": {
+        "request": {...},
+        "validation": {...},
+        "resolved": {...},
+        "intent": {...},
+        "sql": "...",
+    },
+}
+```
+
+如果查询合法但没有任何数据，现在会返回结构化空结果：
+
+```python
+{
+    "ok": False,
+    "issues": [{"code": "empty_result", "message": "..."}],
+    "meta": {
+        "empty": True,
+        "empty_reason": "no_rows",
     },
     "debug": {
         "intent": {...},
@@ -261,12 +302,12 @@ result = runtime.query_minute(
 
 ```python
 result = runtime.build_intent_from_requirement({
-    "fields": ["close_adj", "open"],
+    "fields": ["close_adj", "open", "listed_days"],
     "scope": {
-        "symbols": ["159102.SZ"],
         "freq": "1d",
         "start": "2024-01-01",
-        "end": "2024-01-31"
+        "end": "2024-01-31",
+        "universe": "all_a",
     }
 })
 ```
@@ -282,12 +323,12 @@ result = runtime.build_intent_from_requirement({
 
 ```python
 result = runtime.execute_requirement({
-    "fields": ["close_adj", "open"],
+    "fields": ["close_adj", "open", "listed_days"],
     "scope": {
-        "symbols": ["000001.SZ"],
         "freq": "1d",
         "start": "2024-01-01",
-        "end": "2024-01-31"
+        "end": "2024-01-31",
+        "universe": "all_a",
     }
 })
 ```
@@ -300,6 +341,7 @@ result = runtime.execute_requirement({
 4. `resolved`
 5. `debug.intent`
 6. `debug.sql`
+7. `meta`
 
 
 ## 11. 分钟与大范围查询保护

@@ -61,6 +61,13 @@
 9. `unsupported_field` -> `1109`
 10. `unsupported_asset_type` -> `1110`
 11. `missing_query_node` -> `1111`
+12. `empty_result` -> `1112`
+13. `query_failed` -> `1113`
+14. `missing_anchors` -> `1114`
+15. `missing_trading_days` -> `1115`
+16. `invalid_intraday_time` -> `1116`
+17. `trading_calendar_unavailable` -> `1117`
+18. `missing_execution_date` -> `1118`
 
 ## 4. 推荐用法
 
@@ -83,3 +90,4 @@ for issue in result["issues"]:
 1. 顶层 `code` 用数字，适合上层统一判断
 2. `issues.code` 保留字符串，适合调试和可读性
 3. `issues.error_code` 用数字，适合上层程序化处理
+4. 分钟执行接口的时间窗口、锚点、交易日历问题也统一放进 `issues`

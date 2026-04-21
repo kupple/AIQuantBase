@@ -149,6 +149,7 @@ runtime = ApplicationRuntime.from_defaults()
 3. `docs/application-runtime-api-reference.md`
 4. `docs/application-runtime-quickstart.md`
 5. `docs/alphablocks-integration-example.md`
+6. `docs/alphablocks-query-optimization-summary.md`
 
 ### 迁移与发布
 
@@ -189,7 +190,8 @@ runtime = ApplicationRuntime.from_defaults()
 
 1. 用真实上层应用做联调
 2. 根据联调结果修 `ApplicationRuntime` 的边界和错误码
-3. 再决定是否扩展更多自动化能力
+3. 参考 `docs/alphablocks-query-optimization-summary.md` 继续推进查询性能优化
+4. 再决定是否扩展更多自动化能力
 
 ## 13. 一句话总结
 

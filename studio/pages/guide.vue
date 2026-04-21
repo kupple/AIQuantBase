@@ -139,16 +139,16 @@ async function openDoc(doc) {
           </div>
         </template>
 
-        <div v-if="data?.availableDocs?.length" class="guide-doc-list">
+        <div v-if="data?.availableItems?.length" class="guide-doc-list">
           <el-button
-            v-for="doc in data.availableDocs"
-            :key="doc"
-            :type="doc === data.doc ? 'primary' : 'default'"
+            v-for="item in data.availableItems"
+            :key="item.doc"
+            :type="item.doc === data.doc ? 'primary' : 'default'"
             plain
             class="guide-doc-button"
-            @click="openDoc(doc)"
+            @click="openDoc(item.doc)"
           >
-            {{ doc }}
+            {{ item.title }}
           </el-button>
         </div>
         <el-empty v-else description="当前没有可选文档" :image-size="56" />

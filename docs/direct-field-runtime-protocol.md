@@ -168,6 +168,12 @@ formula: "{close} * ({tot_share} * 10000)"
 5. `validate_query_request(...)`
 6. `query_daily(...)` / `query_minute(...)`
 
+补充：
+
+1. `listed_days` 已并入日频主查询能力
+2. `universe="all_a"` 当前已支持原生日频路径
+3. 空结果现在使用结构化 `empty_result` 语义
+
 ## 6. 当前结论
 
 当前版本已经从“节点关系图驱动”进一步收敛成：

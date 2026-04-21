@@ -41,12 +41,14 @@ class ApplicationRuntime:
         self,
         *,
         symbols: list[str] | None,
+        universe: str | None = None,
         fields: list[str],
         freq: str = '1d',
         asset_type: str = 'auto',
     ) -> dict[str, Any]:
         return self.graph_runtime.resolve_best_node(
             symbols=symbols,
+            universe=universe,
             fields=fields,
             freq=freq,
             asset_type=asset_type,
@@ -82,6 +84,8 @@ class ApplicationRuntime:
         end: str,
         asset_type: str = 'auto',
         freq: str = '1d',
+        memberships: dict[str, Any] | None = None,
+        membership_path: str | Path | None = None,
     ) -> dict[str, Any]:
         return self.graph_runtime.query_daily(
             symbols=symbols,
@@ -91,6 +95,8 @@ class ApplicationRuntime:
             end=end,
             asset_type=asset_type,
             freq=freq,
+            memberships=memberships,
+            membership_path=membership_path,
         )
 
     def query_minute(
@@ -112,6 +118,72 @@ class ApplicationRuntime:
             end=end,
             asset_type=asset_type,
             freq=freq,
+        )
+
+    def query_minute_window_by_trading_day(
+        self,
+        *,
+        symbols: list[str],
+        trading_days: list[str],
+        start_hhmm: str,
+        end_hhmm: str,
+        fields: list[str],
+        asset_type: str = 'stock',
+    ) -> dict[str, Any]:
+        return self.graph_runtime.query_minute_window_by_trading_day(
+            symbols=symbols,
+            trading_days=trading_days,
+            start_hhmm=start_hhmm,
+            end_hhmm=end_hhmm,
+            fields=fields,
+            asset_type=asset_type,
+        )
+
+    def query_next_trading_day_intraday_windows(
+        self,
+        *,
+        anchors: list[dict[str, Any]],
+        start_hhmm: str,
+        end_hhmm: str,
+        fields: list[str],
+        asset_type: str = 'stock',
+    ) -> dict[str, Any]:
+        return self.graph_runtime.query_next_trading_day_intraday_windows(
+            anchors=anchors,
+            start_hhmm=start_hhmm,
+            end_hhmm=end_hhmm,
+            fields=fields,
+            asset_type=asset_type,
+        )
+
+    def query_membership(
+        self,
+        security_code: str,
+        *,
+        as_of_date: str,
+        security_type: str | None = None,
+        membership_path: str | Path | None = None,
+    ) -> dict[str, Any]:
+        return self.graph_runtime.query_membership(
+            security_code,
+            as_of_date=as_of_date,
+            security_type=security_type,
+            membership_path=membership_path,
+        )
+
+    def filter_symbols_by_membership(
+        self,
+        memberships: dict[str, Any],
+        *,
+        as_of_date: str,
+        security_type: str | None = None,
+        membership_path: str | Path | None = None,
+    ) -> dict[str, Any]:
+        return self.graph_runtime.filter_symbols_by_membership(
+            memberships,
+            as_of_date=as_of_date,
+            security_type=security_type,
+            membership_path=membership_path,
         )
 
     def build_intent_from_requirement(self, data_requirement: dict[str, Any]) -> dict[str, Any]:

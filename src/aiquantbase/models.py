@@ -14,6 +14,7 @@ VALID_BIND_MODES = {
 VALID_RELATION_TYPES = {
     "direct",
     "bridge",
+    "any",
 }
 
 

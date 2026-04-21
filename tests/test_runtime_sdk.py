@@ -13,6 +13,70 @@ class FakeExecutor:
         )
 
 
+class EmptyExecutor:
+    def execute_sql(self, sql: str) -> QueryExecutionResult:
+        return QueryExecutionResult(
+            sql=sql,
+            data=[],
+            rows=0,
+            statistics={},
+            meta=[],
+        )
+
+
+class IntradayExecutor:
+    def execute_sql(self, sql: str) -> QueryExecutionResult:
+        if "FROM starlight.ad_market_kline_minute" in sql:
+            if "2024-03-04 14:30:00" in sql:
+                return QueryExecutionResult(
+                    sql=sql,
+                    data=[
+                        {"code": "002545.SZ", "trade_time": "2024-03-04 14:30:00", "open": 11.90, "close": 11.90},
+                        {"code": "002545.SZ", "trade_time": "2024-03-04 14:31:00", "open": 12.00, "close": 12.00},
+                    ],
+                    rows=2,
+                    statistics={},
+                    meta=[],
+                )
+            if "2024-03-05 14:30:00" in sql:
+                return QueryExecutionResult(
+                    sql=sql,
+                    data=[],
+                    rows=0,
+                    statistics={},
+                    meta=[],
+                )
+        if "high_limited" in sql and "starlight.ad_market_kline_daily" in sql:
+            return QueryExecutionResult(
+                sql=sql,
+                data=[
+                    {"code": "002545.SZ", "trade_time": "2024-03-04 00:00:00", "high_limited": 12.00, "low_limited": 10.80},
+                    {"code": "002545.SZ", "trade_time": "2024-03-05 00:00:00", "high_limited": 13.00, "low_limited": 11.70},
+                ],
+                rows=2,
+                statistics={},
+                meta=[],
+            )
+        if "FROM starlight.ad_trade_calendar" in sql:
+            return QueryExecutionResult(
+                sql=sql,
+                data=[
+                    {"trade_date": "2024-03-04"},
+                    {"trade_date": "2024-03-05"},
+                ],
+                rows=2,
+                statistics={},
+                meta=[],
+            )
+        return QueryExecutionResult(
+            sql=sql,
+            data=[],
+            rows=0,
+            statistics={},
+            meta=[],
+        )
+
+
 def test_graph_runtime_render_and_execute_intent():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = FakeExecutor()
@@ -198,6 +262,8 @@ def test_get_supported_fields():
     field_names = {item["name"] for item in result["fields"]}
     assert "close_adj" in field_names
     assert "is_st" in field_names
+    assert "list_date" in field_names
+    assert "listed_days" in field_names
 
 
 def test_get_supported_fields_with_node_filter():
@@ -299,6 +365,47 @@ def test_query_daily_for_stock_uses_query_intent_path():
     assert result["meta"]["node"] == "stock_daily_real"
     assert "intent" in result["debug"]
     assert "sql" in result["debug"]
+    assert "request" in result["debug"]
+    assert "validation" in result["debug"]
+    assert "resolved" in result["debug"]
+
+
+def test_query_daily_for_stock_supports_listed_days():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = FakeExecutor()
+    result = runtime.query_daily(
+        symbols=["000001.SZ"],
+        fields=["close_adj", "open", "is_st", "listed_days"],
+        start="2024-01-01 00:00:00",
+        end="2024-01-31 23:59:59",
+    )
+
+    assert result["ok"] is True
+    assert result["meta"]["node"] == "stock_daily_real"
+    assert "listed_days" in result["debug"]["sql"]
+    assert "list_date" in result["debug"]["sql"]
+    assert "argMax(list_date, snapshot_date)" in result["debug"]["sql"]
+    assert "ANY LEFT JOIN (SELECT * FROM starlight.ad_history_stock_status" in result["debug"]["sql"]
+    assert "starlight.ad_backward_factor" in result["debug"]["sql"]
+    assert "starlight.ad_adj_factor" not in result["debug"]["sql"]
+    assert "FROM (SELECT close, code, open, trade_time, toDate(trade_time) AS __base_trade_time_date FROM starlight.ad_market_kline_daily" in result["debug"]["sql"]
+    assert "SELECT * FROM starlight.ad_backward_factor WHERE trade_date BETWEEN" in result["debug"]["sql"]
+    assert "SELECT * FROM starlight.ad_history_stock_status WHERE trade_date BETWEEN" in result["debug"]["sql"]
+    assert "ASOF LEFT JOIN starlight.ad_stock_basic" not in result["debug"]["sql"]
+
+
+def test_query_daily_for_status_snapshot_fields_uses_any_join():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = FakeExecutor()
+    result = runtime.query_daily(
+        symbols=["000001.SZ"],
+        fields=["pre_close", "is_suspended"],
+        start="2024-01-01 00:00:00",
+        end="2024-01-31 23:59:59",
+    )
+
+    assert result["ok"] is True
+    assert "ANY LEFT JOIN (SELECT * FROM starlight.ad_history_stock_status" in result["debug"]["sql"]
 
 
 def test_build_intent_from_requirement():
@@ -342,6 +449,24 @@ def test_query_daily_for_etf_uses_logical_entry_and_security_type_filter():
     assert "EXTRA_ETF" in result["debug"]["sql"]
 
 
+def test_query_daily_for_etf_empty_result_is_structured():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = EmptyExecutor()
+    result = runtime.query_daily(
+        symbols=["159102.SZ"],
+        fields=["close_adj", "open"],
+        start="2024-01-01 00:00:00",
+        end="2024-01-31 23:59:59",
+    )
+
+    assert result["ok"] is False
+    assert any(issue["code"] == "empty_result" for issue in result["issues"])
+    assert result["meta"]["node"] == "etf_daily_real"
+    assert result["meta"]["empty"] is True
+    assert result["meta"]["empty_reason"] == "no_rows"
+    assert result["debug"]["sql"]
+
+
 def test_query_daily_for_index_uses_logical_entry_and_security_type_filter():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = FakeExecutor()
@@ -378,6 +503,8 @@ def test_execute_requirement():
     assert hasattr(result["df"], "shape")
     assert result["resolved"]["asset_type"] == "stock"
     assert result["debug"]["intent"]["from"] == "stock_daily_real"
+    assert "validation" in result["debug"]
+    assert "request" in result["debug"]
 
 
 def test_query_minute_for_stock_uses_query_intent_path():
@@ -430,3 +557,164 @@ def test_validate_query_request_rejects_large_daily_query_without_symbols():
 
     assert result["ok"] is False
     assert any(issue["code"] == "missing_symbols" for issue in result["issues"])
+
+
+def test_validate_query_request_supports_all_a_universe():
+    runtime = GraphRuntime.from_defaults()
+    result = runtime.validate_query_request(
+        {
+            "symbols": [],
+            "universe": "all_a",
+            "fields": ["close_adj", "open", "is_st", "listed_days"],
+            "start": "2024-01-01",
+            "end": "2024-01-31",
+            "freq": "1d",
+            "asset_type": "auto",
+        }
+    )
+
+    assert result["ok"] is True
+    assert result["resolved"]["asset_type"] == "stock"
+    assert result["resolved"]["node"] == "stock_daily_real"
+
+
+def test_build_intent_from_requirement_supports_all_a_universe():
+    runtime = GraphRuntime.from_defaults()
+    result = runtime.build_intent_from_requirement(
+        {
+            "fields": ["close_adj", "open", "is_st", "listed_days"],
+            "scope": {
+                "universe": "all_a",
+                "freq": "1d",
+                "start": "2024-01-01",
+                "end": "2024-01-31",
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    assert result["resolved"]["asset_type"] == "stock"
+    assert result["resolved"]["node"] == "stock_daily_real"
+    assert result["intent"]["from"] == "stock_daily_real"
+    assert result["intent"]["where"]["items"] == []
+
+
+def test_query_daily_supports_all_a_universe():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = FakeExecutor()
+    result = runtime.query_daily(
+        universe="all_a",
+        fields=["close_adj", "open", "is_st", "listed_days"],
+        start="2024-01-01 00:00:00",
+        end="2024-01-31 23:59:59",
+    )
+
+    assert result["ok"] is True
+    assert result["meta"]["asset_type"] == "stock"
+    assert result["meta"]["node"] == "stock_daily_real"
+    assert result["debug"]["intent"]["where"]["items"] == []
+
+
+def test_query_minute_window_by_trading_day_supports_intraday_limit_fields():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = IntradayExecutor()
+    result = runtime.query_minute_window_by_trading_day(
+        symbols=["002545.SZ"],
+        trading_days=["2024-03-04"],
+        start_hhmm="14:30",
+        end_hhmm="14:31",
+        fields=["open", "is_limit_up", "limit_up_price"],
+        asset_type="stock",
+    )
+
+    assert result["ok"] is True
+    assert list(result["df"].columns) == ["code", "trade_time", "open", "is_limit_up", "limit_up_price"]
+    assert result["df"].shape[0] == 2
+    assert result["df"]["is_limit_up"].tolist() == [0, 1]
+    assert result["df"]["limit_up_price"].tolist() == [12.0, 12.0]
+    assert result["meta"]["freq"] == "1m"
+    assert result["meta"]["row_count"] == 2
+    assert result["debug"]["intent"]["kind"] == "minute_window_by_trading_day"
+    assert "starlight.ad_market_kline_minute" in result["debug"]["sql"]
+
+
+def test_query_minute_window_by_trading_day_supports_partial_empty_days():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = IntradayExecutor()
+    result = runtime.query_minute_window_by_trading_day(
+        symbols=["002545.SZ"],
+        trading_days=["2024-03-04", "2024-03-05"],
+        start_hhmm="14:30",
+        end_hhmm="14:31",
+        fields=["open"],
+        asset_type="stock",
+    )
+
+    assert result["ok"] is True
+    assert result["df"].shape[0] == 2
+    assert result["meta"]["missing_trading_days"] == ["2024-03-05"]
+
+
+def test_query_minute_window_by_trading_day_returns_empty_result_when_all_days_missing():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = EmptyExecutor()
+    result = runtime.query_minute_window_by_trading_day(
+        symbols=["002545.SZ"],
+        trading_days=["2024-03-05"],
+        start_hhmm="14:30",
+        end_hhmm="14:31",
+        fields=["open"],
+        asset_type="stock",
+    )
+
+    assert result["ok"] is False
+    assert any(issue["code"] == "empty_result" for issue in result["issues"])
+    assert result["meta"]["empty"] is True
+    assert result["meta"]["empty_reason"] == "no_rows"
+
+
+def test_query_next_trading_day_intraday_windows_uses_anchor_execution_dates():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = IntradayExecutor()
+    result = runtime.query_next_trading_day_intraday_windows(
+        anchors=[
+            {
+                "anchor_id": "002545.SZ__2024-03-01__2024-03-04",
+                "code": "002545.SZ",
+                "signal_date": "2024-03-01",
+                "execution_date": "2024-03-04",
+            }
+        ],
+        start_hhmm="14:30",
+        end_hhmm="14:31",
+        fields=["open", "is_limit_up"],
+        asset_type="stock",
+    )
+
+    assert result["ok"] is True
+    assert "execution_date" in result["df"].columns
+    assert result["meta"]["anchor_count"] == 1
+    assert result["meta"]["missing_anchor_count"] == 0
+    assert result["debug"]["intent"]["kind"] == "next_trading_day_intraday_windows"
+
+
+def test_query_next_trading_day_intraday_windows_resolves_missing_execution_date_from_calendar():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = IntradayExecutor()
+    result = runtime.query_next_trading_day_intraday_windows(
+        anchors=[
+            {
+                "anchor_id": "002545.SZ__2024-03-01",
+                "code": "002545.SZ",
+                "signal_date": "2024-03-01",
+            }
+        ],
+        start_hhmm="14:30",
+        end_hhmm="14:31",
+        fields=["open"],
+        asset_type="stock",
+    )
+
+    assert result["ok"] is True
+    assert result["meta"]["anchor_count"] == 1
+    assert result["debug"]["resolved_anchors"][0]["execution_date"] == "2024-03-04"

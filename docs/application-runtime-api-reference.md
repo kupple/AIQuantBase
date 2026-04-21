@@ -141,6 +141,11 @@ symbols: list[str]
 4. 频率是否支持
 5. 查询规模是否超出保护阈值
 
+补充：
+
+1. `universe="all_a"` 当前已支持原生日频校验
+2. 当前仅支持 `freq="1d"`
+
 返回：
 
 ```python
@@ -183,6 +188,32 @@ symbols: list[str]
 
 1. 股票/ETF/可转债等日频数据查询
 2. 日频研究与回测数据准备
+3. `all_a` universe 日频查询
+
+当前执行特性：
+
+1. 运行时主路径优先走 `DataFrame` 直读
+2. 不再要求先把大结果集反序列化成 Python `list[dict]` 再进入业务层
+3. 对 `all_a` 或大结果查询，这一条尤其重要
+
+当前 `meta` 至少包含：
+
+1. `asset_type`
+2. `node`
+3. `fields`
+4. `row_count`
+5. `symbol_count`
+6. `empty`
+7. `empty_reason`
+8. `elapsed_ms`
+
+当前 `debug` 至少包含：
+
+1. `request`
+2. `validation`
+3. `resolved`
+4. `intent`
+5. `sql`
 
 ---
 
@@ -194,6 +225,46 @@ symbols: list[str]
 
 返回结构与 `query_daily(...)` 一致。
 
+当前也优先返回：
+
+1. `df: pandas.DataFrame`
+
+这意味着分钟执行类接口与日线接口在上层调用方式上已经统一。
+
+---
+
+### 8. `query_minute_window_by_trading_day(...)`
+
+作用：
+
+1. 按交易日批量拉取分钟窗口
+2. 适合固定时点观察 + 下一分钟执行这类策略
+
+推荐场景：
+
+1. `14:30` 观察，`14:31 open` 执行
+2. 单标的或小股票池分钟执行
+3. `AlphaBlocks` 当前 `intraday_rules` 对接
+
+---
+
+### 9. `query_next_trading_day_intraday_windows(...)`
+
+作用：
+
+1. 按 anchor 批量拉取“下一交易日”分钟执行窗口
+2. 最贴近日线信号 + 分钟执行规则的业务语义
+
+推荐场景：
+
+1. “涨停次日 14:30 未涨停卖出”
+2. “次日 09:35 买入”
+3. 日线事件信号触发后的盘中执行
+
+对接说明：
+
+当前 `AlphaBlocks` 已经会优先调用这个接口。
+
 推荐场景：
 
 1. 股票分钟走势
@@ -201,7 +272,77 @@ symbols: list[str]
 
 ---
 
-### 8. `build_intent_from_requirement(data_requirement)`
+### 8. `query_minute_window_by_trading_day(...)`
+
+作用：
+
+1. 按 `symbols + trading_days + HH:MM 窗口` 拉取分钟执行窗口
+2. 面向“日线信号 + 分钟执行”场景直接返回分钟 bars
+
+输入：
+
+1. `symbols`
+2. `trading_days`
+3. `start_hhmm`
+4. `end_hhmm`
+5. `fields`
+6. `asset_type`
+
+当前第一版支持的分钟执行补充字段：
+
+1. `is_limit_up`
+2. `is_limit_down`
+3. `limit_up_price`
+4. `limit_down_price`
+
+说明：
+
+1. 这些字段当前在运行时里做派生，不要求上层自己补日线限价表
+2. 部分 `trading_days` 没数据时，只要整体仍有数据，就返回 `ok=True`
+3. 全部窗口为空时，返回 `ok=False + empty_result`
+
+推荐场景：
+
+1. 上层已经知道执行日
+2. 想直接批量拉某几个交易日的分钟执行窗口
+
+---
+
+### 9. `query_next_trading_day_intraday_windows(...)`
+
+作用：
+
+1. 面向锚点列表直接查询“下一交易日分钟执行窗口”
+2. 优先兼容当前 `AlphaBlocks` adapter
+
+输入示意：
+
+```python
+anchors = [
+    {
+        "anchor_id": "002545.SZ__2024-03-01__2024-03-04",
+        "code": "002545.SZ",
+        "signal_date": "2024-03-01",
+        "execution_date": "2024-03-04",
+    }
+]
+```
+
+说明：
+
+1. 如果 `execution_date` 已给出，则直接使用
+2. 如果缺少 `execution_date`，运行时会尝试用 `discovery.trading_calendar_table` 推导下一交易日
+3. 返回结构与 `query_minute_window_by_trading_day(...)` 一致，但 `meta` 额外带：
+   `anchor_count / missing_anchor_count / missing_anchor_ids`
+
+推荐场景：
+
+1. `AlphaBlocks` 的 `intraday_requirement`
+2. 日线信号转分钟执行窗口
+
+---
+
+### 10. `build_intent_from_requirement(data_requirement)`
 
 作用：
 
@@ -225,7 +366,7 @@ symbols: list[str]
 
 ---
 
-### 9. `execute_requirement(data_requirement)`
+### 11. `execute_requirement(data_requirement)`
 
 作用：
 
@@ -250,6 +391,7 @@ symbols: list[str]
 
 1. 上层应用主执行入口
 2. 协议驱动的数据层调用
+3. `all_a` requirement 执行
 
 ## 2. 暂不推荐上层直接使用的底层接口
 
@@ -288,6 +430,8 @@ symbols: list[str]
 
 1. `query_daily()`
 2. `query_minute()`
+3. `query_minute_window_by_trading_day()`
+4. `query_next_trading_day_intraday_windows()`
 
 ## 4. 当前不承诺的能力
 

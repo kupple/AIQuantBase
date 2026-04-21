@@ -7,9 +7,17 @@ from .planner import GraphRegistry
 class SqlRenderer:
     def __init__(self, registry: GraphRegistry) -> None:
         self.registry = registry
+        self._base_node_name: str | None = None
+        self._base_time_field: str | None = None
+        self._base_date_alias: str | None = None
+        self._base_time_prefiltered: bool = False
 
     def render(self, plan: QueryPlan) -> str:
         base_node = self.registry.nodes[plan.base_node]
+        self._base_node_name = plan.base_node
+        self._base_time_field = plan.time_range.field if plan.time_range else None
+        self._base_date_alias = None
+        self._base_time_prefiltered = False
         aliases = {plan.base_node: "b0"}
         lines: list[str] = []
 
@@ -28,13 +36,14 @@ class SqlRenderer:
 
         lines.append("SELECT")
         lines.append("  " + ",\n  ".join(select_exprs))
-        lines.append(f"FROM {base_node.table} {aliases[plan.base_node]}")
+        lines.append(f"FROM {self._render_base_source(base_node.table, plan)} {aliases[plan.base_node]}")
 
         for step in plan.steps:
             from_alias = aliases[step.from_node]
             to_alias = aliases.setdefault(step.to_node, f"t{len(aliases)}")
             target_table = step.to_table or self.registry.nodes[step.to_node].table
-            join_target = f"{target_table} {to_alias}"
+            join_source = self._render_join_source(target_table, step.time_binding, plan)
+            join_target = f"{join_source} {to_alias}"
             if step.relation_type == "bridge" and step.bridge_steps:
                 current_alias = from_alias
                 for bridge_step in step.bridge_steps:
@@ -54,7 +63,8 @@ class SqlRenderer:
                                 lookahead_safe_for_event=step.lookahead_safe_for_event,
                             )
                         )
-                    lines.append(f"LEFT JOIN {bridge_step.table} {bridge_alias} ON " + " AND ".join(conditions))
+                    bridge_source = self._render_join_source(bridge_step.table, bridge_step.time_binding, plan)
+                    lines.append(f"LEFT JOIN {bridge_source} {bridge_alias} ON " + " AND ".join(conditions))
                     current_alias = bridge_alias
 
                 conditions = [self._render_pair(current_alias, to_alias, pair) for pair in step.join_keys]
@@ -74,6 +84,8 @@ class SqlRenderer:
 
             conditions = [self._render_pair(from_alias, to_alias, pair) for pair in step.join_keys]
             join_prefix = "LEFT JOIN"
+            if step.relation_type == "any":
+                join_prefix = "ANY LEFT JOIN"
             if step.time_binding:
                 if step.time_binding.mode == "asof":
                     join_prefix = "ASOF LEFT JOIN"
@@ -90,7 +102,7 @@ class SqlRenderer:
             lines.append(f"{join_prefix} {join_target} ON " + " AND ".join(conditions))
 
         where_clauses: list[str] = []
-        if plan.time_range:
+        if plan.time_range and not self._base_time_prefiltered:
             base_alias = aliases[plan.base_node]
             where_clauses.append(
                 f"{base_alias}.{plan.resolved_fields[plan.time_range.field]} "
@@ -219,12 +231,118 @@ class SqlRenderer:
     def _render_time_ref(self, alias: str, field_name: str | None, cast_name: str | None) -> str:
         if not field_name:
             raise ValueError("Time binding field is required")
+        if (
+            alias == "b0"
+            and self._base_date_alias
+            and self._base_time_field == field_name
+            and cast_name == "date"
+        ):
+            return f"{alias}.{self._base_date_alias}"
         ref = f"{alias}.{field_name}"
         if cast_name == "date":
             return f"toDate({ref})"
         if cast_name == "yyyymmdd":
             return f"toDate(parseDateTimeBestEffortOrNull(toString({ref})))"
         return ref
+
+    def _render_join_source(self, table: str, binding, plan: QueryPlan) -> str:
+        if not binding or not plan.time_range:
+            return table
+        if binding.mode not in {"same_date", "same_timestamp"}:
+            return table
+        stripped = table.strip()
+        if stripped.startswith("("):
+            return table
+        source_time_field = binding.source_time_field
+        if not source_time_field:
+            return table
+        cast_name = binding.source_time_cast or binding.base_time_cast
+        start_literal = self._render_time_literal(plan.time_range.start, cast_name)
+        end_literal = self._render_time_literal(plan.time_range.end, cast_name)
+        return (
+            f"(SELECT * FROM {table} WHERE {source_time_field} BETWEEN {start_literal} AND {end_literal})"
+        )
+
+    def _render_base_source(self, table: str, plan: QueryPlan) -> str:
+        if not plan.time_range:
+            return table
+        stripped = table.strip()
+        if stripped.startswith("("):
+            return table
+
+        required_fields = self._collect_base_required_fields(plan)
+        time_field = plan.resolved_fields.get(plan.time_range.field, plan.time_range.field)
+        required_fields.add(time_field)
+        select_fields = sorted(required_fields)
+        select_parts = [field for field in select_fields]
+
+        if self._needs_base_date_alias(plan):
+            self._base_date_alias = f"__base_{time_field}_date"
+            select_parts.append(f"toDate({time_field}) AS {self._base_date_alias}")
+
+        self._base_time_prefiltered = True
+        rendered = ", ".join(select_parts)
+        return (
+            f"(SELECT {rendered} FROM {table} "
+            f"WHERE {time_field} BETWEEN '{plan.time_range.start}' AND '{plan.time_range.end}')"
+        )
+
+    def _needs_base_date_alias(self, plan: QueryPlan) -> bool:
+        if not plan.time_range:
+            return False
+        time_field = plan.time_range.field
+        for step in plan.steps:
+            binding = step.time_binding
+            if not binding:
+                continue
+            if binding.base_time_field == time_field and binding.base_time_cast == "date":
+                return True
+        return False
+
+    def _collect_base_required_fields(self, plan: QueryPlan) -> set[str]:
+        required: set[str] = set()
+
+        def collect_field(field_name: str) -> None:
+            if field_name in plan.derived_fields:
+                for dependency in plan.derived_fields[field_name].get("depends_on") or []:
+                    collect_field(str(dependency))
+                return
+            node_name = plan.field_bindings.get(field_name)
+            if node_name == plan.base_node:
+                required.add(plan.resolved_fields.get(field_name, field_name))
+
+        def collect_filter_group(group: FilterGroup) -> None:
+            for item in group.items:
+                if isinstance(item, FilterCondition):
+                    collect_field(item.field)
+                else:
+                    collect_filter_group(item)
+
+        for field_name in plan.group_by:
+            collect_field(field_name)
+        for select_item in plan.select_fields:
+            collect_field(select_item.field)
+        for aggregation in plan.aggregations:
+            collect_field(aggregation.field)
+        for order_by in plan.order_by:
+            collect_field(order_by.field)
+        collect_filter_group(plan.where)
+        collect_filter_group(plan.having)
+
+        for step in plan.steps:
+            if step.from_node == plan.base_node:
+                for pair in step.join_keys:
+                    required.add(pair["base"])
+                if step.time_binding and step.time_binding.base_time_field:
+                    required.add(step.time_binding.base_time_field)
+        return required
+
+    def _render_time_literal(self, value: str, cast_name: str | None) -> str:
+        if cast_name == "date":
+            return f"toDate({self._quote(value)})"
+        if cast_name == "yyyymmdd":
+            return f"toUInt32(formatDateTime(toDate({self._quote(value)}), '%Y%m%d'))"
+        return self._quote(value)
 
     def _label_for_field(self, field_name: str) -> str:
         if "." in field_name:

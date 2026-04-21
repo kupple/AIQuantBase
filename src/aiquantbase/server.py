@@ -17,11 +17,41 @@ from .config import dump_yaml, load_field_catalog, load_nodes_and_edges
 from .discovery import SchemaDiscoveryService
 from .executor import ClickHouseExecutor
 from .llm import DeepSeekClient
+from .membership import (
+    DEFAULT_MEMBERSHIP_PATH,
+    delete_source,
+    filter_symbols_by_membership,
+    import_membership_payload,
+    list_domains,
+    list_members,
+    list_relations,
+    list_sources,
+    list_taxonomies,
+    load_membership_workspace,
+    membership_workspace_summary,
+    parse_import_payload,
+    parse_membership_filter_payload,
+    patch_relation,
+    preview_source_rows_with_lookup,
+    query_membership,
+    upsert_member,
+    upsert_relation,
+    upsert_source,
+    upsert_taxonomy,
+)
 from .nl_intent import enrich_query_intent_with_aliases, normalize_query_intent_defaults, validate_query_intent_fields
 from .planner import GraphRegistry, QueryPlanner
 from .runtime import GraphRuntime
 from .runtime_config import DEFAULT_RUNTIME_CONFIG_PATH, load_runtime_config
 from .sql import SqlRenderer
+from .wide_table import (
+    DEFAULT_WIDE_TABLE_PATH,
+    delete_wide_table,
+    export_wide_table_yaml,
+    get_wide_table_summary,
+    list_wide_tables,
+    upsert_wide_table,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -57,6 +87,8 @@ def create_app(
                     "graph_path": str(_default_graph_path()),
                     "fields_path": str(_default_fields_path()),
                     "runtime_path": str(DEFAULT_RUNTIME_CONFIG_PATH),
+                    "membership_path": str(DEFAULT_MEMBERSHIP_PATH),
+                    "wide_table_path": str(DEFAULT_WIDE_TABLE_PATH),
                 },
                 "available_routes": [
                     "/api/health",
@@ -67,10 +99,268 @@ def create_app(
                     "/api/metadata/catalog",
                     "/api/metadata/protocol-summary",
                     "/api/metadata/disabled-node-cleanup",
+                    "/api/membership/workspace",
+                    "/api/membership/domains",
+                    "/api/membership/sources",
+                    "/api/membership/taxonomies",
+                    "/api/membership/members",
+                    "/api/membership/relations",
+                    "/api/wide-tables",
+                    "/api/wide-tables/export",
                     "/api/fields/ai-notes",
                     "/api/query/execute",
                     "/api/query/nl",
                 ],
+            }
+        )
+
+    @app.get("/api/wide-tables")
+    def wide_tables():
+        wide_table_path = _resolve_workspace_path(request.args.get("wide_table_path") or DEFAULT_WIDE_TABLE_PATH)
+        return jsonify(
+            {
+                "workspace": {
+                    "wide_table_path": str(wide_table_path),
+                },
+                "summary": get_wide_table_summary(wide_table_path),
+                "items": list_wide_tables(
+                    wide_table_path,
+                    source_node=request.args.get("source_node") or None,
+                ),
+            }
+        )
+
+    @app.post("/api/wide-tables")
+    def save_wide_table():
+        payload = request.get_json(force=True)
+        wide_table_path = _resolve_workspace_path(payload.get("wide_table_path") or DEFAULT_WIDE_TABLE_PATH)
+        item = upsert_wide_table(payload.get("wide_table") or payload, wide_table_path)
+        return jsonify({"ok": True, "item": item, "summary": get_wide_table_summary(wide_table_path)})
+
+    @app.delete("/api/wide-tables")
+    def remove_wide_table():
+        wide_table_path = _resolve_workspace_path(request.args.get("wide_table_path") or DEFAULT_WIDE_TABLE_PATH)
+        design_id = request.args.get("id") or ""
+        item = delete_wide_table(design_id, wide_table_path)
+        return jsonify({"ok": True, "item": item, "summary": get_wide_table_summary(wide_table_path)})
+
+    @app.get("/api/wide-tables/export")
+    def export_wide_table():
+        wide_table_path = _resolve_workspace_path(request.args.get("wide_table_path") or DEFAULT_WIDE_TABLE_PATH)
+        design_id = request.args.get("id") or ""
+        yaml_text = export_wide_table_yaml(design_id, wide_table_path)
+        return jsonify({"ok": True, "yaml": yaml_text})
+
+    @app.get("/api/membership/workspace")
+    def membership_workspace():
+        membership_path = _resolve_membership_path(request.args.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        workspace = load_membership_workspace(membership_path)
+        return jsonify(
+            {
+                "workspace": {
+                    "membership_path": str(membership_path),
+                },
+                "summary": membership_workspace_summary(membership_path),
+                "domains": list_domains(membership_path),
+                "sources": list_sources(membership_path),
+                "taxonomies": list_taxonomies(membership_path),
+                "members": list_members(membership_path),
+                "relations": list_relations(membership_path),
+            }
+        )
+
+    @app.get("/api/membership/domains")
+    def membership_domains():
+        membership_path = _resolve_membership_path(request.args.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        return jsonify({"items": list_domains(membership_path)})
+
+    @app.get("/api/membership/taxonomies")
+    def membership_taxonomies():
+        membership_path = _resolve_membership_path(request.args.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        domain = request.args.get("domain") or None
+        return jsonify({"items": list_taxonomies(membership_path, domain=domain)})
+
+    @app.get("/api/membership/sources")
+    def membership_sources():
+        membership_path = _resolve_membership_path(request.args.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        return jsonify(
+            {
+                "items": list_sources(
+                    membership_path,
+                    domain=request.args.get("domain") or None,
+                    taxonomy=request.args.get("taxonomy") or None,
+                    status=request.args.get("status") or None,
+                )
+            }
+        )
+
+    @app.get("/api/membership/members")
+    def membership_members():
+        membership_path = _resolve_membership_path(request.args.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        domain = request.args.get("domain") or None
+        taxonomy = request.args.get("taxonomy") or None
+        return jsonify({"items": list_members(membership_path, domain=domain, taxonomy=taxonomy)})
+
+    @app.get("/api/membership/relations")
+    def membership_relations():
+        membership_path = _resolve_membership_path(request.args.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        return jsonify(
+            {
+                "items": list_relations(
+                    membership_path,
+                    security_code=request.args.get("security_code") or None,
+                    domain=request.args.get("domain") or None,
+                    taxonomy=request.args.get("taxonomy") or None,
+                    member_code=request.args.get("member_code") or None,
+                    as_of_date=request.args.get("as_of_date") or None,
+                    security_type=request.args.get("security_type") or None,
+                )
+            }
+        )
+
+    @app.get("/api/membership/query")
+    def membership_query():
+        membership_path = _resolve_membership_path(request.args.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        security_code = str(request.args.get("security_code") or "").strip()
+        as_of_date = str(request.args.get("as_of_date") or "").strip()
+        if not security_code or not as_of_date:
+            return jsonify({"ok": False, "message": "security_code and as_of_date are required", "items": []}), 400
+        items = query_membership(
+            security_code,
+            as_of_date=as_of_date,
+            path=membership_path,
+            security_type=request.args.get("security_type") or None,
+        )
+        return jsonify({"ok": True, "items": items, "count": len(items)})
+
+    @app.post("/api/membership/filter")
+    def membership_filter():
+        payload = request.get_json(force=True)
+        membership_path = _resolve_membership_path(payload.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        as_of_date = str(payload.get("as_of_date") or "").strip()
+        if not as_of_date:
+            return jsonify({"ok": False, "message": "as_of_date is required", "symbols": []}), 400
+        membership_filter_payload = payload.get("filter") or {}
+        if payload.get("raw_text"):
+            membership_filter_payload = parse_membership_filter_payload(str(payload.get("raw_text") or ""))
+        result = filter_symbols_by_membership(
+            membership_filter_payload,
+            as_of_date=as_of_date,
+            path=membership_path,
+            security_type=payload.get("security_type") or None,
+        )
+        return jsonify(result)
+
+    @app.post("/api/membership/sources")
+    def membership_upsert_source():
+        payload = request.get_json(force=True)
+        membership_path = _resolve_membership_path(payload.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        item = upsert_source(payload.get("source") or payload, membership_path)
+        return jsonify({"ok": True, "item": item, "summary": membership_workspace_summary(membership_path)})
+
+    @app.delete("/api/membership/sources")
+    def membership_delete_source():
+        membership_path = _resolve_membership_path(request.args.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        source_id = request.args.get("id") or ""
+        item = delete_source(source_id, membership_path)
+        return jsonify({"ok": True, "item": item, "summary": membership_workspace_summary(membership_path)})
+
+    @app.post("/api/membership/source-preview")
+    def membership_source_preview():
+        payload = request.get_json(force=True)
+        source = payload.get("source") or {}
+        runtime_path = _resolve_workspace_path(payload.get("runtime_path") or DEFAULT_RUNTIME_CONFIG_PATH)
+        runtime = load_runtime_config(runtime_path)
+        database = str(source.get("database") or "").strip()
+        table = str(source.get("table") or "").strip()
+        if not database or not table:
+            return jsonify({"ok": False, "message": "source.database and source.table are required"}), 400
+
+        limit = int(payload.get("limit") or 100)
+        sql = f"SELECT * FROM {database}.{table} LIMIT {max(1, min(limit, 200))}"
+        executor = ClickHouseExecutor(runtime.datasource)
+        result = executor.execute_sql(sql)
+
+        lookup_rows: list[dict[str, Any]] = []
+        lookup_sql = ""
+        lookup_database = str(source.get("lookup_database") or "").strip()
+        lookup_table = str(source.get("lookup_table") or "").strip()
+        lookup_target_field = str(source.get("lookup_target_field") or "").strip()
+        main_member_field = str(source.get("lookup_source_field") or source.get("member_code_field") or "").strip()
+        if lookup_database and lookup_table and lookup_target_field and main_member_field:
+            member_codes = sorted(
+                {
+                    str(row.get(main_member_field) or "").strip()
+                    for row in result.data
+                    if isinstance(row, dict) and str(row.get(main_member_field) or "").strip()
+                }
+            )
+            if member_codes:
+                in_values = ", ".join(_quote_clickhouse_string(value) for value in member_codes)
+                lookup_sql = (
+                    f"SELECT * FROM {lookup_database}.{lookup_table} "
+                    f"WHERE {lookup_target_field} IN ({in_values}) "
+                    f"LIMIT {max(1, min(len(member_codes) * 5, 1000))}"
+                )
+                lookup_result = executor.execute_sql(lookup_sql)
+                lookup_rows = lookup_result.data
+
+        preview = preview_source_rows_with_lookup(source, result.data, lookup_rows)
+        return jsonify(
+            {
+                "ok": True,
+                "sql": result.sql,
+                "lookup_sql": lookup_sql,
+                "rows": result.rows,
+                "raw_rows": result.data,
+                "lookup_rows": lookup_rows,
+                **preview,
+            }
+        )
+
+    @app.post("/api/membership/taxonomies")
+    def membership_upsert_taxonomy():
+        payload = request.get_json(force=True)
+        membership_path = _resolve_membership_path(payload.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        item = upsert_taxonomy(payload.get("taxonomy") or payload, membership_path)
+        return jsonify({"ok": True, "item": item, "summary": membership_workspace_summary(membership_path)})
+
+    @app.post("/api/membership/members")
+    def membership_upsert_member():
+        payload = request.get_json(force=True)
+        membership_path = _resolve_membership_path(payload.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        item = upsert_member(payload.get("member") or payload, membership_path)
+        return jsonify({"ok": True, "item": item, "summary": membership_workspace_summary(membership_path)})
+
+    @app.post("/api/membership/relations")
+    def membership_upsert_relation():
+        payload = request.get_json(force=True)
+        membership_path = _resolve_membership_path(payload.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        item = upsert_relation(payload.get("relation") or payload, membership_path)
+        return jsonify({"ok": True, "item": item, "summary": membership_workspace_summary(membership_path)})
+
+    @app.patch("/api/membership/relations")
+    def membership_patch_relation():
+        payload = request.get_json(force=True)
+        membership_path = _resolve_membership_path(payload.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        item = patch_relation(payload.get("relation") or payload, membership_path)
+        return jsonify({"ok": True, "item": item, "summary": membership_workspace_summary(membership_path)})
+
+    @app.post("/api/membership/import")
+    def membership_import():
+        payload = request.get_json(force=True)
+        membership_path = _resolve_membership_path(payload.get("membership_path") or DEFAULT_MEMBERSHIP_PATH)
+        import_payload = parse_import_payload(str(payload.get("raw_text") or ""))
+        workspace = import_membership_payload(import_payload, membership_path)
+        return jsonify(
+            {
+                "ok": True,
+                "summary": membership_workspace_summary(membership_path),
+                "counts": {
+                    "taxonomies": len(workspace["taxonomies"]),
+                    "members": len(workspace["members"]),
+                    "relations": len(workspace["relations"]),
+                },
             }
         )
 
@@ -348,6 +638,10 @@ def _resolve_workspace_path(path_like: str | Path) -> Path:
     return path
 
 
+def _resolve_membership_path(path_like: str | Path) -> Path:
+    return _resolve_workspace_path(path_like)
+
+
 def _safe_load_graph(path: Path):
     resolved = _resolve_workspace_path(path)
     if not resolved.exists():
@@ -580,3 +874,8 @@ def _clean_ai_note_text(text: str) -> str:
         if fragment in note:
             return ""
     return note
+
+
+def _quote_clickhouse_string(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace("'", "\\'")
+    return f"'{escaped}'"
