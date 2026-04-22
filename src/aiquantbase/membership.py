@@ -152,6 +152,98 @@ def list_members(
     return items
 
 
+def resolve_membership_target(
+    *,
+    domain: str,
+    member_code: str,
+    path: str | Path | None = None,
+    taxonomy: str | None = None,
+    member_name: str | None = None,
+    status: str | None = "enabled",
+) -> dict[str, Any]:
+    workspace = load_membership_workspace(path)
+    normalized_domain = str(domain or '').strip()
+    normalized_member_code = str(member_code or '').strip()
+    normalized_taxonomy = str(taxonomy or '').strip()
+    normalized_member_name = str(member_name or '').strip()
+    normalized_status = str(status or '').strip()
+
+    if not normalized_domain:
+        raise ValueError('resolve_membership_target requires domain')
+    if not normalized_member_code:
+        raise ValueError('resolve_membership_target requires member_code')
+
+    candidates: dict[tuple[str, str], dict[str, Any]] = {}
+
+    def _collect_candidate(item: dict[str, Any]) -> None:
+        if not isinstance(item, dict):
+            return
+        if str(item.get('domain') or '').strip() != normalized_domain:
+            return
+        if str(item.get('member_code') or '').strip() != normalized_member_code:
+            return
+        if normalized_taxonomy and str(item.get('taxonomy') or '').strip() != normalized_taxonomy:
+            return
+        if normalized_member_name and str(item.get('member_name') or '').strip() != normalized_member_name:
+            return
+        if normalized_status and str(item.get('status') or '').strip() not in {'', normalized_status}:
+            return
+        candidate_key = (
+            str(item.get('taxonomy') or '').strip(),
+            str(item.get('member_code') or '').strip(),
+        )
+        if not candidate_key[0]:
+            return
+        candidates.setdefault(
+            candidate_key,
+            {
+                'domain': normalized_domain,
+                'taxonomy': candidate_key[0],
+                'member_code': candidate_key[1],
+                'member_name': str(item.get('member_name') or '').strip(),
+                'status': str(item.get('status') or '').strip() or 'enabled',
+            },
+        )
+
+    for item in workspace.get('members') or []:
+        _collect_candidate(item)
+    for item in workspace.get('relations') or []:
+        _collect_candidate(item)
+
+    if not candidates:
+        raise ValueError(
+            f'no membership target found for domain={normalized_domain}, member_code={normalized_member_code}'
+        )
+    if len(candidates) > 1:
+        raise ValueError(
+            f'ambiguous membership target for domain={normalized_domain}, member_code={normalized_member_code}: '
+            f'{sorted(key[0] for key in candidates)}'
+        )
+
+    target = next(iter(candidates.values()))
+    matching_sources = [
+        {
+            'id': str(source.get('id') or '').strip(),
+            'source_name': str(source.get('source_name') or '').strip(),
+            'source_kind': str(source.get('source_kind') or '').strip(),
+            'database': str(source.get('database') or '').strip(),
+            'table': str(source.get('table') or '').strip(),
+            'domain': str(source.get('domain') or '').strip(),
+            'taxonomy': str(source.get('taxonomy') or '').strip(),
+        }
+        for source in workspace.get('sources') or []
+        if isinstance(source, dict)
+        and str(source.get('domain') or '').strip() == target['domain']
+        and str(source.get('taxonomy') or '').strip() == target['taxonomy']
+        and (not normalized_status or str(source.get('status') or '').strip() in {'', normalized_status})
+    ]
+    return {
+        **target,
+        'source_count': len(matching_sources),
+        'sources': matching_sources,
+    }
+
+
 def list_relations(
     path: str | Path | None = None,
     *,

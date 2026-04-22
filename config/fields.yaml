@@ -40,6 +40,76 @@ fields:
   binding_mode: source_table
   bridge_steps: []
   depends_on: []
+  description_zh: 来自状态快照表
+  field_role: status_flag
+  formula: null
+  join_keys:
+  - base: code
+    source: market_code
+  lookahead_category: none
+  notes:
+  - Mapped from status snapshot table
+  path_domain: null
+  path_group: null
+  relation_type: direct
+  resolver_type: direct
+  source_field: is_wd_sec
+  source_node: null
+  source_table: starlight.ad_history_stock_status
+  standard_field: is_wd_sec
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 来自状态快照表
+  field_role: status_flag
+  formula: null
+  join_keys:
+  - base: code
+    source: market_code
+  lookahead_category: none
+  notes:
+  - Mapped from status snapshot table
+  path_domain: null
+  path_group: null
+  relation_type: direct
+  resolver_type: direct
+  source_field: is_xr_sec
+  source_node: null
+  source_table: starlight.ad_history_stock_status
+  standard_field: is_xr_sec
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
   description_zh: 后复权因子
   field_role: adjustment_factor
   formula: null
@@ -97,7 +167,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
@@ -122,7 +192,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
@@ -147,7 +217,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
@@ -2377,8 +2447,8 @@ fields:
   source_field: list_date
   source_node: null
   source_table: "(SELECT market_code, argMax(list_date, snapshot_date) AS list_date,\n\
-    \ argMax(delist_date, snapshot_date) AS delist_date FROM starlight.ad_stock_basic GROUP\
-    \ BY market_code)"
+    \ argMax(delist_date, snapshot_date) AS delist_date FROM starlight.ad_stock_basic\
+    \ GROUP BY market_code)"
   standard_field: list_date
   time_binding: null
   time_semantics: listing_start_date
@@ -2429,8 +2499,8 @@ fields:
   source_field: delist_date
   source_node: null
   source_table: "(SELECT market_code, argMax(list_date, snapshot_date) AS list_date,\n\
-    \ argMax(delist_date, snapshot_date) AS delist_date FROM starlight.ad_stock_basic GROUP\
-    \ BY market_code)"
+    \ argMax(delist_date, snapshot_date) AS delist_date FROM starlight.ad_stock_basic\
+    \ GROUP BY market_code)"
   standard_field: delist_date
   time_binding: null
   time_semantics: listing_end_date
@@ -8981,56 +9051,6 @@ fields:
   via_node: null
 - applies_to_grain: daily
   base_node: stock_daily_real
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - code
-  description_zh: 派生科创板标记
-  field_role: derived_field
-  formula: startsWith({code}, '688')
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Derived board flag for STAR Market stocks
-  - Returns true when stock code starts with 688
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: is_star_board
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - code
-  description_zh: 派生创业板标记
-  field_role: derived_field
-  formula: startsWith({code}, '30')
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Derived board flag for GEM stocks
-  - Returns true when stock code starts with 30
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: is_gem_board
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
   binding_mode: source_table
   bridge_steps: []
   depends_on: []
@@ -9149,3 +9169,75 @@ fields:
   time_binding: null
   time_semantics: null
   via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: derived
+  bridge_steps: []
+  depends_on:
+  - code
+  description_zh: null
+  field_role: derived_field
+  formula: startsWith({code}, '688')
+  join_keys: []
+  lookahead_category: null
+  notes:
+  - 'Derived board flag for STAR Market stocks
+
+    Returns true when stock code starts with 688'
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: is_kcb
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: derived
+  bridge_steps: []
+  depends_on:
+  - code
+  description_zh: null
+  field_role: derived_field
+  formula: startsWith({code}, '30')
+  join_keys: []
+  lookahead_category: null
+  notes:
+  - 'Derived board flag for GEM stocks
+
+    Returns true when stock code starts with 30'
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: is_cyb
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- base_node: stock_daily_real
+  standard_field: is_bjs
+  binding_mode: derived
+  source_table: null
+  source_node: null
+  source_field: null
+  relation_type: null
+  join_keys: []
+  time_binding: null
+  bridge_steps: []
+  field_role: derived_field
+  resolver_type: derived
+  depends_on:
+  - code
+  formula: endsWith({code}, '.BJ')
+  applies_to_grain: daily
+  notes:
+  - 'Derived board flag for Beijing Stock Exchange stocks
+
+    Returns true when stock code ends with .BJ'

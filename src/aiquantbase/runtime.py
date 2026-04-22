@@ -13,6 +13,7 @@ from .membership import (
     DEFAULT_MEMBERSHIP_PATH,
     filter_symbols_by_membership as membership_filter_symbols,
     query_membership as membership_query_membership,
+    resolve_membership_target as membership_resolve_target,
 )
 from .planner import GraphRegistry, QueryPlanner
 from .runtime_config import DEFAULT_RUNTIME_CONFIG_PATH, load_runtime_config
@@ -521,6 +522,27 @@ class GraphRuntime:
             'ok': True,
             'items': items,
             'count': len(items),
+        }
+
+    def resolve_membership_target(
+        self,
+        *,
+        domain: str,
+        member_code: str,
+        taxonomy: str | None = None,
+        member_name: str | None = None,
+        membership_path: str | Path | None = None,
+    ) -> dict[str, Any]:
+        item = membership_resolve_target(
+            domain=domain,
+            member_code=member_code,
+            taxonomy=taxonomy,
+            member_name=member_name,
+            path=membership_path or DEFAULT_MEMBERSHIP_PATH,
+        )
+        return {
+            'ok': True,
+            'item': item,
         }
 
     def filter_symbols_by_membership(

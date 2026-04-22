@@ -148,7 +148,12 @@ def create_app(
     def export_wide_table():
         wide_table_path = _resolve_workspace_path(request.args.get("wide_table_path") or DEFAULT_WIDE_TABLE_PATH)
         design_id = request.args.get("id") or ""
-        yaml_text = export_wide_table_yaml(design_id, wide_table_path)
+        yaml_text = export_wide_table_yaml(
+            design_id,
+            wide_table_path,
+            graph_path=request.args.get("graph_path") or _default_graph_path(),
+            fields_path=request.args.get("fields_path") or _default_fields_path(),
+        )
         return jsonify({"ok": True, "yaml": yaml_text})
 
     @app.get("/api/membership/workspace")

@@ -120,6 +120,42 @@ def test_application_runtime_execute_requirement_supports_all_a():
     assert result["resolved"]["node"] == "stock_daily_real"
 
 
+def test_application_runtime_resolve_membership_target(tmp_path):
+    membership_path = tmp_path / "membership.yaml"
+    membership_path.write_text(
+        """
+version: 1
+sources:
+  - source_name: index_source
+    source_kind: relation
+    database: starlight
+    table: ad_index_constituent
+    domain: index
+    taxonomy: csi_index
+    security_code_field: con_code
+    member_code_field: index_code
+    member_name_field: index_name
+members:
+  - domain: index
+    taxonomy: csi_index
+    member_code: 399101.SZ
+    member_name: 中小综指
+    status: enabled
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    runtime = ApplicationRuntime.from_defaults()
+    result = runtime.resolve_membership_target(
+        domain="index",
+        member_code="399101.SZ",
+        membership_path=membership_path,
+    )
+
+    assert result["ok"] is True
+    assert result["item"]["taxonomy"] == "csi_index"
+
+
 def test_application_runtime_query_daily_for_etf():
     runtime = ApplicationRuntime.from_defaults()
     runtime.graph_runtime.executor = FakeExecutor()

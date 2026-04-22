@@ -39,8 +39,8 @@ export function useWorkbench() {
     selectedCount: nodeForm.value.fields.length,
   }))
 
-  const currentNodeFieldBindings = computed(() => {
-    const nodeName = selectedNodeName.value || nodeForm.value.name
+  function getNodeFieldBindings(nodeNameInput) {
+    const nodeName = String(nodeNameInput || '').trim()
     if (!nodeName) return []
 
     const nodeLookup = new Map(graph.value.nodes.map((node) => [node.name, node]))
@@ -147,6 +147,11 @@ export function useWorkbench() {
       }))
 
     return [...rawBaseRows, ...catalogRows]
+  }
+
+  const currentNodeFieldBindings = computed(() => {
+    const nodeName = selectedNodeName.value || nodeForm.value.name
+    return getNodeFieldBindings(nodeName)
   })
 
   const currentNodeGraph = computed(() => {
@@ -1062,6 +1067,7 @@ export function useWorkbench() {
     visibleNodes,
     currentTableProfile,
     currentNodeFieldBindings,
+    getNodeFieldBindings,
     currentNodeGraph,
     notifyAction,
     ensureWorkspaceLoaded,
