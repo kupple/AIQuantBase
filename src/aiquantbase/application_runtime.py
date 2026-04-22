@@ -171,6 +171,23 @@ class ApplicationRuntime:
             membership_path=membership_path,
         )
 
+    def resolve_membership_target(
+        self,
+        *,
+        domain: str,
+        member_code: str,
+        taxonomy: str | None = None,
+        member_name: str | None = None,
+        membership_path: str | Path | None = None,
+    ) -> dict[str, Any]:
+        return self.graph_runtime.resolve_membership_target(
+            domain=domain,
+            member_code=member_code,
+            taxonomy=taxonomy,
+            member_name=member_name,
+            membership_path=membership_path,
+        )
+
     def filter_symbols_by_membership(
         self,
         memberships: dict[str, Any],

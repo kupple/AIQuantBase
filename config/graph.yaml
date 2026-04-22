@@ -1,13 +1,10 @@
 nodes:
-- asset_type: stock
-  base_filters:
-  - field: security_type
-    op: '='
-    value: EXTRA_STOCK_A
-  description: 股票日线行情主表
-  description_zh: null
+- name: stock_daily_real
+  table: starlight.ad_market_kline_daily
   entity_keys:
   - code
+  time_key: trade_time
+  grain: daily
   fields:
   - code
   - trade_time
@@ -17,14 +14,16 @@ nodes:
   - close
   - volume
   - amount
-  grain: daily
-  name: stock_daily_real
+  description: 股票日线行情主表
   node_role: query_entry
-  physical_node: null
-  query_freq: 1d
   status: enabled
-  table: starlight.ad_market_kline_daily
-  time_key: trade_time
+  physical_node: null
+  asset_type: stock
+  query_freq: 1d
+  base_filters:
+  - field: security_type
+    op: '='
+    value: EXTRA_STOCK_A
 - asset_type: stock
   base_filters: []
   description: null

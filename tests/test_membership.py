@@ -15,6 +15,7 @@ from aiquantbase.membership import (
     preview_source_rows,
     preview_source_rows_with_lookup,
     query_membership,
+    resolve_membership_target,
     save_membership_workspace,
     upsert_member,
     upsert_relation,
@@ -122,6 +123,85 @@ def test_membership_filter_symbols(tmp_path: Path):
 
     assert result['ok'] is True
     assert result['symbols'] == ['000001.SZ']
+
+
+def test_resolve_membership_target(tmp_path: Path):
+    path = tmp_path / 'membership.yaml'
+    save_membership_workspace(
+        {
+            'version': 1,
+            'sources': [
+                {
+                    'source_name': 'index_source',
+                    'source_kind': 'relation',
+                    'database': 'starlight',
+                    'table': 'ad_index_constituent',
+                    'domain': 'index',
+                    'taxonomy': 'csi_index',
+                    'security_code_field': 'con_code',
+                    'member_code_field': 'index_code',
+                    'member_name_field': 'index_name',
+                }
+            ],
+            'members': [
+                {
+                    'domain': 'index',
+                    'taxonomy': 'csi_index',
+                    'member_code': '399101.SZ',
+                    'member_name': '中小综指',
+                    'status': 'enabled',
+                }
+            ],
+        },
+        path,
+    )
+
+    resolved = resolve_membership_target(
+        domain='index',
+        member_code='399101.SZ',
+        path=path,
+    )
+
+    assert resolved['taxonomy'] == 'csi_index'
+    assert resolved['member_name'] == '中小综指'
+    assert resolved['source_count'] == 1
+
+
+def test_resolve_membership_target_rejects_ambiguous_match(tmp_path: Path):
+    path = tmp_path / 'membership.yaml'
+    save_membership_workspace(
+        {
+            'version': 1,
+            'members': [
+                {
+                    'domain': 'index',
+                    'taxonomy': 'csi_index',
+                    'member_code': '399101.SZ',
+                    'member_name': '中小综指',
+                    'status': 'enabled',
+                },
+                {
+                    'domain': 'index',
+                    'taxonomy': 'legacy_index',
+                    'member_code': '399101.SZ',
+                    'member_name': '中小综指',
+                    'status': 'enabled',
+                },
+            ],
+        },
+        path,
+    )
+
+    try:
+        resolve_membership_target(
+            domain='index',
+            member_code='399101.SZ',
+            path=path,
+        )
+    except ValueError as exc:
+        assert 'ambiguous membership target' in str(exc)
+    else:
+        raise AssertionError('expected ValueError for ambiguous membership target')
 
 
 def test_membership_mutations_and_import(tmp_path: Path):

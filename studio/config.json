@@ -1,0 +1,5 @@
+{
+  "backendBase": "http://127.0.0.1:8000",
+  "syncBackendBase": "http://172.16.0.68:18080",
+  "syncProjectRoot": "/Users/zhao/Desktop/git/amazing_data_system"
+}

@@ -1,2 +1,48 @@
 version: 1
-wide_tables: []
+wide_tables:
+- id: wide::stock_daily_real::c83034b0
+  name: stock_daily_real
+  description: 由普通节点 stock_daily_real 转换生成
+  source_node: stock_daily_real
+  target_database: starlight
+  target_table: stock_daily_real
+  engine: Memory
+  fields:
+  - code
+  - trade_time
+  - open
+  - high
+  - low
+  - close
+  - pre_close
+  - volume
+  - amount
+  - open_adj
+  - high_adj
+  - low_adj
+  - close_adj
+  - security_name
+  - is_st
+  - is_suspended
+  - is_wd_sec
+  - is_xr_sec
+  - is_kcb
+  - is_cyb
+  - is_bjs
+  - high_limited
+  - low_limited
+  - backward_adj_factor
+  - market_cap
+  - float_market_cap
+  - turnover_rate
+  key_fields:
+  - code
+  - trade_time
+  partition_by: []
+  order_by:
+  - code
+  - trade_time
+  version_field: ''
+  status: enabled
+  created_at: '2026-04-21T21:43:50'
+  updated_at: '2026-04-21T21:43:50'

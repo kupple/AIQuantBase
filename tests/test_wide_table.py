@@ -38,6 +38,11 @@ def test_wide_table_crud_and_export(tmp_path: Path):
     assert 'wide_table:' in exported
     assert 'source_node: stock_daily_real' in exported
     assert 'engine: ReplacingMergeTree' in exported
+    assert 'name: stock_minute_real' not in exported
+    assert 'standard_field: revenue' not in exported
+    assert 'materialization_bundle:' in exported
+    assert 'query_plan:' in exported
+    assert 'base_table: starlight.ad_market_kline_daily' in exported
 
     removed = delete_wide_table(design['id'], path)
     assert removed['id'] == design['id']

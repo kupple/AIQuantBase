@@ -6,31 +6,32 @@ import { useWorkbench } from '~/composables/useWorkbench'
 
 const route = useRoute()
 
-const menuItems = [
-  {
-    section: '数据底座',
-    items: [
-      { path: '/database', label: '节点工作台', hint: '普通节点与宽表节点' },
-      { path: '/membership', label: '归属管理', hint: '关系表与成员信息表' },
-      { path: '/query', label: '查询测试', hint: '验证 Query Intent 与 SQL' },
-    ],
-  },
-  {
-    section: '同步管理',
-    items: [
-      { path: '/sync', label: '同步任务', hint: '任务执行、日志与状态' },
-    ],
-  },
-  {
-    section: '其他',
-    items: [
-      { path: '/guide', label: '项目说明', hint: '需求文档与说明' },
-      { path: '/settings', label: '设置', hint: '数据库与运行时配置' },
-    ],
-  },
+const planningItems = [
+  { path: '/database', label: '节点工作台' },
+  { path: '/membership', label: '归属管理' },
+  { path: '/graph', label: '图谱关系' },
+  { path: '/query', label: '查询测试' },
 ]
 
-const flatMenuItems = computed(() => menuItems.flatMap((group) => group.items))
+const syncItems = [
+  { path: '/sync', label: '同步总览' },
+  { path: '/sync/tasks', label: '同步任务' },
+  { path: '/sync/jobs', label: '同步记录' },
+  { path: '/sync/configs', label: '配置同步' },
+  { path: '/sync/wide-tables', label: '同步宽表' },
+]
+
+const otherItems = [
+  { path: '/guide', label: '项目说明' },
+  { path: '/settings', label: '设置' },
+]
+
+const activeTopMenu = computed(() => {
+  if (planningItems.some((item) => item.path === route.path)) return '/planning'
+  if (route.path === '/sync' || route.path.startsWith('/sync/')) return '/sync-root'
+  if (otherItems.some((item) => item.path === route.path)) return '/other'
+  return route.path
+})
 
 const {
   ensureWorkspaceLoaded,
@@ -39,7 +40,9 @@ const {
 } = useWorkbench()
 
 function handleMenuSelect(index) {
-  navigateTo(index)
+  if (index.startsWith('/')) {
+    navigateTo(index)
+  }
 }
 
 onMounted(() => {
@@ -52,7 +55,7 @@ onMounted(() => {
           duration: 2400,
           grouping: true,
         })
-        if (!['/settings', '/guide', '/membership', '/sync'].includes(route.path)) {
+        if (!['/settings', '/guide', '/membership', '/graph'].includes(route.path) && !route.path.startsWith('/sync')) {
           navigateTo('/settings')
         }
         return
@@ -67,7 +70,7 @@ onMounted(() => {
         message: error instanceof Error ? error.message : '工作区载入失败',
         duration: 3200,
       })
-      if (!['/settings', '/guide', '/membership', '/sync'].includes(route.path)) {
+      if (!['/settings', '/guide', '/membership', '/graph'].includes(route.path) && !route.path.startsWith('/sync')) {
         navigateTo('/settings')
       }
     })
@@ -75,46 +78,45 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="shell-root">
-    <div class="shell-backdrop"></div>
+  <div class="platform-shell-top">
+    <div class="platform-backdrop-top"></div>
 
-    <aside class="shell-sidebar">
-      <div class="sidebar-brand">
-        <p class="sidebar-eyebrow">Quant Platform</p>
-        <h1 class="sidebar-title">AIQuantBase</h1>
-        <p class="sidebar-copy">统一管理数据底座、同步任务和后续上层能力。</p>
-      </div>
+    <header class="platform-header-top">
+      <div class="platform-header-inner">
+        <div class="platform-brand-inline">AIQuantBase</div>
 
-      <div v-for="group in menuItems" :key="group.section" class="sidebar-section">
-        <div class="sidebar-section-heading">{{ group.section }}</div>
         <el-menu
-          :default-active="route.path"
-          class="sidebar-menu"
+          :default-active="activeTopMenu"
+          mode="horizontal"
+          class="platform-top-menu"
+          :ellipsis="false"
           @select="handleMenuSelect"
         >
-          <el-menu-item
-            v-for="item in group.items"
-            :key="item.path"
-            :index="item.path"
-            class="sidebar-menu-item"
-          >
-            <div class="menu-item-copy">
-              <span class="menu-item-label">{{ item.label }}</span>
-              <span class="menu-item-hint">{{ item.hint }}</span>
-            </div>
-          </el-menu-item>
+          <el-sub-menu index="/planning">
+            <template #title>表格规划</template>
+            <el-menu-item v-for="item in planningItems" :key="item.path" :index="item.path">
+              {{ item.label }}
+            </el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="/sync-root">
+            <template #title>数据同步</template>
+            <el-menu-item v-for="item in syncItems" :key="item.path" :index="item.path">
+              {{ item.label }}
+            </el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="/other">
+            <template #title>其他</template>
+            <el-menu-item v-for="item in otherItems" :key="item.path" :index="item.path">
+              {{ item.label }}
+            </el-menu-item>
+          </el-sub-menu>
         </el-menu>
       </div>
+    </header>
 
-      <div class="sidebar-footer sidebar-section-soft">
-        <div class="workspace-line">
-          <span class="workspace-key">当前页面</span>
-          <span class="workspace-value">{{ flatMenuItems.find((item) => item.path === route.path)?.label || '工作台' }}</span>
-        </div>
-      </div>
-    </aside>
-
-    <main class="shell-main">
+    <main class="platform-main-top">
       <section class="main-content">
         <slot />
       </section>
@@ -123,107 +125,116 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.shell-root {
+.platform-shell-top {
   position: relative;
-  display: grid !important;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) !important;
   min-height: 100vh;
-  gap: 20px;
-  padding: 18px;
+  padding: 0;
 }
 
-.shell-backdrop {
-  display: block !important;
+.platform-backdrop-top {
   position: fixed;
-  inset: 18px;
+  inset: 0;
   z-index: 0;
+  border: none;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(24px);
 }
 
-.shell-sidebar,
-.shell-main {
+.platform-header-top,
+.platform-main-top {
   position: relative;
   z-index: 1;
 }
 
-.shell-sidebar {
-  display: grid !important;
-  align-content: start;
-  gap: 16px;
-  min-height: calc(100vh - 36px);
-  padding: 24px 18px 20px;
-  border-radius: 28px;
-  background:
-    linear-gradient(180deg, rgba(10, 19, 25, 0.94), rgba(14, 26, 34, 0.9));
-  color: var(--sidebar-text);
-  overflow: hidden;
+.platform-header-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-bottom: 14px;
 }
 
-.shell-main {
-  display: grid !important;
-  align-content: start;
+.platform-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-items: center;
   gap: 18px;
-  min-width: 0;
+  padding: 10px 16px;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.88);
+  border: none;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(14px);
 }
 
-.sidebar-menu {
-  border-right: none;
+.platform-brand-inline {
+  flex: 0 0 auto;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.platform-top-menu {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  padding: 0 16px;
+  border-bottom: none;
   background: transparent;
   --el-menu-bg-color: transparent;
-  --el-menu-hover-bg-color: rgba(140, 225, 218, 0.08);
-  --el-menu-text-color: rgba(238, 247, 245, 0.92);
-  --el-menu-active-color: #ffffff;
+  --el-menu-hover-bg-color: rgba(15, 118, 110, 0.06);
+  --el-menu-active-color: var(--accent);
+  --el-menu-text-color: var(--text);
 }
 
-.sidebar-menu-item {
-  height: auto;
-  min-height: 68px;
-  margin-bottom: 8px;
-  border-radius: var(--radius-md);
-  line-height: 1.2;
+.platform-top-menu :deep(.el-menu-item),
+.platform-top-menu :deep(.el-sub-menu__title) {
+  border-radius: 12px;
 }
 
-.sidebar-menu :deep(.el-menu-item.is-active) {
-  background: linear-gradient(135deg, rgba(140, 225, 218, 0.16), rgba(140, 225, 218, 0.08));
-}
-
-.menu-item-copy {
+.platform-main-top {
   display: grid;
-  gap: 6px;
-  padding: 6px 0;
+  min-width: 0;
+  padding: 0 16px;
 }
 
-.menu-item-label {
-  font-weight: 700;
+.main-content {
+  max-width: none !important;
+  width: 100%;
+  margin: 0;
+  padding-bottom: 24px;
 }
 
-.menu-item-hint {
-  color: rgba(238, 247, 245, 0.64);
-  font-size: 12px;
-  white-space: normal;
-}
-
-@media (max-width: 1280px) {
-  .shell-root {
-    grid-template-columns: 1fr !important;
+@media (max-width: 1180px) {
+  .platform-header-inner {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .shell-sidebar {
-    min-height: auto;
+  .platform-top-menu {
+    justify-content: flex-start;
+    padding: 0 12px;
   }
 }
 
 @media (max-width: 900px) {
-  .shell-root {
-    padding: 12px;
+  .platform-shell-top {
+    padding: 0;
   }
 
-  .shell-backdrop {
-    inset: 12px;
+  .platform-main-top {
+    padding: 0 12px;
   }
 
-  .shell-sidebar {
-    padding-left: 18px;
-    padding-right: 18px;
+  .platform-backdrop-top {
+    inset: 0;
+  }
+
+  .platform-header-inner {
+    padding: 16px 12px;
   }
 }
 </style>
