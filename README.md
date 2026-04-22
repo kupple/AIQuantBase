@@ -9,13 +9,20 @@ AIQuantBase 是一个面向 A 股研究场景的图谱驱动查询中间件。
 3. 返回 `sql + DataFrame` 的 Python SDK
 4. `lookahead_safe` 第一阶段控制
 5. Nuxt 图谱管理工作台
-6. `stock / etf / index` 逻辑入口分离，底层继续复用同一批行情物理表
-7. 逻辑入口条件由 [config/graph.yaml](/Users/zhao/Desktop/git/AIQuantBase/config/graph.yaml) 配置驱动
-8. 纯字段直连图谱协议
+6. 内置 `sync_data_system` 同步服务与宽表同步执行能力
+7. `stock / etf / index` 逻辑入口分离，底层继续复用同一批行情物理表
+8. 逻辑入口条件由 [config/graph.yaml](/Users/zhao/Desktop/git/AIQuantBase/config/graph.yaml) 配置驱动
+9. 纯字段直连图谱协议
 
 ## 快速开始
 
 ### 1. 安装本地 SDK
+
+```bash
+/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pip install -r requirements.txt
+```
+
+或：
 
 ```bash
 /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pip install -e .
@@ -41,7 +48,7 @@ print(result["df"])
 
 ### 3. 启动工作台
 
-先启动 Python backend：
+先启动统一 Python backend：
 
 ```bash
 PYTHONPATH=src /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m aiquantbase.cli studio --host 127.0.0.1 --port 8011
@@ -59,6 +66,57 @@ npm run dev
 - [http://localhost:3000/database](http://localhost:3000/database)
 - [http://localhost:3000/query](http://localhost:3000/query)
 - [http://localhost:3000/settings](http://localhost:3000/settings)
+- [http://localhost:3000/sync](http://localhost:3000/sync)
+
+当前 `studio` 的查询页和同步页都默认走同一个 Python backend，不再要求单独启动另一个同步 API 服务。
+
+### 4. 仓库内置同步项目
+
+同步能力已经直接并入当前仓库，默认同步项目根目录为：
+
+`sync_data_system/`
+
+其中包含：
+
+1. `run_sync.py`
+2. `service/`
+3. `tests/`
+
+同步相关配置已经统一收敛到外层：
+
+`config/sync/`
+
+其中包含：
+
+1. `plans/run_sync*.toml`
+2. `wide_table_specs/*.yaml`
+3. [config/sync/README.md](/Users/zhao/Desktop/git/AIQuantBase/config/sync/README.md)
+
+同步程序与主程序公用同一个运行配置文件：
+
+`config/runtime.local.yaml`
+
+其中：
+
+1. `datasource` 作为统一 ClickHouse 连接配置
+2. `sync.amazingdata` 保存 AmazingData 同步所需凭据
+3. `sync.baostock` 保存 BaoStock 同步所需凭据
+4. 运行说明见 [docs/sync-runbook.md](/Users/zhao/Desktop/git/AIQuantBase/docs/sync-runbook.md)
+
+如需覆盖默认路径，可在启动 backend 时传：
+
+```bash
+PYTHONPATH=src /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m aiquantbase.cli studio --sync-project-root /path/to/sync_project
+```
+
+常用同步 CLI 也已经统一收进 `aiquantbase.cli`：
+
+```bash
+PYTHONPATH=src python3 -m aiquantbase.cli sync-list-configs
+PYTHONPATH=src python3 -m aiquantbase.cli sync-list-tasks
+PYTHONPATH=src python3 -m aiquantbase.cli sync-run-task daily_kline --codes 000001.SZ,600000.SH --begin-date 20240101
+PYTHONPATH=src python3 -m aiquantbase.cli sync-list-jobs
+```
 
 ## 默认配置
 

@@ -674,13 +674,18 @@ pre {
   color: var(--el-text-color-primary, #303133);
   font-size: 14px;
   line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .node-list-primary span {
   color: var(--text-soft);
   font-size: 12px;
   line-height: 1.45;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .node-tag-cloud {
@@ -724,6 +729,47 @@ pre {
 
 .panel-search-wide {
   width: 280px;
+}
+
+.database-rail-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  justify-items: stretch;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.database-rail-filter,
+.database-rail-search,
+.database-rail-create {
+  width: 100%;
+}
+
+.database-rail-search {
+  min-width: 0;
+}
+
+.node-list-table {
+  width: 100%;
+}
+
+.node-list-table .el-table__header-wrapper,
+.node-list-table .el-table__body-wrapper,
+.node-list-table .el-scrollbar__wrap {
+  overflow-x: hidden !important;
+}
+
+.node-list-table .el-table__cell .cell {
+  overflow: hidden;
+}
+
+.node-list-table table {
+  width: 100% !important;
+}
+
+.node-list-table colgroup col {
+  width: auto !important;
 }
 
 .panel-search-xl {
@@ -1342,6 +1388,10 @@ body {
 
   .page-header-actions-compact {
     justify-items: stretch;
+  }
+
+  .database-rail-actions {
+    gap: 8px;
   }
 }
 

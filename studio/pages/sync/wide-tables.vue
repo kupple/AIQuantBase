@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { formatDateTime } from '~/composables/useDateTimeFormat'
 
 const loading = ref(false)
 const specs = ref([])
@@ -258,7 +259,7 @@ onMounted(async () => {
         </el-table-column>
         <el-table-column label="更新时间" min-width="180">
           <template #default="{ row }">
-            {{ row.state?.updated_at || row.exported_at || '-' }}
+            {{ formatDateTime(row.state?.updated_at || row.exported_at) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
@@ -312,9 +313,9 @@ onMounted(async () => {
           <el-descriptions-item label="最近状态">{{ selectedState.last_status || '-' }}</el-descriptions-item>
           <el-descriptions-item label="最近动作">{{ selectedState.last_action || '-' }}</el-descriptions-item>
           <el-descriptions-item label="最近消息">{{ selectedState.last_message || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="开始时间">{{ selectedState.last_started_at || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="结束时间">{{ selectedState.last_finished_at || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="更新时间">{{ selectedState.updated_at || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="开始时间">{{ formatDateTime(selectedState.last_started_at) }}</el-descriptions-item>
+          <el-descriptions-item label="结束时间">{{ formatDateTime(selectedState.last_finished_at) }}</el-descriptions-item>
+          <el-descriptions-item label="更新时间">{{ formatDateTime(selectedState.updated_at) }}</el-descriptions-item>
         </el-descriptions>
       </div>
       <template #footer>

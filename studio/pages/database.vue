@@ -2,6 +2,7 @@
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { ElButton, ElCheckbox, ElEmpty, ElMessageBox, ElSwitch, ElTag } from 'element-plus'
 import { useRoute } from '#imports'
+import { formatDateTime } from '~/composables/useDateTimeFormat'
 import { useWorkbench } from '~/composables/useWorkbench'
 
 const route = useRoute()
@@ -17,15 +18,18 @@ const showAdvancedBinding = ref(false)
 const selectedFieldKeys = ref([])
 const aiNotesLoading = ref(false)
 const wideTableFieldSearch = ref('')
-const activeWorkbenchSection = ref('nodes')
+const selectedWorkbenchType = ref('node')
 const wideTableDialogVisible = ref(false)
 const wideTableExportDialogVisible = ref(false)
 const wideTableDesigns = ref([])
+const wideTableSyncStates = ref([])
 const wideTableExportYaml = ref('')
 const wideTableForm = ref(blankWideTable())
-const wideTableSourceNodeFilter = ref('')
 const wideTableTargetTables = ref([])
 const selectedWideTableId = ref('')
+const wideTableSyncLoading = ref(false)
+const wideTableStateLoading = ref(false)
+const wideTableSyncStateDatabase = ref('default')
 
 const {
   workspace,
@@ -53,6 +57,7 @@ const {
   addBaseFieldBinding,
   saveDerivedFieldBinding,
   saveRelatedFieldBinding,
+  duplicateNode,
   deleteNode,
   getNodeDeleteImpact,
   removeFieldBinding,
@@ -63,40 +68,9 @@ const nodeTableOptions = computed(() => schema.value.tables)
 const baseColumnOptions = computed(() => schema.value.columns)
 const attachTableOptions = computed(() => attach.value.tables)
 const attachColumnOptions = computed(() => attach.value.columns)
-const physicalNodeOptions = computed(() =>
-  visibleNodes.value.filter((node) => node.name && node.name !== nodeForm.value.name)
-)
 const sourceNodeOptions = computed(() =>
   visibleNodes.value.filter((node) => node.name && node.name !== nodeForm.value.name)
 )
-
-const searchedNodes = computed(() => {
-  const keyword = nodeSearch.value.trim().toLowerCase()
-  return visibleNodes.value.filter((node) => {
-    if (nodeStatusFilter.value === 'enabled' && node.status !== 'enabled') {
-      return false
-    }
-    if (nodeStatusFilter.value === 'disabled' && node.status !== 'disabled') {
-      return false
-    }
-    if (!keyword) return true
-    const haystack = [
-      node.name,
-      node.table,
-      node.status,
-      node.description,
-      node.description_zh,
-      node.grain,
-      node.asset_type,
-      node.query_freq,
-      node.physical_node,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-    return haystack.includes(keyword)
-  })
-})
 
 const nodeListFilterOptions = computed(() => {
   const options = [
@@ -117,8 +91,12 @@ const currentNodeSummary = computed(() => [
   { label: '状态', value: nodeForm.value.status === 'enabled' ? '启用' : '停用' },
   { label: '资产类型', value: nodeForm.value.asset_type || '-' },
   { label: '查询频率', value: nodeForm.value.query_freq || '-' },
-  { label: '物理复用节点', value: nodeForm.value.physical_node || '-' },
 ])
+
+const currentNodeBindingHint = computed(() => {
+  if (!nodeForm.value.name) return ''
+  return '当前节点直接展示自身主表字段与字段绑定，不支持 physical_node 继承。'
+})
 
 const canSaveNode = computed(() => Boolean(nodeForm.value.name && nodeForm.value.database && nodeForm.value.tableName))
 const canAddBaseField = computed(() => Boolean(nodeForm.value.name && bindingForm.value.base_source_field))
@@ -212,38 +190,131 @@ const wideTableFieldOptions = computed(() => {
     })
 })
 
-const workbenchSectionOptions = [
-  { label: '普通节点', value: 'nodes' },
-  { label: '宽表节点', value: 'wide_tables' },
-]
-
-const wideTableSourceNodeOptions = computed(() =>
-  visibleNodes.value.map((item) => ({ label: item.name, value: item.name }))
-)
-
-const filteredWideTableDesigns = computed(() =>
-  wideTableDesigns.value.filter((item) => {
-    if (wideTableSourceNodeFilter.value && item.source_node !== wideTableSourceNodeFilter.value) {
-      return false
-    }
-    return true
-  })
-)
-
 const selectedWideTable = computed(() =>
-  filteredWideTableDesigns.value.find((item) => item.id === selectedWideTableId.value)
-  || wideTableDesigns.value.find((item) => item.id === selectedWideTableId.value)
+  wideTableDesigns.value.find((item) => item.id === selectedWideTableId.value)
   || null
+)
+
+const wideTableStateByName = computed(() =>
+  new Map((wideTableSyncStates.value || []).map((item) => [item.wide_table_name, item]))
+)
+
+const selectedWideTableSyncState = computed(() => {
+  const item = selectedWideTable.value
+  if (!item) return null
+  return wideTableStateByName.value.get(item.name) || null
+})
+
+const workbenchRows = computed(() => {
+  const keyword = nodeSearch.value.trim().toLowerCase()
+  const nodeRows = visibleNodes.value
+    .filter((node) => {
+      const bindingFields = getNodeFieldBindings(node.name)
+      const fieldHaystack = bindingFields
+        .flatMap((item) => [
+          item.standard_field,
+          item.source_field,
+          item.source_table,
+          item.source_node,
+          item.field_role,
+          ...(item.notes || []),
+        ])
+        .filter(Boolean)
+        .join(' ')
+
+      if (nodeStatusFilter.value === 'enabled' && node.status !== 'enabled') return false
+      if (nodeStatusFilter.value === 'disabled' && node.status !== 'disabled') return false
+      if (!keyword) return true
+      const haystack = [
+        node.name,
+        node.table,
+        node.status,
+        node.description,
+        node.description_zh,
+        node.grain,
+        node.asset_type,
+        node.query_freq,
+        ...(node.fields || []),
+        fieldHaystack,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(keyword)
+    })
+    .map((node) => ({
+      ...node,
+      __rowType: 'node',
+      __rowKey: `node:${node.name}`,
+      __summary: node.table || '-',
+    }))
+
+  const wideRows = wideTableDesigns.value
+    .filter((item) => {
+      const sourceBindingFields = item.source_node
+        ? getNodeFieldBindings(item.source_node)
+            .flatMap((row) => [
+              row.standard_field,
+              row.source_field,
+              row.source_table,
+              ...(row.notes || []),
+            ])
+            .filter(Boolean)
+            .join(' ')
+        : ''
+
+      if (nodeStatusFilter.value === 'enabled' && item.status !== 'enabled') return false
+      if (nodeStatusFilter.value === 'disabled' && item.status !== 'disabled') return false
+      if (!keyword) return true
+      const haystack = [
+        item.name,
+        item.description,
+        item.source_node,
+        item.target_database,
+        item.target_table,
+        item.engine,
+        item.status,
+        ...(Array.isArray(item.fields) ? item.fields : []),
+        ...(Array.isArray(item.key_fields) ? item.key_fields : []),
+        sourceBindingFields,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(keyword)
+    })
+    .map((item) => ({
+      ...item,
+      __rowType: 'wide_table',
+      __rowKey: `wide:${item.id}`,
+      __summary: item.target_database && item.target_table ? `${item.target_database}.${item.target_table}` : '-',
+    }))
+
+  return [...nodeRows, ...wideRows].sort((a, b) => {
+    const typeOrder = a.__rowType === b.__rowType ? 0 : (a.__rowType === 'node' ? -1 : 1)
+    if (typeOrder !== 0) return typeOrder
+    return String(a.name || '').localeCompare(String(b.name || ''))
+  })
+})
+
+const currentWorkbenchRowKey = computed(() =>
+  selectedWorkbenchType.value === 'wide_table'
+    ? `wide:${selectedWideTableId.value || ''}`
+    : `node:${nodeForm.value.name || ''}`
 )
 
 const currentWideTableSummary = computed(() => {
   const item = selectedWideTable.value
   if (!item) return []
+  const syncState = selectedWideTableSyncState.value
   return [
     { label: '来源节点', value: item.source_node || '-' },
     { label: '目标表', value: item.target_database && item.target_table ? `${item.target_database}.${item.target_table}` : '-' },
     { label: '引擎', value: item.engine || '-' },
     { label: '状态', value: item.status === 'enabled' ? '可用' : '不可用' },
+    { label: '最近同步状态', value: syncState?.last_status || '-' },
+    { label: '最近同步动作', value: syncState?.last_action || '-' },
+    { label: '上次同步时间', value: formatDateTime(syncState?.last_finished_at || syncState?.updated_at) },
     { label: '主键字段', value: Array.isArray(item.key_fields) && item.key_fields.length ? item.key_fields.join(', ') : '-' },
     { label: '字段数量', value: String(currentWideTableFieldRows.value.length) },
   ]
@@ -579,6 +650,22 @@ async function loadWideTables() {
   }
 }
 
+async function loadWideTableSyncStates() {
+  wideTableStateLoading.value = true
+  try {
+    const search = new URLSearchParams()
+    if (wideTableSyncStateDatabase.value) {
+      search.set('state_database', wideTableSyncStateDatabase.value)
+    }
+    const payload = await callJson(`/api/sync/wide-tables/states${search.toString() ? `?${search.toString()}` : ''}`)
+    wideTableSyncStates.value = payload.states || []
+  } catch {
+    wideTableSyncStates.value = []
+  } finally {
+    wideTableStateLoading.value = false
+  }
+}
+
 async function loadWideTableTargetTables(database) {
   wideTableTargetTables.value = []
   if (!database) return []
@@ -590,7 +677,7 @@ async function loadWideTableTargetTables(database) {
 }
 
 function openWideTableCreateDialog() {
-  const sourceNodeName = wideTableSourceNodeFilter.value || nodeForm.value.name || ''
+  const sourceNodeName = nodeForm.value.name || ''
   const targetDatabase = currentTableProfile.value.database || nodeForm.value.database || ''
   const targetTable = currentTableProfile.value.table || nodeForm.value.tableName || ''
   const copiedFields = [...wideTableFieldOptions.value]
@@ -620,12 +707,11 @@ function openWideTableCreateDialog() {
 }
 
 function handleConvertCurrentNodeToWideTable() {
-  activeWorkbenchSection.value = 'wide_tables'
-  wideTableSourceNodeFilter.value = nodeForm.value.name || ''
   openWideTableCreateDialog()
 }
 
 async function openWideTableEditDialog(row) {
+  selectedWorkbenchType.value = 'wide_table'
   selectedWideTableId.value = row.id
   wideTableForm.value = {
     ...blankWideTable(),
@@ -640,6 +726,7 @@ async function openWideTableEditDialog(row) {
 }
 
 function selectWideTable(row) {
+  selectedWorkbenchType.value = 'wide_table'
   selectedWideTableId.value = row?.id || ''
 }
 
@@ -658,6 +745,7 @@ async function handleSaveWideTable() {
       }),
     })
     await loadWideTables()
+    await loadWideTableSyncStates()
   })
   wideTableDialogVisible.value = false
 }
@@ -673,6 +761,7 @@ async function handleDeleteWideTable(row) {
       method: 'DELETE',
     })
     await loadWideTables()
+    await loadWideTableSyncStates()
   })
 }
 
@@ -682,11 +771,36 @@ async function handleExportWideTable(row) {
   wideTableExportDialogVisible.value = true
 }
 
+async function exportWideTableSyncSpec(row) {
+  return callJson('/api/sync-wide-tables', {
+    method: 'POST',
+    body: JSON.stringify({
+      id: row.id,
+      name: row.name,
+    }),
+  })
+}
+
+async function handleRunWideTableSync(row) {
+  wideTableSyncLoading.value = true
+  try {
+    await exportWideTableSyncSpec(row)
+    const payload = await callJson(
+      `/api/sync/wide-tables/run/${encodeURIComponent(row.name)}?state_database=${encodeURIComponent(wideTableSyncStateDatabase.value || 'default')}`,
+      { method: 'POST' }
+    )
+    await loadWideTableSyncStates()
+    await notifyAction(`宽表同步作业已启动：${payload.job_id}`, async () => {})
+  } finally {
+    wideTableSyncLoading.value = false
+  }
+}
+
 async function handleEditWideTableField(row) {
   const sourceNode = selectedWideTable.value?.source_node
   if (!sourceNode) return
-  activeWorkbenchSection.value = 'nodes'
   await notifyAction('', () => editNode(sourceNode))
+  selectedWorkbenchType.value = 'node'
   await handleEditField(row)
 }
 
@@ -931,6 +1045,9 @@ async function selectNodeFromRoute() {
   const target = visibleNodes.value.find((node) => node.name === routeNode)
   if (!target) return
   await notifyAction('', () => editNode(target))
+  selectedWorkbenchType.value = 'node'
+  bindingFilter.value = 'all'
+  bindingSearch.value = ''
 }
 
 watch(
@@ -959,8 +1076,9 @@ watch(
 
 onMounted(async () => {
   await ensureWorkspaceLoaded()
-  await selectNodeFromRoute()
   await loadWideTables()
+  await loadWideTableSyncStates()
+  await selectNodeFromRoute()
 })
 
 watch(
@@ -1007,7 +1125,7 @@ watch(
 )
 
 watch(
-  filteredWideTableDesigns,
+  wideTableDesigns,
   (items) => {
     if (!items.length) {
       selectedWideTableId.value = ''
@@ -1063,7 +1181,19 @@ async function handleAttachTableChange(value) {
 }
 
 async function handleEditNode(node) {
+  selectedWorkbenchType.value = 'node'
+  bindingFilter.value = 'all'
+  bindingSearch.value = ''
   await notifyAction('', () => editNode(node))
+}
+
+async function handleSelectWorkbenchRow(row) {
+  if (!row) return
+  if (row.__rowType === 'wide_table') {
+    selectWideTable(row)
+    return
+  }
+  await handleEditNode(row)
 }
 
 async function handleSaveNodeDialog() {
@@ -1186,9 +1316,6 @@ async function handleDeleteNode() {
 
   if (!impact.canDelete) {
     const lines = []
-    if (impact.referencedByPhysicalNodes.length) {
-      lines.push(`被 ${impact.referencedByPhysicalNodes.length} 个节点作为 physical_node 引用：${impact.referencedByPhysicalNodes.map((item) => item.name).join('、')}`)
-    }
     if (impact.referencedBySourceFields.length) {
       lines.push(`被 ${impact.referencedBySourceFields.length} 个字段作为 source_node 引用：${impact.referencedBySourceFields.slice(0, 12).map((item) => item.standard_field).join('、')}${impact.referencedBySourceFields.length > 12 ? '...' : ''}`)
     }
@@ -1214,6 +1341,14 @@ async function handleDeleteNode() {
   })
 }
 
+async function handleDuplicateNode() {
+  if (!nodeForm.value.name) return
+  await notifyAction('节点已复制', async () => {
+    await duplicateNode(nodeForm.value.name)
+    await saveWorkspace()
+  })
+}
+
 async function handleRemoveField(row) {
   await notifyAction('字段已删除', async () => {
     removeFieldBinding(row)
@@ -1229,50 +1364,57 @@ function normalizeRouteQueryValue(value) {
 
 <template>
   <div class="page-stack">
-    <div class="workbench-switchbar">
-      <el-segmented v-model="activeWorkbenchSection" :options="workbenchSectionOptions" />
-    </div>
-
-    <section v-if="activeWorkbenchSection === 'nodes'" class="workbench-grid workbench-grid-nodehub-focused">
+    <section class="workbench-grid workbench-grid-nodehub-focused">
       <el-card shadow="never" class="surface-card surface-card-rail surface-card-rail-slim">
         <template #header>
           <div class="panel-heading panel-heading-space">
             <div></div>
-            <div class="panel-actions panel-actions-compact">
-              <el-segmented v-model="nodeStatusFilter" :options="nodeListFilterOptions" />
+            <div class="panel-actions panel-actions-compact database-rail-actions">
+              <el-segmented v-model="nodeStatusFilter" :options="nodeListFilterOptions" class="database-rail-filter" />
               <el-input
                 v-model="nodeSearch"
                 clearable
-                placeholder="搜索节点 / 主表"
-                class="panel-search panel-search-wide"
+                placeholder="搜索节点 / 主表 / 目标表 / 字段"
+                class="panel-search database-rail-search"
               />
-              <el-button type="primary" plain @click="openCreateDialog">新建节点</el-button>
+              <el-button type="primary" plain class="database-rail-create" @click="openCreateDialog">新建节点</el-button>
             </div>
           </div>
         </template>
 
         <el-table
-          :data="searchedNodes"
-          row-key="name"
+          :data="workbenchRows"
+          row-key="__rowKey"
           height="720"
           class="node-list-table"
           table-layout="fixed"
           highlight-current-row
-          :current-row-key="nodeForm.name"
-          empty-text="当前没有节点"
-          @row-click="handleEditNode"
+          :current-row-key="currentWorkbenchRowKey"
+          empty-text="当前没有节点或宽表节点"
+          @row-click="handleSelectWorkbenchRow"
         >
-          <el-table-column label="节点 / 主表" min-width="280" show-overflow-tooltip>
+          <el-table-column label="节点 / 目标表">
             <template #default="{ row }">
               <div class="node-list-primary">
                 <strong>{{ row.name }}</strong>
-                <span>{{ row.table }}</span>
+                <span>{{ row.__summary }}</span>
                 <div class="node-tag-cloud node-tag-cloud-rail">
-                  <el-tag size="small" effect="plain" :type="row.status === 'enabled' ? 'success' : 'info'" disable-transitions>
-                    {{ row.status === 'enabled' ? '启用' : '停用' }}
+                  <el-tag
+                    size="small"
+                    effect="plain"
+                    :type="row.__rowType === 'wide_table' ? 'warning' : 'primary'"
+                    disable-transitions
+                  >
+                    {{ row.__rowType === 'wide_table' ? '宽表' : '普通' }}
                   </el-tag>
-                  <el-tag v-if="row.asset_type" size="small" effect="plain" type="success" disable-transitions>{{ row.asset_type }}</el-tag>
-                  <el-tag v-if="row.query_freq" size="small" effect="plain" disable-transitions>{{ row.query_freq }}</el-tag>
+                  <el-tag size="small" effect="plain" :type="row.status === 'enabled' ? 'success' : 'info'" disable-transitions>
+                    {{ row.status === 'enabled' ? (row.__rowType === 'wide_table' ? '可用' : '启用') : (row.__rowType === 'wide_table' ? '不可用' : '停用') }}
+                  </el-tag>
+                  <el-tag v-if="row.__rowType === 'wide_table' && row.engine" size="small" effect="plain" type="success" disable-transitions>
+                    {{ row.engine }}
+                  </el-tag>
+                  <el-tag v-if="row.__rowType === 'node' && row.asset_type" size="small" effect="plain" type="success" disable-transitions>{{ row.asset_type }}</el-tag>
+                  <el-tag v-if="row.__rowType === 'node' && row.query_freq" size="small" effect="plain" disable-transitions>{{ row.query_freq }}</el-tag>
                 </div>
               </div>
             </template>
@@ -1281,223 +1423,191 @@ function normalizeRouteQueryValue(value) {
       </el-card>
 
       <div class="stack-block node-detail-stack">
-        <el-card shadow="never" class="surface-card">
-          <template #header>
-            <div class="panel-heading panel-heading-space">
-              <div>
-                <span class="panel-title">当前节点</span>
-              </div>
-              <div class="panel-actions panel-actions-compact">
-                <el-button type="primary" plain :disabled="!nodeForm.name" @click="handleConvertCurrentNodeToWideTable">转换宽表</el-button>
-                <el-button :disabled="!nodeForm.name" @click="openEditDialog">编辑节点</el-button>
-                <el-button type="danger" plain :disabled="!nodeForm.name" @click="handleDeleteNode">删除节点</el-button>
-              </div>
-            </div>
-          </template>
-
-          <div v-if="nodeForm.name" class="stack-block">
-            <div class="table-hero-strip">
-              <div class="table-hero-meta">
-                <h3>{{ nodeForm.name }}</h3>
-                <p>{{ nodeForm.description || '当前节点暂无描述' }}</p>
-              </div>
-              <div class="panel-actions panel-actions-compact">
-                <el-tag round effect="plain">绑定字段 {{ currentNodeFieldBindings.length }}</el-tag>
-              </div>
-            </div>
-
-            <el-descriptions :column="4" border class="node-summary-descriptions">
-              <el-descriptions-item v-for="item in currentNodeSummary" :key="item.label" :label="item.label">
-                {{ item.value }}
-              </el-descriptions-item>
-            </el-descriptions>
-          </div>
-          <el-empty v-else description="请先从左侧选择一个节点" :image-size="84" />
-        </el-card>
-
-        <el-card shadow="never" class="surface-card surface-card-strong">
-          <template #header>
-            <div class="panel-heading panel-heading-space">
-              <div>
-                <span class="panel-title">绑定字段表</span>
-              </div>
-              <div class="panel-actions panel-actions-compact binding-toolbar-meta">
-                <el-button type="primary" :disabled="!nodeForm.name" @click="openFieldDialog('base')">添加字段</el-button>
-                <el-tag type="success" effect="plain" round>
-                  绑定数量 {{ filteredFieldBindings.length }}
-                </el-tag>
-                <el-input
-                  v-model="bindingSearch"
-                  clearable
-                  placeholder="搜索标准字段 / 来源表 / Join Keys"
-                  class="panel-search panel-search-wide panel-search-xl"
-                />
-                <el-segmented
-                  v-model="bindingFilter"
-                  :options="[
-                    { label: '全部', value: 'all' },
-                    { label: '主表字段', value: 'base' },
-                    { label: '派生字段', value: 'derived' },
-                    { label: '关联字段', value: 'relation' }
-                  ]"
-                />
-              </div>
-            </div>
-          </template>
-
-          <div v-if="filteredFieldBindings.length" class="binding-table-v2-shell binding-table-v2-shell-wide">
-            <el-auto-resizer>
-              <template #default="{ width, height }">
-                <el-table-v2
-                  :columns="bindingTableColumns"
-                  :data="filteredFieldBindings"
-                  :width="width"
-                  :height="height"
-                  :row-height="52"
-                  :header-height="44"
-                  row-key="__rowKey"
-                  fixed
-                  class="binding-table-v2"
-                />
-              </template>
-            </el-auto-resizer>
-          </div>
-          <el-empty v-else description="当前节点还没有字段绑定" :image-size="56" />
-
-          <div v-if="selectedFieldRows.length" class="binding-table-footer">
-            <div class="binding-table-footer-copy">
-              <span>已选 {{ selectedFieldRows.length }} 项</span>
-              <span>AI 会按当前字段定义批量生成备注并写回配置。</span>
-            </div>
-            <div class="panel-actions panel-actions-compact">
-              <el-button :loading="aiNotesLoading" type="primary" @click="handleAiWriteNotes">AI 写备注</el-button>
-            </div>
-          </div>
-        </el-card>
-      </div>
-    </section>
-
-    <section v-else class="workbench-grid workbench-grid-nodehub-focused">
-      <el-card shadow="never" class="surface-card surface-card-rail surface-card-rail-slim">
-        <template #header>
-          <div class="panel-heading panel-heading-space">
-            <div></div>
-            <div class="panel-actions panel-actions-compact">
-              <el-select
-                v-model="wideTableSourceNodeFilter"
-                clearable
-                filterable
-                placeholder="按来源节点筛选"
-                style="width: 240px"
-              >
-                <el-option v-for="item in wideTableSourceNodeOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </div>
-          </div>
-        </template>
-
-        <el-table
-          :data="filteredWideTableDesigns"
-          row-key="id"
-          height="720"
-          class="node-list-table"
-          table-layout="fixed"
-          highlight-current-row
-          :current-row-key="selectedWideTableId"
-          empty-text="当前没有宽表节点"
-          @row-click="selectWideTable"
-        >
-          <el-table-column label="宽表节点 / 目标表" min-width="300" show-overflow-tooltip>
-            <template #default="{ row }">
-              <div class="node-list-primary">
-                <strong>{{ row.name }}</strong>
-                <span>{{ row.target_database }}.{{ row.target_table }}</span>
-                <div class="node-tag-cloud node-tag-cloud-rail">
-                  <el-tag size="small" effect="plain" :type="row.status === 'enabled' ? 'success' : 'info'" disable-transitions>
-                    {{ row.status === 'enabled' ? '可用' : '不可用' }}
-                  </el-tag>
-                  <el-tag size="small" effect="plain" type="success" disable-transitions>{{ row.engine }}</el-tag>
+        <template v-if="selectedWorkbenchType === 'wide_table'">
+          <el-card shadow="never" class="surface-card">
+            <template #header>
+              <div class="panel-heading panel-heading-space">
+                <div>
+                  <span class="panel-title">当前宽表节点</span>
+                </div>
+                <div class="panel-actions panel-actions-compact">
+                  <el-button :loading="wideTableStateLoading" :disabled="!selectedWideTable" @click="loadWideTableSyncStates">刷新同步状态</el-button>
+                  <el-button type="success" :loading="wideTableSyncLoading" :disabled="!selectedWideTable" @click="selectedWideTable && handleRunWideTableSync(selectedWideTable)">同步宽表</el-button>
+                  <el-button :disabled="!selectedWideTable" @click="selectedWideTable && openWideTableEditDialog(selectedWideTable)">编辑宽表节点</el-button>
+                  <el-button :disabled="!selectedWideTable" @click="selectedWideTable && handleExportWideTable(selectedWideTable)">导出配置</el-button>
+                  <el-button type="danger" plain :disabled="!selectedWideTable" @click="selectedWideTable && handleDeleteWideTable(selectedWideTable)">删除宽表节点</el-button>
                 </div>
               </div>
             </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
 
-      <div class="stack-block node-detail-stack">
-        <el-card shadow="never" class="surface-card">
-          <template #header>
-            <div class="panel-heading panel-heading-space">
-              <div>
-                <span class="panel-title">当前宽表节点</span>
+            <div v-if="selectedWideTable" class="stack-block">
+              <div class="table-hero-strip">
+                <div class="table-hero-meta">
+                  <h3>{{ selectedWideTable.name }}</h3>
+                  <p>{{ selectedWideTable.description || '当前宽表节点暂无描述' }}</p>
+                </div>
+                <div class="panel-actions panel-actions-compact">
+                  <el-tag round effect="plain">字段 {{ currentWideTableFieldRows.length }}</el-tag>
+                  <el-tag v-if="selectedWideTableSyncState?.last_status" round effect="plain" :type="selectedWideTableSyncState.last_status === 'success' ? 'success' : (selectedWideTableSyncState.last_status === 'failed' ? 'danger' : 'warning')">
+                    {{ selectedWideTableSyncState.last_status }}
+                  </el-tag>
+                </div>
+              </div>
+
+              <el-descriptions :column="3" border class="node-summary-descriptions">
+                <el-descriptions-item v-for="item in currentWideTableSummary" :key="item.label" :label="item.label">
+                  {{ item.value }}
+                </el-descriptions-item>
+              </el-descriptions>
+
+              <div class="mini-description">
+                上一次同步时间：{{ formatDateTime(selectedWideTableSyncState?.last_finished_at || selectedWideTableSyncState?.updated_at) }}
+              </div>
+            </div>
+            <el-empty v-else description="请先从左侧选择一个宽表节点" :image-size="84" />
+          </el-card>
+
+          <el-card shadow="never" class="surface-card surface-card-strong">
+            <template #header>
+              <div class="panel-heading panel-heading-space">
+                <div>
+                  <span class="panel-title">绑定字段表</span>
+                </div>
+                <div class="panel-actions panel-actions-compact binding-toolbar-meta">
+                  <el-tag type="success" effect="plain" round>
+                    绑定数量 {{ wideTableBindingRows.length }}
+                  </el-tag>
+                  <el-input
+                    v-model="wideTableFieldSearch"
+                    clearable
+                    placeholder="搜索字段名 / 主键 / 排序"
+                    class="panel-search panel-search-wide panel-search-xl"
+                  />
+                </div>
+              </div>
+            </template>
+
+            <div v-if="wideTableBindingRows.length" class="binding-table-v2-shell binding-table-v2-shell-wide">
+              <el-auto-resizer>
+                <template #default="{ width, height }">
+                  <el-table-v2
+                    :columns="wideTableBindingDisplayColumns"
+                    :data="wideTableBindingRows"
+                    :width="width"
+                    :height="height"
+                    :row-height="52"
+                    :header-height="44"
+                    row-key="__rowKey"
+                    fixed
+                    class="binding-table-v2"
+                  />
+                </template>
+              </el-auto-resizer>
+            </div>
+            <el-empty v-else description="当前宽表节点还没有字段结构" :image-size="56" />
+          </el-card>
+        </template>
+
+        <template v-else>
+          <el-card shadow="never" class="surface-card">
+            <template #header>
+              <div class="panel-heading panel-heading-space">
+                <div>
+                  <span class="panel-title">当前节点</span>
+                </div>
+                <div class="panel-actions panel-actions-compact">
+                  <el-button type="primary" plain :disabled="!nodeForm.name" @click="handleConvertCurrentNodeToWideTable">转换宽表</el-button>
+                  <el-button plain :disabled="!nodeForm.name" @click="handleDuplicateNode">复制节点</el-button>
+                  <el-button :disabled="!nodeForm.name" @click="openEditDialog">编辑节点</el-button>
+                  <el-button type="danger" plain :disabled="!nodeForm.name" @click="handleDeleteNode">删除节点</el-button>
+                </div>
+              </div>
+            </template>
+
+            <div v-if="nodeForm.name" class="stack-block">
+              <div class="table-hero-strip">
+                <div class="table-hero-meta">
+                  <h3>{{ nodeForm.name }}</h3>
+                  <p>{{ nodeForm.description || '当前节点暂无描述' }}</p>
+                </div>
+                <div class="panel-actions panel-actions-compact">
+                  <el-tag round effect="plain">绑定字段 {{ currentNodeFieldBindings.length }}</el-tag>
+                </div>
+              </div>
+
+              <div class="mini-description">
+                {{ currentNodeBindingHint }}
+              </div>
+
+              <el-descriptions :column="4" border class="node-summary-descriptions">
+                <el-descriptions-item v-for="item in currentNodeSummary" :key="item.label" :label="item.label">
+                  {{ item.value }}
+                </el-descriptions-item>
+              </el-descriptions>
+            </div>
+            <el-empty v-else description="请先从左侧选择一个节点" :image-size="84" />
+          </el-card>
+
+          <el-card shadow="never" class="surface-card surface-card-strong">
+            <template #header>
+              <div class="panel-heading panel-heading-space">
+                <div>
+                  <span class="panel-title">绑定字段表</span>
+                </div>
+                <div class="panel-actions panel-actions-compact binding-toolbar-meta">
+                  <el-button type="primary" :disabled="!nodeForm.name" @click="openFieldDialog('base')">添加字段</el-button>
+                  <el-tag type="success" effect="plain" round>
+                    绑定数量 {{ filteredFieldBindings.length }}
+                  </el-tag>
+                  <el-input
+                    v-model="bindingSearch"
+                    clearable
+                    placeholder="搜索标准字段 / 来源表 / Join Keys"
+                    class="panel-search panel-search-wide panel-search-xl"
+                  />
+                  <el-segmented
+                    v-model="bindingFilter"
+                    :options="[
+                      { label: '全部', value: 'all' },
+                      { label: '主表字段', value: 'base' },
+                      { label: '派生字段', value: 'derived' },
+                      { label: '关联字段', value: 'relation' }
+                    ]"
+                  />
+                </div>
+              </div>
+            </template>
+
+            <div v-if="filteredFieldBindings.length" class="binding-table-v2-shell binding-table-v2-shell-wide">
+              <el-auto-resizer>
+                <template #default="{ width, height }">
+                  <el-table-v2
+                    :columns="bindingTableColumns"
+                    :data="filteredFieldBindings"
+                    :width="width"
+                    :height="height"
+                    :row-height="52"
+                    :header-height="44"
+                    row-key="__rowKey"
+                    fixed
+                    class="binding-table-v2"
+                  />
+                </template>
+              </el-auto-resizer>
+            </div>
+            <el-empty v-else description="当前节点还没有字段绑定" :image-size="56" />
+
+            <div v-if="selectedFieldRows.length" class="binding-table-footer">
+              <div class="binding-table-footer-copy">
+                <span>已选 {{ selectedFieldRows.length }} 项</span>
+                <span>AI 会按当前字段定义批量生成备注并写回配置。</span>
               </div>
               <div class="panel-actions panel-actions-compact">
-                <el-button :disabled="!selectedWideTable" @click="selectedWideTable && openWideTableEditDialog(selectedWideTable)">编辑宽表节点</el-button>
-                <el-button :disabled="!selectedWideTable" @click="selectedWideTable && handleExportWideTable(selectedWideTable)">导出配置</el-button>
-                <el-button type="danger" plain :disabled="!selectedWideTable" @click="selectedWideTable && handleDeleteWideTable(selectedWideTable)">删除宽表节点</el-button>
+                <el-button :loading="aiNotesLoading" type="primary" @click="handleAiWriteNotes">AI 写备注</el-button>
               </div>
             </div>
-          </template>
-
-          <div v-if="selectedWideTable" class="stack-block">
-            <div class="table-hero-strip">
-              <div class="table-hero-meta">
-                <h3>{{ selectedWideTable.name }}</h3>
-                <p>{{ selectedWideTable.description || '当前宽表节点暂无描述' }}</p>
-              </div>
-              <div class="panel-actions panel-actions-compact">
-                <el-tag round effect="plain">字段 {{ currentWideTableFieldRows.length }}</el-tag>
-              </div>
-            </div>
-
-            <el-descriptions :column="3" border class="node-summary-descriptions">
-              <el-descriptions-item v-for="item in currentWideTableSummary" :key="item.label" :label="item.label">
-                {{ item.value }}
-              </el-descriptions-item>
-            </el-descriptions>
-          </div>
-          <el-empty v-else description="请先从左侧选择一个宽表节点" :image-size="84" />
-        </el-card>
-
-        <el-card shadow="never" class="surface-card surface-card-strong">
-          <template #header>
-            <div class="panel-heading panel-heading-space">
-              <div>
-                <span class="panel-title">绑定字段表</span>
-              </div>
-              <div class="panel-actions panel-actions-compact binding-toolbar-meta">
-                <el-tag type="success" effect="plain" round>
-                  绑定数量 {{ wideTableBindingRows.length }}
-                </el-tag>
-                <el-input
-                  v-model="wideTableFieldSearch"
-                  clearable
-                  placeholder="搜索字段名 / 主键 / 排序"
-                  class="panel-search panel-search-wide panel-search-xl"
-                />
-              </div>
-            </div>
-          </template>
-
-          <div v-if="wideTableBindingRows.length" class="binding-table-v2-shell binding-table-v2-shell-wide">
-            <el-auto-resizer>
-              <template #default="{ width, height }">
-                <el-table-v2
-                  :columns="wideTableBindingDisplayColumns"
-                  :data="wideTableBindingRows"
-                  :width="width"
-                  :height="height"
-                  :row-height="52"
-                  :header-height="44"
-                  row-key="__rowKey"
-                  fixed
-                  class="binding-table-v2"
-                />
-              </template>
-            </el-auto-resizer>
-          </div>
-          <el-empty v-else description="当前宽表节点还没有字段结构" :image-size="56" />
-        </el-card>
+          </el-card>
+        </template>
       </div>
     </section>
 
@@ -1577,21 +1687,6 @@ function normalizeRouteQueryValue(value) {
             <el-form-item label="状态管理">
               <el-segmented v-model="nodeForm.status" :options="nodeStatusOptions" />
             </el-form-item>
-          </div>
-
-          <div class="three-col-form">
-            <el-form-item label="复用物理节点 physical_node">
-              <el-select v-model="nodeForm.physical_node" clearable filterable style="width: 100%" placeholder="不填则直接使用自身">
-                <el-option
-                  v-for="option in physicalNodeOptions"
-                  :key="option.name"
-                  :label="`${option.name} · ${option.table}`"
-                  :value="option.name"
-                />
-              </el-select>
-            </el-form-item>
-            <div></div>
-            <div></div>
           </div>
 
           <div class="stack-block">

@@ -15,14 +15,17 @@ from .membership import (
     query_membership as membership_query_membership,
     resolve_membership_target as membership_resolve_target,
 )
+from .models import Node
 from .planner import GraphRegistry, QueryPlanner
 from .runtime_config import DEFAULT_RUNTIME_CONFIG_PATH, load_runtime_config
 from .sql import SqlRenderer
+from .wide_table import DEFAULT_WIDE_TABLE_PATH, load_wide_table_workspace
 
 DEFAULT_GRAPH_PATH = Path('config/graph.yaml')
 DEFAULT_FIELDS_PATH = Path('config/fields.yaml')
 MAX_MINUTE_QUERY_HOURS = 8
 MAX_DAILY_UNIVERSE_DAYS = 31
+MAX_INTRADAY_POINT_BATCH_DAYS = 120
 SUCCESS_CODE = 0
 EXECUTION_FAILED_CODE = 1000
 ISSUE_ERROR_CODES = {
@@ -131,13 +134,22 @@ class GraphRuntime:
         graph_path: str | Path = DEFAULT_GRAPH_PATH,
         fields_path: str | Path = DEFAULT_FIELDS_PATH,
         runtime_path: str | Path = DEFAULT_RUNTIME_CONFIG_PATH,
+        wide_table_path: str | Path = DEFAULT_WIDE_TABLE_PATH,
     ) -> None:
         self.graph_path = Path(graph_path)
         self.fields_path = Path(fields_path)
         self.runtime_path = Path(runtime_path)
+        self.wide_table_path = Path(wide_table_path)
 
         self.runtime_config = load_runtime_config(self.runtime_path)
-        self.nodes, self.edges = load_nodes_and_edges(self.graph_path)
+        raw_nodes, self.edges = load_nodes_and_edges(self.graph_path)
+        self.wide_table_workspace = load_wide_table_workspace(self.wide_table_path)
+        self.wide_table_specs = {
+            str(item.get('name') or '').strip(): item
+            for item in self.wide_table_workspace.get('wide_tables', [])
+            if str(item.get('status') or 'enabled').strip() == 'enabled'
+        }
+        self.nodes = self._apply_wide_table_overlays(raw_nodes)
         self.field_catalog = load_field_catalog(self.fields_path)
         self.registry = GraphRegistry(self.nodes, self.edges, field_catalog=self.field_catalog)
         self.planner = QueryPlanner(self.registry)
@@ -152,6 +164,7 @@ class GraphRuntime:
             graph_path=DEFAULT_GRAPH_PATH,
             fields_path=DEFAULT_FIELDS_PATH,
             runtime_path=DEFAULT_RUNTIME_CONFIG_PATH,
+            wide_table_path=DEFAULT_WIDE_TABLE_PATH,
         )
 
     def render_intent(self, intent: dict[str, Any]) -> str:
@@ -180,7 +193,7 @@ class GraphRuntime:
                     'asset_type': asset_type,
                     'market': market,
                     'node': self.application_query_node_map.get(asset_type, {}).get('1d'),
-                    'graph_node': self._physical_node_for(node) if node else None,
+                    'graph_node': node,
                 }
             )
         return {
@@ -570,6 +583,7 @@ class GraphRuntime:
         end_hhmm: str,
         fields: list[str],
         asset_type: str = 'stock',
+        hhmm_list: list[str] | None = None,
     ) -> dict[str, Any]:
         started = perf_counter()
         request = {
@@ -577,6 +591,7 @@ class GraphRuntime:
             'trading_days': list(trading_days or []),
             'start_hhmm': start_hhmm,
             'end_hhmm': end_hhmm,
+            'hhmm_list': list(hhmm_list or []),
             'fields': list(fields or []),
             'asset_type': asset_type,
         }
@@ -598,6 +613,7 @@ class GraphRuntime:
         requested_fields = list(resolved['fields'])
         symbols = list(resolved['symbols'])
         trading_days = list(resolved['trading_days'])
+        hhmm_list = list(resolved.get('hhmm_list') or [])
         minute_fields = list(resolved['minute_query_fields'])
         direct_fields = list(resolved['direct_fields'])
         limit_fields = list(resolved['limit_fields'])
@@ -609,48 +625,61 @@ class GraphRuntime:
         query_issues: list[dict[str, Any]] = []
         missing_trading_days: list[str] = []
 
-        for trading_day in trading_days:
-            day_start = f'{trading_day} {resolved["start_hhmm"]}:00'
-            day_end = f'{trading_day} {resolved["end_hhmm"]}:00'
-            day_result = self.query_minute(
+        if hhmm_list:
+            batch_frames, batch_sqls, batch_attempts, batch_issues = self._query_intraday_exact_points_batches(
+                node_name=resolved['node'],
                 symbols=symbols,
+                trading_days=trading_days,
+                hhmm_list=hhmm_list,
                 fields=minute_fields,
-                start=day_start,
-                end=day_end,
-                asset_type=resolved['asset_type'],
-                freq='1m',
             )
-            day_debug = day_result.get('debug') or {}
-            sqls.append(str(day_debug.get('sql') or ''))
-            query_attempts.append(
-                {
-                    'trading_day': trading_day,
-                    'ok': bool(day_result.get('ok')),
-                    'issues': list(day_result.get('issues') or []),
-                    'intent': day_debug.get('intent'),
-                    'sql': day_debug.get('sql'),
-                }
-            )
-            if day_result.get('ok'):
-                day_df = day_result.get('df')
-                if isinstance(day_df, pd.DataFrame) and not day_df.empty:
-                    frames.append(day_df.copy())
-                    continue
-
-            day_issue_codes = {issue.get('code') for issue in day_result.get('issues') or [] if isinstance(issue, dict)}
-            if day_issue_codes and day_issue_codes.issubset({'empty_result'}):
-                missing_trading_days.append(trading_day)
-                continue
-            if not day_issue_codes and not day_result.get('ok'):
-                query_issues.append(
-                    self._issue(
-                        code='query_failed',
-                        message=f'intraday minute query failed for trading_day={trading_day}',
-                        path='query',
-                    )
+            frames.extend(batch_frames)
+            sqls.extend(batch_sqls)
+            query_attempts.extend(batch_attempts)
+            query_issues.extend(batch_issues)
+        else:
+            for trading_day in trading_days:
+                day_start = f'{trading_day} {resolved["start_hhmm"]}:00'
+                day_end = f'{trading_day} {resolved["end_hhmm"]}:00'
+                day_result = self.query_minute(
+                    symbols=symbols,
+                    fields=minute_fields,
+                    start=day_start,
+                    end=day_end,
+                    asset_type=resolved['asset_type'],
+                    freq='1m',
                 )
-                continue
-            query_issues.extend(list(day_result.get('issues') or []))
+                day_debug = day_result.get('debug') or {}
+                sqls.append(str(day_debug.get('sql') or ''))
+                query_attempts.append(
+                    {
+                        'trading_day': trading_day,
+                        'ok': bool(day_result.get('ok')),
+                        'issues': list(day_result.get('issues') or []),
+                        'intent': day_debug.get('intent'),
+                        'sql': day_debug.get('sql'),
+                    }
+                )
+                if day_result.get('ok'):
+                    day_df = day_result.get('df')
+                    if isinstance(day_df, pd.DataFrame) and not day_df.empty:
+                        frames.append(day_df.copy())
+                        continue
+
+                day_issue_codes = {issue.get('code') for issue in day_result.get('issues') or [] if isinstance(issue, dict)}
+                if day_issue_codes and day_issue_codes.issubset({'empty_result'}):
+                    missing_trading_days.append(trading_day)
+                    continue
+                if not day_issue_codes and not day_result.get('ok'):
+                    query_issues.append(
+                        self._issue(
+                            code='query_failed',
+                            message=f'intraday minute query failed for trading_day={trading_day}',
+                            path='query',
+                        )
+                    )
+                    continue
+                query_issues.extend(list(day_result.get('issues') or []))
 
         if query_issues and not frames:
             return self._intraday_failure_result(
@@ -692,6 +721,9 @@ class GraphRuntime:
 
         df = pd.concat(frames, ignore_index=True)
         df = self._normalize_intraday_trade_time(df)
+        if hhmm_list:
+            observed_days = set(df['trade_date'].dropna().astype(str).tolist()) if 'trade_date' in df.columns else set()
+            missing_trading_days = [trading_day for trading_day in trading_days if trading_day not in observed_days]
         if daily_limit_fields:
             limit_bundle = self._fetch_intraday_limit_frame(
                 symbols=symbols,
@@ -756,6 +788,7 @@ class GraphRuntime:
                     'trading_days': trading_days,
                     'start_hhmm': resolved['start_hhmm'],
                     'end_hhmm': resolved['end_hhmm'],
+                    'hhmm_list': hhmm_list,
                     'fields': requested_fields,
                     'minute_query_fields': minute_fields,
                     'daily_limit_fields': daily_limit_fields,
@@ -774,12 +807,14 @@ class GraphRuntime:
         end_hhmm: str,
         fields: list[str],
         asset_type: str = 'stock',
+        hhmm_list: list[str] | None = None,
     ) -> dict[str, Any]:
         started = perf_counter()
         request = {
             'anchors': list(anchors or []),
             'start_hhmm': start_hhmm,
             'end_hhmm': end_hhmm,
+            'hhmm_list': list(hhmm_list or []),
             'fields': list(fields or []),
             'asset_type': asset_type,
         }
@@ -813,6 +848,7 @@ class GraphRuntime:
             trading_days=sorted({item['execution_date'] for item in resolved_anchors}),
             start_hhmm=start_hhmm,
             end_hhmm=end_hhmm,
+            hhmm_list=hhmm_list,
             fields=fields,
             asset_type=asset_type,
         )
@@ -846,6 +882,7 @@ class GraphRuntime:
                 'anchor_count': len(resolved_anchors),
                 'start_hhmm': start_hhmm,
                 'end_hhmm': end_hhmm,
+                'hhmm_list': list(hhmm_list or []),
                 'fields': list(fields or []),
                 'anchors': resolved_anchors,
                 'base_intent': (base_result.get('debug') or {}).get('intent'),
@@ -872,12 +909,97 @@ class GraphRuntime:
             'anchor_count': len(resolved_anchors),
             'start_hhmm': start_hhmm,
             'end_hhmm': end_hhmm,
+            'hhmm_list': list(hhmm_list or []),
             'fields': list(fields or []),
             'anchors': resolved_anchors,
             'base_intent': (base_result.get('debug') or {}).get('intent'),
         }
         base_result['debug'] = base_debug
         return base_result
+
+    def _query_intraday_exact_points_batches(
+        self,
+        *,
+        node_name: str,
+        symbols: list[str],
+        trading_days: list[str],
+        hhmm_list: list[str],
+        fields: list[str],
+    ) -> tuple[list[pd.DataFrame], list[str], list[dict[str, Any]], list[dict[str, Any]]]:
+        frames: list[pd.DataFrame] = []
+        sqls: list[str] = []
+        attempts: list[dict[str, Any]] = []
+        issues: list[dict[str, Any]] = []
+        for index in range(0, len(trading_days), MAX_INTRADAY_POINT_BATCH_DAYS):
+            day_chunk = trading_days[index : index + MAX_INTRADAY_POINT_BATCH_DAYS]
+            sql = self._build_intraday_exact_points_sql(
+                node_name=node_name,
+                symbols=symbols,
+                trading_days=day_chunk,
+                hhmm_list=hhmm_list,
+                fields=fields,
+            )
+            result = self.execute_sql(sql)
+            attempts.append(
+                {
+                    'trading_day_count': len(day_chunk),
+                    'ok': bool(result.get('code') == SUCCESS_CODE),
+                    'hhmm_list': list(hhmm_list),
+                    'sql': sql,
+                    'intent': {
+                        'kind': 'minute_window_by_trading_day_hhmm_list',
+                        'node': node_name,
+                        'symbols': symbols,
+                        'trading_days': day_chunk,
+                        'hhmm_list': hhmm_list,
+                        'fields': fields,
+                    },
+                }
+            )
+            sqls.append(sql)
+            if result.get('code') != SUCCESS_CODE:
+                issues.append(
+                    self._issue(
+                        code='query_failed',
+                        message=f'intraday exact-point query failed for trading_days={day_chunk[0]}..{day_chunk[-1]}',
+                        path='query',
+                    )
+                )
+                continue
+            df = result.get('df')
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                frames.append(df.copy())
+        return frames, sqls, attempts, issues
+
+    def _build_intraday_exact_points_sql(
+        self,
+        *,
+        node_name: str,
+        symbols: list[str],
+        trading_days: list[str],
+        hhmm_list: list[str],
+        fields: list[str],
+    ) -> str:
+        node = self.registry.nodes.get(node_name)
+        table_name = node.table if node is not None else (self._physical_node_for(node_name) or node_name)
+        identity_fields = self._identity_fields_for_node(node_name)
+        symbol_field = identity_fields[0] if identity_fields else 'code'
+        time_field = identity_fields[1] if len(identity_fields) > 1 else 'trade_time'
+        select_fields = list(dict.fromkeys([symbol_field, time_field] + list(fields or [])))
+        symbol_sql = ', '.join(self._quote_sql_string(item) for item in symbols)
+        timestamp_sql = ', '.join(
+            f"toDateTime({self._quote_sql_string(f'{trading_day} {hhmm}:00')})"
+            for trading_day in trading_days
+            for hhmm in hhmm_list
+        )
+        select_sql = ', '.join(select_fields)
+        return (
+            f"SELECT {select_sql} "
+            f"FROM {table_name} "
+            f"WHERE {symbol_field} IN ({symbol_sql}) "
+            f"AND {time_field} IN ({timestamp_sql}) "
+            f"ORDER BY {symbol_field}, {time_field}"
+        )
 
     def _execute_query_request(self, request: dict[str, Any], *, page_size: int | None) -> dict[str, Any]:
         started = perf_counter()
@@ -1373,6 +1495,7 @@ class GraphRuntime:
         symbols = sorted({str(item).strip() for item in (request.get('symbols') or []) if str(item).strip()})
         trading_days = sorted({str(item).strip() for item in (request.get('trading_days') or []) if str(item).strip()})
         requested_fields = list(dict.fromkeys(str(item).strip() for item in (request.get('fields') or []) if str(item).strip()))
+        hhmm_list = list(dict.fromkeys(str(item).strip() for item in (request.get('hhmm_list') or []) if str(item).strip()))
         asset_type = str(request.get('asset_type') or 'stock').strip() or 'stock'
         issues: list[dict[str, Any]] = []
 
@@ -1419,6 +1542,21 @@ class GraphRuntime:
                     path='time_window',
                 )
             )
+
+        normalized_hhmm_list: list[str] = []
+        for raw_hhmm in hhmm_list:
+            normalized_hhmm = self._normalize_hhmm(raw_hhmm)
+            if not normalized_hhmm:
+                issues.append(
+                    self._issue(
+                        code='invalid_intraday_time',
+                        message=f'hhmm_list item must use HH:MM format: {raw_hhmm}',
+                        path='hhmm_list',
+                    )
+                )
+                continue
+            normalized_hhmm_list.append(normalized_hhmm)
+        hhmm_list = list(dict.fromkeys(normalized_hhmm_list))
 
         node_resolution = self.resolve_best_node(
             symbols=symbols,
@@ -1480,6 +1618,7 @@ class GraphRuntime:
                 'daily_limit_fields': daily_limit_fields,
                 'start_hhmm': start_hhmm,
                 'end_hhmm': end_hhmm,
+                'hhmm_list': hhmm_list,
             },
         }
 
@@ -1765,6 +1904,10 @@ class GraphRuntime:
             return None
         return parsed.strftime('%H:%M')
 
+    def _quote_sql_string(self, value: str) -> str:
+        escaped = value.replace("\\", "\\\\").replace("'", "\\'")
+        return f"'{escaped}'"
+
     def get_metadata_catalog(self) -> dict[str, Any]:
         return {
             'nodes': [
@@ -1778,7 +1921,6 @@ class GraphRuntime:
                     'description_zh': node.description_zh,
                     'node_role': node.node_role,
                     'status': node.status,
-                    'physical_node': node.physical_node,
                     'asset_type': node.asset_type,
                     'query_freq': node.query_freq,
                     'base_filters': list(node.base_filters),
@@ -1846,7 +1988,6 @@ class GraphRuntime:
                 'description_zh': node.description_zh,
                 'node_role': node.node_role,
                 'status': node.status,
-                'physical_node': node.physical_node,
                 'asset_type': node.asset_type,
                 'query_freq': node.query_freq,
                 'base_filters': list(node.base_filters),
@@ -1884,7 +2025,6 @@ class GraphRuntime:
                     'grain': node.grain,
                     'asset_type': node.asset_type,
                     'query_freq': node.query_freq,
-                    'physical_node': node.physical_node,
                     'identity_fields': identity_fields,
                     'field_count': len(field_items),
                     'sample_fields': self._protocol_sample_fields_for_node(node.name, identity_fields),
@@ -2013,7 +2153,6 @@ class GraphRuntime:
                     'grain': node.grain,
                     'description_zh': node.description_zh or node.description or node.name,
                     'status': node.status,
-                    'physical_node': node.physical_node,
                     'asset_type': node.asset_type,
                     'query_freq': node.query_freq,
                     'base_filters': list(node.base_filters),
@@ -2121,13 +2260,6 @@ class GraphRuntime:
                 and self.registry.has_direct_source_table_binding(field)
             }
         )
-        physical_node_dependents = sorted(
-            {
-                node.name
-                for node in self.nodes
-                if node.name != node_name and node.physical_node == node_name
-            }
-        )
         edge_names = sorted(
             {
                 edge.name
@@ -2140,9 +2272,8 @@ class GraphRuntime:
             'name': target.name,
             'table': target.table,
             'node_role': target.node_role,
-            'can_delete': not affected_enabled_nodes and not physical_node_dependents,
+            'can_delete': not affected_enabled_nodes,
             'affected_enabled_nodes': affected_enabled_nodes,
-            'physical_node_dependents': physical_node_dependents,
             'legacy_field_refs': {
                 'source_node_fields': source_node_fields,
                 'via_node_fields': via_node_fields,
@@ -2207,6 +2338,80 @@ class GraphRuntime:
             mapping.setdefault(node.asset_type, {})[freq] = node.name
         return mapping
 
+    def _apply_wide_table_overlays(self, nodes: list[Node]) -> list[Node]:
+        if not self.wide_table_specs:
+            return nodes
+
+        overlaid_nodes: list[Node] = []
+        for node in nodes:
+            spec = self.wide_table_specs.get(node.name)
+            if not spec:
+                overlaid_nodes.append(node)
+                continue
+            overlaid_nodes.append(self._overlay_node_with_wide_table(node, spec))
+        return overlaid_nodes
+
+    def _overlay_node_with_wide_table(self, node: Node, spec: dict[str, Any]) -> Node:
+        target_table = self._wide_table_target_ref(spec, fallback=node.table)
+        overlay_fields = self._wide_table_fields(spec)
+        time_key = self._wide_table_time_key(spec, fallback=node.time_key)
+        entity_keys = self._wide_table_entity_keys(spec, fallback=node.entity_keys, time_key=time_key)
+        return Node(
+            name=node.name,
+            table=target_table,
+            entity_keys=entity_keys,
+            time_key=time_key,
+            grain=node.grain,
+            fields=overlay_fields,
+            description=str(spec.get('description') or node.description or '').strip() or node.description,
+            description_zh=str(spec.get('description_zh') or node.description_zh or node.description or '').strip() or node.description_zh,
+            node_role=node.node_role,
+            status=node.status,
+            physical_node=None,
+            asset_type=node.asset_type,
+            query_freq=node.query_freq,
+            # Wide table target already materializes the asset-specific base universe.
+            base_filters=[],
+        )
+
+    def _wide_table_target_ref(self, spec: dict[str, Any], *, fallback: str) -> str:
+        database = str(spec.get('target_database') or '').strip()
+        table = str(spec.get('target_table') or '').strip()
+        if not database or not table:
+            return fallback
+        return f'{database}.{table}'
+
+    def _wide_table_fields(self, spec: dict[str, Any]) -> list[str]:
+        ordered: list[str] = []
+        for item in list(spec.get('fields') or []) + list(spec.get('key_fields') or []):
+            field_name = str(item or '').strip()
+            if field_name and field_name not in ordered:
+                ordered.append(field_name)
+        return ordered
+
+    def _wide_table_time_key(self, spec: dict[str, Any], *, fallback: str | None) -> str | None:
+        candidates = self._wide_table_fields(spec)
+        for field_name in candidates:
+            if field_name in {'trade_time', 'trade_date', 'date', 'ann_date', 'change_date', 'report_date', 'end_date'}:
+                return field_name
+        return fallback
+
+    def _wide_table_entity_keys(
+        self,
+        spec: dict[str, Any],
+        *,
+        fallback: list[str],
+        time_key: str | None,
+    ) -> list[str]:
+        key_fields = [
+            str(item or '').strip()
+            for item in list(spec.get('key_fields') or [])
+            if str(item or '').strip()
+        ]
+        if not key_fields:
+            return list(fallback)
+        return [item for item in key_fields if item != time_key]
+
     def _build_application_query_node_map(self) -> dict[str, dict[str, str]]:
         mapping: dict[str, dict[str, str]] = {}
         for node in self.nodes:
@@ -2228,23 +2433,18 @@ class GraphRuntime:
         node = self.registry.nodes.get(node_name)
         if not node:
             return None
-        physical_node = node.physical_node or node.name
         asset_type = node.asset_type
         freq = self._freq_from_node(node)
         base_filters = list(node.base_filters)
-        if physical_node == node.name and not base_filters and not asset_type and not freq:
+        if not base_filters and not asset_type and not freq:
             return None
         return {
-            'physical_node': physical_node,
             'asset_type': asset_type,
             'freq': freq,
             'base_filters': base_filters,
         }
 
     def _physical_node_for(self, node_name: str | None) -> str | None:
-        spec = self._logical_node_spec(node_name)
-        if spec:
-            return str(spec['physical_node'])
         return node_name
 
     def _asset_freq_for_node(self, node_name: str | None) -> tuple[str | None, str | None]:
@@ -2268,15 +2468,7 @@ class GraphRuntime:
         fields = IDENTITY_FIELDS.get(node_name or '')
         if fields:
             return list(fields)
-        physical_node = self._physical_node_for(node_name)
-        physical = self.registry.nodes.get(physical_node or '')
-        if physical:
-            identity_fields = list(physical.entity_keys)
-            if physical.time_key and physical.time_key not in identity_fields:
-                identity_fields.append(physical.time_key)
-            if identity_fields:
-                return identity_fields
-        return list(IDENTITY_FIELDS.get(physical_node or '', []))
+        return list(IDENTITY_FIELDS.get(node_name or '', []))
 
     def _is_node_field_allowed(self, field_name: str, node_name: str) -> bool:
         asset_type, freq = self._asset_freq_for_node(node_name)
@@ -2287,9 +2479,8 @@ class GraphRuntime:
     def _expand_logical_intent(self, intent: dict[str, Any]) -> dict[str, Any]:
         expanded = dict(intent)
         logical_node = expanded.get('from')
-        physical_node = self._physical_node_for(logical_node)
-        if physical_node:
-            expanded['from'] = physical_node
+        if logical_node:
+            expanded['from'] = logical_node
 
         spec = self._logical_node_spec(logical_node)
         base_filters = list(spec.get('base_filters', [])) if spec else []
@@ -2348,7 +2539,7 @@ class GraphRuntime:
 
     def _fields_for_node(self, node_name: str) -> list[dict[str, Any]]:
         fields_by_node: list[dict[str, Any]] = []
-        effective_node_name = self._physical_node_for(node_name) or node_name
+        effective_node_name = node_name
         node = next((item for item in self.nodes if item.name == effective_node_name), None)
         if node:
             for raw_name in node.fields:

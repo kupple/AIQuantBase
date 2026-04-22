@@ -74,20 +74,30 @@ OpenAPI：
 
 ### 3.3 宽表执行能力边界
 
-宽表相关 API 目前已经支持“触发作业”，但当前作业执行器还处于第一阶段：
+宽表相关 API 目前已经支持真实宽表执行，但当前执行语义仍然偏保守：
 
 - 已支持：
   - 发现 spec
   - 规划 action
   - 检查目标表是否存在
+  - 真实 ClickHouse 建表
+  - 真实 ClickHouse 插入执行
   - 状态表更新
-- 未完全支持：
-  - 真正的数据物化执行
-  - 真正的 `create_and_sync` / `rebuild` / `sync`
+- 当前限制：
+  - 还不支持增量同步
+  - 还不是 rename-swap rebuild
+  - 当前是“存在即删表再重建”的整表刷新语义
 
 所以当前宽表 `run` 接口的意义是：
 
-- 触发“宽表 planning + 状态更新作业”
+- 触发真实宽表同步作业
+
+当前 `create_and_sync / rebuild / sync` 三类动作在实际执行前都会：
+
+1. 检查目标表是否存在
+2. 存在则先 `DROP TABLE IF EXISTS`
+3. 然后重新 `CREATE TABLE`
+4. 再执行整表 `INSERT INTO ... SELECT ...`
 
 如果 spec 缺 `materialization_bundle`，会明确失败，不会伪造成功。
 
@@ -208,7 +218,7 @@ OpenAPI：
         "source",
         "target",
         "job_id",
-        "env_file",
+        "runtime_path",
         "input_codes",
         "input_begin_date",
         "input_end_date",
@@ -370,7 +380,7 @@ curl http://127.0.0.1:18080/api/meta/tasks/daily_kline
     "force": false,
     "resume": false,
     "log_level": "INFO",
-    "env_file": null
+    "runtime_path": null
   },
   "task_metadata": {
     "name": "daily_kline",
@@ -433,7 +443,7 @@ curl http://127.0.0.1:18080/api/jobs?kind=registered_task
         "force": false,
         "resume": false,
         "log_level": "INFO",
-        "env_file": null
+        "runtime_path": null
       }
     }
   ]
@@ -477,7 +487,7 @@ curl http://127.0.0.1:18080/api/jobs?kind=registered_task
     "force": false,
     "resume": false,
     "log_level": "INFO",
-    "env_file": null
+    "runtime_path": null
   },
   "logs_tail": "...\n..."
 }

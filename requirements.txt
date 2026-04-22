@@ -1,0 +1,5 @@
+-e .
+
+# 以下依赖需从 AmazingData 官方渠道安装
+# AmazingData
+# tgw

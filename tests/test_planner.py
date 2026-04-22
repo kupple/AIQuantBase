@@ -18,7 +18,7 @@ def test_demo_plan_and_render():
     assert plan.resolved_fields["stock_daily.close"] == "close"
 
     sql = SqlRenderer(registry).render(plan)
-    assert "LEFT JOIN market.stock_st_status" in sql
+    assert "LEFT JOIN (SELECT * FROM market.stock_st_status" in sql
     assert "ASOF LEFT JOIN fundamental.stock_financial_announcement" in sql
     assert "LEFT JOIN reference.stock_concept_membership" in sql
     assert "LEFT JOIN reference.concept_info" in sql
@@ -509,13 +509,13 @@ def test_lookahead_safe_tightens_published_event_time_binding_only():
     event_intent = load_query_intent("examples/real_kzz_clause_intent.yaml")
     event_intent.safety.lookahead_safe = True
     event_sql = SqlRenderer(registry).render(QueryPlanner(registry).plan(event_intent))
-    assert "toDate(b0.trade_time) > t1.begin_date" in event_sql
-    assert "toDate(b0.trade_time) > t2.begin_date" in event_sql
+    assert "b0.__base_trade_time_date > t1.begin_date" in event_sql
+    assert "b0.__base_trade_time_date > t2.begin_date" in event_sql
 
     normal_intent = load_query_intent("examples/real_market_cap_intent.yaml")
     normal_intent.safety.lookahead_safe = True
     normal_sql = SqlRenderer(registry).render(QueryPlanner(registry).plan(normal_intent))
-    assert "toDate(b0.trade_time) >= t1.change_date" in normal_sql
+    assert "b0.__base_trade_time_date >= t1.change_date" in normal_sql
 
 
 def test_industry_constituent_path_uses_constituent_route_not_weight_route():

@@ -1,98 +1,61 @@
-import { defineEventHandler, getMethod, readBody, createError } from 'h3'
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-import { parse as parseYaml } from 'yaml'
+import {
+  createError,
+  defineEventHandler,
+  getMethod,
+  getRequestHeaders,
+  readRawBody,
+  setHeader,
+  setResponseStatus,
+} from 'h3'
 
-const execFileAsync = promisify(execFile)
-
-function resolveSyncSpecDir(config) {
-  const root = String(config.syncProjectRoot || '').trim()
-  if (!root) {
-    throw createError({ statusCode: 500, statusMessage: 'Server Error', message: 'syncProjectRoot is not configured' })
-  }
-  return path.join(root, 'wide_table_specs')
-}
-
-function resolveProjectRoot() {
-  return path.resolve(process.cwd(), '..')
-}
-
-async function loadWideTableDesigns(projectRoot) {
-  const wideTablePath = path.join(projectRoot, 'config', 'wide_tables.yaml')
-  const raw = await fs.readFile(wideTablePath, 'utf8')
-  const payload = parseYaml(raw) || {}
-  const items = Array.isArray(payload.wide_tables) ? payload.wide_tables : []
-  return items
-}
-
-async function exportWideTableYaml(projectRoot, designId) {
-  const script = `
-import sys
-from aiquantbase.wide_table import export_wide_table_yaml
-print(export_wide_table_yaml(${JSON.stringify(designId)}, 'config/wide_tables.yaml', graph_path='config/graph.yaml', fields_path='config/fields.yaml'))
-`
-  const env = {
-    ...process.env,
-    PYTHONPATH: path.join(projectRoot, 'src'),
-  }
-  const { stdout } = await execFileAsync('python3', ['-c', script], {
-    cwd: projectRoot,
-    env,
-    maxBuffer: 10 * 1024 * 1024,
-  })
-  return stdout
-}
-
-async function safeStat(filePath) {
-  try {
-    return await fs.stat(filePath)
-  } catch {
-    return null
-  }
+function buildCandidateBases(config) {
+  const backendBase = String(config.backendBase || '').trim()
+  const defaults = [
+    backendBase,
+    'http://127.0.0.1:8011',
+    'http://127.0.0.1:8000',
+  ]
+  return [...new Set(defaults.filter(Boolean).map((item) => item.replace(/\/$/, '')))]
 }
 
 export default defineEventHandler(async (event) => {
+  const method = getMethod(event)
+  const body = ['GET', 'HEAD'].includes(method) ? undefined : await readRawBody(event, false)
+  const requestHeaders = { ...getRequestHeaders(event) }
+  delete requestHeaders.host
+  if (body === undefined) {
+    delete requestHeaders['content-length']
+  }
+
   const config = useRuntimeConfig(event)
-  const projectRoot = resolveProjectRoot()
-  const specDir = resolveSyncSpecDir(config)
-  await fs.mkdir(specDir, { recursive: true })
-
-  if (getMethod(event) === 'GET') {
-    const items = await loadWideTableDesigns(projectRoot)
-    const result = []
-    for (const item of items) {
-      const filePath = path.join(specDir, `${item.name}.yaml`)
-      const stat = await safeStat(filePath)
-      result.push({
-        ...item,
-        exported: Boolean(stat),
-        exported_path: stat ? filePath : '',
-        exported_at: stat ? stat.mtime.toISOString() : '',
+  const errors = []
+  for (const base of buildCandidateBases(config)) {
+    const target = `${base}/api/sync-wide-tables`
+    try {
+      const response = await fetch(target, {
+        method,
+        headers: requestHeaders,
+        body,
       })
-    }
-    return {
-      items: result,
-      sync_spec_dir: specDir,
-    }
-  }
-
-  if (getMethod(event) === 'POST') {
-    const body = await readBody(event)
-    const designId = String(body?.id || '').trim()
-    const name = String(body?.name || '').trim()
-    if (!designId || !name) {
-      throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: 'id and name are required' })
-    }
-    const yamlText = await exportWideTableYaml(projectRoot, designId)
-    const filePath = path.join(specDir, `${name}.yaml`)
-    await fs.writeFile(filePath, String(yamlText || ''), 'utf8')
-    return {
-      ok: true,
-      exported_path: filePath,
+      const contentType = response.headers.get('content-type') || ''
+      setResponseStatus(event, response.status, response.statusText)
+      if (contentType) {
+        setHeader(event, 'content-type', contentType)
+      }
+      const text = await response.text()
+      if (!response.ok) {
+        errors.push(`${base}: ${response.status} ${response.statusText} ${text}`.trim())
+        continue
+      }
+      return contentType.includes('application/json') ? JSON.parse(text) : text
+    } catch (error) {
+      errors.push(`${base}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
-  throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed', message: 'unsupported method' })
+  throw createError({
+    statusCode: 502,
+    statusMessage: 'Bad Gateway',
+    message: `Sync wide table proxy failed. Tried: ${errors.join(' | ')}`,
+  })
 })

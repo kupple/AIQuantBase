@@ -45,24 +45,20 @@ export function useWorkbench() {
 
     const nodeLookup = new Map(graph.value.nodes.map((node) => [node.name, node]))
     const currentNode = nodeLookup.get(nodeName)
-    const currentBaseNodeName = String(currentNode?.physical_node || currentNode?.name || '')
+    const currentBaseNodeName = String(currentNode?.name || '')
     const relatedEdges = graph.value.edges.filter(
-      (edge) => edge.from === nodeName || (currentBaseNodeName && edge.from === currentBaseNodeName)
+      (edge) => edge.from === nodeName
     )
     const edgeLookup = new Map(relatedEdges.map((edge) => [edge.to, edge]))
 
     const supportNodeNames = new Set(relatedEdges.map((edge) => edge.to))
     supportNodeNames.add(nodeName)
-    if (currentBaseNodeName) {
-      supportNodeNames.add(currentBaseNodeName)
-    }
-
     const catalogRows = fields.value
       .map((field) => {
         const bindingMode = field.binding_mode || (field.source_table ? 'source_table' : (field.source_node ? 'source_node' : 'derived'))
         const fieldBaseNode = String(field.base_node || '')
         const belongsToCurrentNode = fieldBaseNode
-          ? [nodeName, currentBaseNodeName].includes(fieldBaseNode)
+          ? fieldBaseNode === nodeName
           : (
               field.source_table === currentNode?.table ||
               supportNodeNames.has(String(field.source_node || '')) ||
@@ -100,7 +96,7 @@ export function useWorkbench() {
 
         return {
           ...field,
-          base_node: fieldBaseNode || currentBaseNodeName || nodeName,
+          base_node: fieldBaseNode || nodeName,
           binding_mode: bindingMode,
           source_node: bindingMode === 'source_node' ? (resolvedSourceNodeName || field.source_node || '') : '',
           source_table: sourceTableRef,
@@ -127,7 +123,7 @@ export function useWorkbench() {
       .map((fieldName) => ({
         standard_field: fieldName,
         binding_mode: 'source_table',
-        base_node: currentBaseNodeName || nodeName,
+        base_node: nodeName,
         source_node: '',
         source_field: fieldName,
         source_table: currentNode?.table || '',
@@ -482,7 +478,6 @@ export function useWorkbench() {
       description: target.description || target.description_zh || '',
       node_role: target.node_role || 'real',
       status: target.status || 'enabled',
-      physical_node: target.physical_node || '',
       asset_type: target.asset_type || '',
       query_freq: target.query_freq || '',
       base_filters: normalizeBaseFilters(target.base_filters),
@@ -528,7 +523,6 @@ export function useWorkbench() {
       description: target.description || target.description_zh || '',
       node_role: target.node_role || 'real',
       status: target.status || 'enabled',
-      physical_node: target.physical_node || '',
       asset_type: target.asset_type || '',
       query_freq: target.query_freq || '',
       base_filters: normalizeBaseFilters(target.base_filters),
@@ -562,7 +556,6 @@ export function useWorkbench() {
       description: String(nodeForm.value.description || '').trim() || null,
       node_role: nodeForm.value.node_role || 'real',
       status: String(nodeForm.value.status || 'enabled'),
-      physical_node: String(nodeForm.value.physical_node || '').trim() || null,
       asset_type: String(nodeForm.value.asset_type || '').trim() || null,
       query_freq: String(nodeForm.value.query_freq || '').trim() || null,
       base_filters: normalizeBaseFilters(nodeForm.value.base_filters),
@@ -607,7 +600,7 @@ export function useWorkbench() {
         throw new Error('请先选择来源节点和来源字段')
       }
       upsertField(fields.value, {
-        base_node: String(currentNode.physical_node || currentNode.name),
+        base_node: String(currentNode.name),
         standard_field: standardField,
         binding_mode: 'source_node',
         source_table: null,
@@ -645,7 +638,7 @@ export function useWorkbench() {
     }
 
     const sourceTableRef = `${sourceDatabase}.${sourceTable}`
-    const baseNodeName = String(currentNode.physical_node || currentNode.name)
+    const baseNodeName = String(currentNode.name)
     const timeBinding = buildTimeBinding(bindingForm.value)
     ensureNodeFields(currentNode.name, [baseJoinField, currentNode.time_key])
 
@@ -709,7 +702,7 @@ export function useWorkbench() {
     ensureNodeFields(currentNode.name, [sourceField])
 
     upsertField(fields.value, {
-      base_node: String(currentNode.physical_node || currentNode.name),
+      base_node: String(currentNode.name),
       standard_field: standardField,
       binding_mode: 'source_table',
       source_table: currentNode.table,
@@ -773,7 +766,7 @@ export function useWorkbench() {
     }
 
     upsertField(fields.value, {
-      base_node: String(currentNode.physical_node || currentNode.name),
+      base_node: String(currentNode.name),
       standard_field: standardField,
       binding_mode: 'derived',
       source_table: null,
@@ -848,19 +841,105 @@ export function useWorkbench() {
     node.fields = uniqueList([...(node.fields || []), ...extraFields])
   }
 
+  function makeCopyNodeName(baseName) {
+    const sourceName = String(baseName || '').trim()
+    if (!sourceName) {
+      return 'node_copy'
+    }
+    let candidate = `${sourceName}_copy`
+    let index = 2
+    while (graph.value.nodes.some((node) => node.name === candidate)) {
+      candidate = `${sourceName}_copy${index}`
+      index += 1
+    }
+    return candidate
+  }
+
+  async function duplicateNode(nodeName) {
+    const original = graph.value.nodes.find((node) => node.name === nodeName)
+    if (!original) {
+      throw new Error(`节点不存在: ${nodeName}`)
+    }
+    if (original.node_role === 'support' || String(original.name || '').startsWith(SUPPORT_NODE_PREFIX)) {
+      throw new Error('不支持复制 support 节点')
+    }
+
+    const nextName = makeCopyNodeName(original.name)
+    const supportPrefix = `${SUPPORT_NODE_PREFIX}${sanitizeName(original.name)}__`
+    const supportNodes = graph.value.nodes.filter((node) => String(node.name || '').startsWith(supportPrefix))
+    const supportNameMap = new Map(
+      supportNodes.map((node) => [
+        node.name,
+        String(node.name || '').replace(supportPrefix, `${SUPPORT_NODE_PREFIX}${sanitizeName(nextName)}__`),
+      ])
+    )
+
+    const clonedNode = {
+      ...original,
+      name: nextName,
+      description: String(original.description || '').trim() || null,
+      fields: Array.isArray(original.fields) ? [...original.fields] : [],
+      entity_keys: Array.isArray(original.entity_keys) ? [...original.entity_keys] : [],
+      base_filters: Array.isArray(original.base_filters) ? original.base_filters.map((item) => ({ ...item })) : [],
+    }
+    graph.value.nodes.push(clonedNode)
+
+    for (const supportNode of supportNodes) {
+      graph.value.nodes.push({
+        ...supportNode,
+        name: supportNameMap.get(supportNode.name),
+        fields: Array.isArray(supportNode.fields) ? [...supportNode.fields] : [],
+        entity_keys: Array.isArray(supportNode.entity_keys) ? [...supportNode.entity_keys] : [],
+      })
+    }
+
+    const edgesToClone = graph.value.edges.filter((edge) => {
+      const fromName = String(edge.from || edge.from_node || '')
+      const toName = String(edge.to || edge.to_node || '')
+      return fromName === original.name || supportNameMap.has(fromName) || supportNameMap.has(toName)
+    })
+
+    for (const edge of edgesToClone) {
+      const fromName = String(edge.from || edge.from_node || '')
+      const toName = String(edge.to || edge.to_node || '')
+      const nextFrom = fromName === original.name ? nextName : (supportNameMap.get(fromName) || fromName)
+      const nextTo = toName === original.name ? nextName : (supportNameMap.get(toName) || toName)
+      const clonedEdge = {
+        ...edge,
+        name: `${String(edge.name || 'edge')}__${sanitizeName(nextName)}`,
+        from: nextFrom,
+        to: nextTo,
+      }
+      upsert(graph.value.edges, null, clonedEdge, (item) => item.name === clonedEdge.name)
+    }
+
+    const fieldsToClone = fields.value.filter((field) => String(field.base_node || '') === original.name)
+    for (const field of fieldsToClone) {
+      upsertField(fields.value, {
+        ...field,
+        base_node: nextName,
+        source_node: supportNameMap.get(String(field.source_node || '')) || field.source_node,
+        join_keys: Array.isArray(field.join_keys) ? field.join_keys.map((item) => ({ ...item })) : [],
+        bridge_steps: Array.isArray(field.bridge_steps) ? field.bridge_steps.map((item) => ({ ...item })) : [],
+        depends_on: Array.isArray(field.depends_on) ? [...field.depends_on] : [],
+        notes: Array.isArray(field.notes) ? [...field.notes] : [],
+      })
+    }
+
+    await editNode(clonedNode)
+    return clonedNode
+  }
+
   function getNodeDeleteImpact(nodeName) {
     const supportPrefix = `${SUPPORT_NODE_PREFIX}${nodeName}__`
     const targetNode = graph.value.nodes.find((node) => node.name === nodeName)
     const targetTable = String(targetNode?.table || '')
-    const referencedByPhysicalNodes = graph.value.nodes.filter(
-      (node) => node.name !== nodeName && String(node.physical_node || '') === nodeName
-    )
     const referencedBySourceFields = fields.value.filter(
       (field) => String(field.base_node || '') !== nodeName && String(field.source_node || '') === nodeName
     )
     const referencedByLegacyTableFields = fields.value.filter(
       (field) =>
-        String(field.base_node || '') !== nodeName &&
+        !String(field.base_node || '').trim() &&
         String(field.source_table || '') === targetTable &&
         !hasDirectFieldRelation(field)
     )
@@ -872,12 +951,10 @@ export function useWorkbench() {
       return fromName === nodeName || toName === nodeName
     })
     return {
-      referencedByPhysicalNodes,
       referencedBySourceFields,
       referencedByLegacyTableFields,
       referencedByEdges,
       canDelete:
-        referencedByPhysicalNodes.length === 0 &&
         referencedBySourceFields.length === 0 &&
         referencedByLegacyTableFields.length === 0,
     }
@@ -888,9 +965,6 @@ export function useWorkbench() {
     const impact = getNodeDeleteImpact(nodeName)
     if (!impact.canDelete) {
       const messages = []
-      if (impact.referencedByPhysicalNodes.length) {
-        messages.push(`被 ${impact.referencedByPhysicalNodes.length} 个节点作为 physical_node 引用`)
-      }
       if (impact.referencedBySourceFields.length) {
         messages.push(`被 ${impact.referencedBySourceFields.length} 个字段作为 source_node 引用`)
       }
@@ -1087,6 +1161,7 @@ export function useWorkbench() {
     addBaseFieldBinding,
     saveDerivedFieldBinding,
     saveRelatedFieldBinding,
+    duplicateNode,
     deleteNode,
     getNodeDeleteImpact,
     removeFieldBinding,
@@ -1164,7 +1239,6 @@ function blankNode() {
     description: '',
     node_role: 'real',
     status: 'enabled',
-    physical_node: '',
     asset_type: '',
     query_freq: '',
     base_filters: [],

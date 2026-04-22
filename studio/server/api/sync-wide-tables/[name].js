@@ -1,33 +1,41 @@
-import { defineEventHandler, createError } from 'h3'
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
+import { createError, defineEventHandler } from 'h3'
 
-function resolveSyncSpecDir(config) {
-  const root = String(config.syncProjectRoot || '').trim()
-  if (!root) {
-    throw createError({ statusCode: 500, statusMessage: 'Server Error', message: 'syncProjectRoot is not configured' })
-  }
-  return path.join(root, 'wide_table_specs')
+function buildCandidateBases(config) {
+  const backendBase = String(config.backendBase || '').trim()
+  const defaults = [
+    backendBase,
+    'http://127.0.0.1:8011',
+    'http://127.0.0.1:8000',
+  ]
+  return [...new Set(defaults.filter(Boolean).map((item) => item.replace(/\/$/, '')))]
 }
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
-  const specDir = resolveSyncSpecDir(config)
-  const fileName = String(event.context.params?.name || '').trim()
-  if (!/^[\w.-]+$/.test(fileName)) {
-    throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: 'invalid file name' })
-  }
-  const filePath = path.join(specDir, fileName.endsWith('.yaml') ? fileName : `${fileName}.yaml`)
-  try {
-    const content = await fs.readFile(filePath, 'utf8')
-    const stat = await fs.stat(filePath)
-    return {
-      name: path.basename(filePath),
-      content,
-      exported_path: filePath,
-      exported_at: stat.mtime.toISOString(),
+  const name = Array.isArray(event.context.params?.name)
+    ? event.context.params.name.join('/')
+    : String(event.context.params?.name || '')
+
+  const errors = []
+  for (const base of buildCandidateBases(config)) {
+    const target = `${base}/api/sync-wide-tables/${encodeURIComponent(name)}`
+    try {
+      const response = await fetch(target)
+      const contentType = response.headers.get('content-type') || ''
+      const text = await response.text()
+      if (!response.ok) {
+        errors.push(`${base}: ${response.status} ${response.statusText} ${text}`.trim())
+        continue
+      }
+      return contentType.includes('application/json') ? JSON.parse(text) : text
+    } catch (error) {
+      errors.push(`${base}: ${error instanceof Error ? error.message : String(error)}`)
     }
-  } catch {
-    throw createError({ statusCode: 404, statusMessage: 'Not Found', message: 'wide table sync spec not found' })
   }
+
+  throw createError({
+    statusCode: 502,
+    statusMessage: 'Bad Gateway',
+    message: `Sync wide table proxy failed. Tried: ${errors.join(' | ')}`,
+  })
 })

@@ -26,6 +26,7 @@
 1. 没有 `disabled real nodes`
 2. 没有必须先经过 relation-support node 才能拿到字段的查询依赖
 3. 字段关系直接写在 `config/fields.yaml`
+4. 运行时允许同名宽表节点覆盖入口节点的实际查询表
 
 也就是说，现在的主逻辑是：
 
@@ -33,6 +34,41 @@
 2. 再选标准字段
 3. 字段自己携带 join 规则
 4. 规划器直接生成 SQL
+
+### 1.1 运行时宽表覆盖
+
+当前运行时除了读取：
+
+1. `config/graph.yaml`
+2. `config/fields.yaml`
+3. `config/runtime.local.yaml`
+
+还会读取：
+
+4. `config/wide_tables.yaml`
+
+如果某个宽表节点满足：
+
+1. 名称和逻辑入口节点相同
+2. `status = enabled`
+
+则当前运行时会做一层覆盖：
+
+1. 入口节点 `table` 改成宽表目标表
+2. 入口节点 `fields` 改成宽表字段清单
+3. 入口节点 `base_filters` 清空，避免再次套用源表过滤条件
+
+例如：
+
+1. 逻辑入口还是 `stock_daily_real`
+2. 但运行时默认可以直接查询 `starlight.stock_daily_real`
+
+这样做的目的是：
+
+1. 对外协议名稳定
+2. SDK 不需要改调用方式
+3. 宽表可以直接替换高频查询路径
+4. 源图谱节点仍然保留给同步导出链路使用
 
 ## 2. 字段协议
 
@@ -183,3 +219,4 @@ formula: "{close} * ({tot_share} * 10000)"
 3. SQL 可审计
 4. 图谱更轻
 5. 上层更容易接入
+6. 同名宽表可以在运行时直接平替入口节点

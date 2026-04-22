@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { formatDateTime } from '~/composables/useDateTimeFormat'
 import { useSyncService } from '~/composables/useSyncService'
 
 const {
@@ -87,9 +88,17 @@ onMounted(async () => {
       <el-table :data="tableStatuses" row-key="target" empty-text="暂无同步表状态">
         <el-table-column prop="target" label="目标表" min-width="200" />
         <el-table-column prop="database" label="数据库" min-width="140" />
-        <el-table-column prop="latest_date" label="最新日期" min-width="160" />
+        <el-table-column label="最新日期" min-width="180">
+          <template #default="{ row }">
+            {{ formatDateTime(row.latest_date) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="row_count" label="数量" min-width="120" />
-        <el-table-column prop="last_update_time" label="最近更新日期" min-width="190" />
+        <el-table-column label="最近更新日期" min-width="190">
+          <template #default="{ row }">
+            {{ formatDateTime(row.last_update_time) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="120" />
         <el-table-column label="挂载任务" min-width="220">
           <template #default="{ row }">
@@ -111,7 +120,11 @@ onMounted(async () => {
         <el-table-column prop="kind" label="类型" width="140" />
         <el-table-column prop="status" label="状态" width="120" />
         <el-table-column prop="target" label="目标表" min-width="180" />
-        <el-table-column prop="started_at" label="开始时间" min-width="180" />
+        <el-table-column label="开始时间" min-width="180">
+          <template #default="{ row }">
+            {{ formatDateTime(row.started_at) }}
+          </template>
+        </el-table-column>
       </el-table>
       <el-empty v-else description="当前没任务正在运行" />
     </el-card>

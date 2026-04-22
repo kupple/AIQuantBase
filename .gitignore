@@ -1,4 +1,5 @@
 config/runtime.local.yaml
+config/sync/.env
 __pycache__/
 *.pyc
 studio/node_modules/
@@ -6,3 +7,8 @@ studio/.nuxt/
 studio/.output/
 
 studio/.npm-cache/
+sync_data_system/.git.sync_data_system_backup/
+sync_data_system/.pytest_cache/
+sync_data_system/.service_state/
+sync_data_system/.tmp_ad_cache/
+sync_data_system/**/__pycache__/

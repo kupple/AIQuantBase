@@ -46,7 +46,10 @@ class IntradayExecutor:
                     statistics={},
                     meta=[],
                 )
-        if "high_limited" in sql and "starlight.ad_market_kline_daily" in sql:
+        if "high_limited" in sql and (
+            "starlight.ad_market_kline_daily" in sql
+            or "starlight.stock_daily_real" in sql
+        ):
             return QueryExecutionResult(
                 sql=sql,
                 data=[
@@ -164,6 +167,7 @@ def test_graph_runtime_get_protocol_summary():
     assert "code" in stock_daily["identity_fields"]
     assert "trade_time" in stock_daily["identity_fields"]
     assert stock_daily["sample_fields"]
+    assert stock_daily["table"] == "starlight.stock_daily_real"
 
 
 def test_graph_runtime_disabled_node_cleanup_report():
@@ -203,6 +207,7 @@ def test_graph_runtime_get_real_fields_json():
     assert result["items"]
     stock_daily = next(item for item in result["items"] if item["name"] == "stock_daily_real")
     assert stock_daily["description_zh"]
+    assert stock_daily["table"] == "starlight.stock_daily_real"
     assert any(field["field_name"] == "close" for field in stock_daily["fields"])
     assert any(field["field_label_zh"] for field in stock_daily["fields"])
 
@@ -385,12 +390,12 @@ def test_query_daily_for_stock_supports_listed_days():
     assert "listed_days" in result["debug"]["sql"]
     assert "list_date" in result["debug"]["sql"]
     assert "argMax(list_date, snapshot_date)" in result["debug"]["sql"]
-    assert "ANY LEFT JOIN (SELECT * FROM starlight.ad_history_stock_status" in result["debug"]["sql"]
-    assert "starlight.ad_backward_factor" in result["debug"]["sql"]
+    assert "ANY LEFT JOIN (SELECT * FROM starlight.ad_history_stock_status" not in result["debug"]["sql"]
+    assert "starlight.ad_backward_factor" not in result["debug"]["sql"]
     assert "starlight.ad_adj_factor" not in result["debug"]["sql"]
-    assert "FROM (SELECT close, code, open, trade_time, toDate(trade_time) AS __base_trade_time_date FROM starlight.ad_market_kline_daily" in result["debug"]["sql"]
-    assert "SELECT * FROM starlight.ad_backward_factor WHERE trade_date BETWEEN" in result["debug"]["sql"]
-    assert "SELECT * FROM starlight.ad_history_stock_status WHERE trade_date BETWEEN" in result["debug"]["sql"]
+    assert "FROM (SELECT close_adj, code, is_st, open, trade_time FROM starlight.stock_daily_real" in result["debug"]["sql"]
+    assert "SELECT * FROM starlight.ad_backward_factor WHERE trade_date BETWEEN" not in result["debug"]["sql"]
+    assert "SELECT * FROM starlight.ad_history_stock_status WHERE trade_date BETWEEN" not in result["debug"]["sql"]
     assert "ASOF LEFT JOIN starlight.ad_stock_basic" not in result["debug"]["sql"]
 
 
@@ -405,7 +410,8 @@ def test_query_daily_for_status_snapshot_fields_uses_any_join():
     )
 
     assert result["ok"] is True
-    assert "ANY LEFT JOIN (SELECT * FROM starlight.ad_history_stock_status" in result["debug"]["sql"]
+    assert "ANY LEFT JOIN (SELECT * FROM starlight.ad_history_stock_status" not in result["debug"]["sql"]
+    assert "FROM (SELECT code, is_suspended, pre_close, trade_time FROM starlight.stock_daily_real" in result["debug"]["sql"]
 
 
 def test_build_intent_from_requirement():
@@ -636,6 +642,26 @@ def test_query_minute_window_by_trading_day_supports_intraday_limit_fields():
     assert result["meta"]["row_count"] == 2
     assert result["debug"]["intent"]["kind"] == "minute_window_by_trading_day"
     assert "starlight.ad_market_kline_minute" in result["debug"]["sql"]
+
+
+def test_query_minute_window_by_trading_day_supports_hhmm_list():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = IntradayExecutor()
+    result = runtime.query_minute_window_by_trading_day(
+        symbols=["002545.SZ"],
+        trading_days=["2024-03-04"],
+        start_hhmm="14:30",
+        end_hhmm="14:31",
+        hhmm_list=["14:30", "14:31"],
+        fields=["open", "is_limit_up"],
+        asset_type="stock",
+    )
+
+    assert result["ok"] is True
+    assert result["df"].shape[0] == 2
+    assert result["meta"]["query_count"] == 1
+    assert result["debug"]["intent"]["hhmm_list"] == ["14:30", "14:31"]
+    assert "IN (" in result["debug"]["sql"]
 
 
 def test_query_minute_window_by_trading_day_supports_partial_empty_days():

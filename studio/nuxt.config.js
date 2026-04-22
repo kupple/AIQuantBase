@@ -11,6 +11,8 @@ if (fs.existsSync(configJsonPath)) {
   }
 }
 
+const resolvedBackendBase = process.env.NUXT_BACKEND_BASE || process.env.NUXT_PUBLIC_BACKEND_BASE || localConfig.backendBase || 'http://127.0.0.1:8000'
+
 export default defineNuxtConfig({
   ssr: true,
   devtools: { enabled: true },
@@ -32,9 +34,7 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
-    backendBase: process.env.NUXT_BACKEND_BASE || process.env.NUXT_PUBLIC_BACKEND_BASE || localConfig.backendBase || 'http://127.0.0.1:8000',
-    syncBackendBase: process.env.NUXT_SYNC_BACKEND_BASE || process.env.NUXT_PUBLIC_SYNC_BACKEND_BASE || localConfig.syncBackendBase || 'http://172.16.0.68:18080',
-    syncProjectRoot: process.env.NUXT_SYNC_PROJECT_ROOT || localConfig.syncProjectRoot || '/Users/zhao/Desktop/git/amazing_data_system',
+    backendBase: resolvedBackendBase,
     public: {
       appName: 'AIQuantBase Workbench',
     },

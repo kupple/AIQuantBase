@@ -1,35 +1,41 @@
-import { defineEventHandler, getMethod, createError } from 'h3'
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
+import { createError, defineEventHandler } from 'h3'
 
-function resolveRoot(event) {
-  const config = useRuntimeConfig(event)
-  return String(config.syncProjectRoot || '').trim()
-}
-
-function resolveConfigPath(root, name) {
-  const fileName = String(name || '').trim()
-  if (!/^run_sync.*\.toml$/i.test(fileName)) {
-    throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: 'invalid config file name' })
-  }
-  return {
-    name: fileName,
-    filePath: path.join(root, fileName),
-  }
+function buildCandidateBases(config) {
+  const backendBase = String(config.backendBase || '').trim()
+  const defaults = [
+    backendBase,
+    'http://127.0.0.1:8011',
+    'http://127.0.0.1:8000',
+  ]
+  return [...new Set(defaults.filter(Boolean).map((item) => item.replace(/\/$/, '')))]
 }
 
 export default defineEventHandler(async (event) => {
-  const method = getMethod(event)
-  const root = resolveRoot(event)
-  if (!root) {
-    throw createError({ statusCode: 500, statusMessage: 'Server Error', message: 'syncProjectRoot is not configured' })
+  const config = useRuntimeConfig(event)
+  const name = Array.isArray(event.context.params?.name)
+    ? event.context.params.name.join('/')
+    : String(event.context.params?.name || '')
+
+  const errors = []
+  for (const base of buildCandidateBases(config)) {
+    const target = `${base}/api/sync-configs/${encodeURIComponent(name)}`
+    try {
+      const response = await fetch(target)
+      const contentType = response.headers.get('content-type') || ''
+      const text = await response.text()
+      if (!response.ok) {
+        errors.push(`${base}: ${response.status} ${response.statusText} ${text}`.trim())
+        continue
+      }
+      return contentType.includes('application/json') ? JSON.parse(text) : text
+    } catch (error) {
+      errors.push(`${base}: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
-  const { name, filePath } = resolveConfigPath(root, event.context.params?.name || '')
-  if (method === 'GET') {
-    const content = await fs.readFile(filePath, 'utf8')
-    return { name, content }
-  }
-
-  throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed', message: 'unsupported method' })
+  throw createError({
+    statusCode: 502,
+    statusMessage: 'Bad Gateway',
+    message: `Sync config proxy failed. Tried: ${errors.join(' | ')}`,
+  })
 })

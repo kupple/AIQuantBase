@@ -1,10 +1,13 @@
 nodes:
-- name: stock_daily_real
-  table: starlight.ad_market_kline_daily
+- asset_type: stock
+  base_filters:
+  - field: security_type
+    op: '='
+    value: EXTRA_STOCK_A
+  description: 股票日线行情主表
+  description_zh: null
   entity_keys:
   - code
-  time_key: trade_time
-  grain: daily
   fields:
   - code
   - trade_time
@@ -14,16 +17,14 @@ nodes:
   - close
   - volume
   - amount
-  description: 股票日线行情主表
+  grain: daily
+  name: stock_daily_real
   node_role: query_entry
-  status: enabled
   physical_node: null
-  asset_type: stock
   query_freq: 1d
-  base_filters:
-  - field: security_type
-    op: '='
-    value: EXTRA_STOCK_A
+  status: enabled
+  table: starlight.ad_market_kline_daily
+  time_key: trade_time
 - asset_type: stock
   base_filters: []
   description: null
@@ -315,32 +316,6 @@ nodes:
   status: enabled
   table: starlight.ad_margin_summary
   time_key: trade_date
-- asset_type: etf
-  base_filters:
-  - field: security_type
-    op: '='
-    value: EXTRA_ETF
-  description: null
-  description_zh: ETF日线逻辑入口
-  entity_keys:
-  - code
-  fields:
-  - code
-  - trade_time
-  - open
-  - high
-  - low
-  - close
-  - volume
-  - amount
-  grain: daily
-  name: etf_daily_real
-  node_role: query_entry
-  physical_node: stock_daily_real
-  query_freq: 1d
-  status: enabled
-  table: starlight.ad_market_kline_daily
-  time_key: trade_time
 - asset_type: index
   base_filters:
   - field: security_type
@@ -362,7 +337,7 @@ nodes:
   grain: daily
   name: index_daily_real
   node_role: query_entry
-  physical_node: stock_daily_real
+  physical_node: null
   query_freq: 1d
   status: enabled
   table: starlight.ad_market_kline_daily
@@ -385,7 +360,7 @@ nodes:
   grain: minute
   name: etf_minute_real
   node_role: query_entry
-  physical_node: stock_minute_real
+  physical_node: null
   query_freq: 1m
   status: enabled
   table: starlight.ad_market_kline_minute
@@ -408,7 +383,7 @@ nodes:
   grain: minute
   name: index_minute_real
   node_role: query_entry
-  physical_node: stock_minute_real
+  physical_node: null
   query_freq: 1m
   status: enabled
   table: starlight.ad_market_kline_minute

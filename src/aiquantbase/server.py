@@ -44,6 +44,8 @@ from .planner import GraphRegistry, QueryPlanner
 from .runtime import GraphRuntime
 from .runtime_config import DEFAULT_RUNTIME_CONFIG_PATH, load_runtime_config
 from .sql import SqlRenderer
+from .sync.service import build_sync_service
+from .sync_integration import DEFAULT_SYNC_PROJECT_ROOT, register_sync_routes
 from .wide_table import (
     DEFAULT_WIDE_TABLE_PATH,
     delete_wide_table,
@@ -63,11 +65,13 @@ DEFAULT_FIELDS_PATH = PROJECT_ROOT / "config" / "fields.yaml"
 def create_app(
     default_graph_path: Path | None = None,
     default_fields_path: Path | None = None,
+    sync_project_root: Path | None = None,
 ) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.secret_key = "aiquantbase-dev-secret"
     app.config["DEFAULT_GRAPH_PATH"] = Path(default_graph_path or DEFAULT_GRAPH_PATH)
     app.config["DEFAULT_FIELDS_PATH"] = Path(default_fields_path or DEFAULT_FIELDS_PATH)
+    app.config["DEFAULT_SYNC_PROJECT_ROOT"] = Path(sync_project_root or DEFAULT_SYNC_PROJECT_ROOT)
 
     @app.after_request
     def add_cors_headers(response):
@@ -92,7 +96,7 @@ def create_app(
                 },
                 "available_routes": [
                     "/api/health",
-                    "/api/workspace",
+                        "/api/workspace",
                     "/api/schema/databases",
                     "/api/schema/tables",
                     "/api/schema/columns",
@@ -107,9 +111,14 @@ def create_app(
                     "/api/membership/relations",
                     "/api/wide-tables",
                     "/api/wide-tables/export",
-                    "/api/fields/ai-notes",
-                    "/api/query/execute",
-                    "/api/query/nl",
+                        "/api/fields/ai-notes",
+                        "/api/query/execute",
+                        "/api/query/nl",
+                        "/api/sync-configs",
+                        "/api/sync-wide-tables",
+                        "/api/sync-table-status",
+                        "/api/sync/meta/tasks",
+                        "/api/sync/jobs",
                 ],
             }
         )
@@ -620,11 +629,21 @@ def create_app(
     def health():
         return jsonify({"ok": True})
 
+    register_sync_routes(
+        app,
+        build_sync_service(app.config["DEFAULT_SYNC_PROJECT_ROOT"]),
+    )
+
     return app
 
 
-def run_server(host: str = "127.0.0.1", port: int = 8000, debug: bool = True) -> None:
-    app = create_app()
+def run_server(
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    debug: bool = True,
+    sync_project_root: str | Path | None = None,
+) -> None:
+    app = create_app(sync_project_root=Path(sync_project_root) if sync_project_root else None)
     app.run(host=host, port=port, debug=debug)
 
 

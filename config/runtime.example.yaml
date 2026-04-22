@@ -30,3 +30,14 @@ discovery:
     - ad_adj_factor
     - ad_history_stock_status
   trading_calendar_table: starlight.ad_trade_calendar
+
+sync:
+  amazingdata:
+    username: YOUR_AMAZINGDATA_ACCOUNT
+    password: YOUR_AMAZINGDATA_PASSWORD
+    host: YOUR_AMAZINGDATA_HOST
+    port: 8600
+    local_path: /path/to/amazing_data_cache
+  baostock:
+    user_id: anonymous
+    password: 123456

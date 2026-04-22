@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { formatDateTime } from '~/composables/useDateTimeFormat'
 import { useSyncService } from '~/composables/useSyncService'
 
 const {
@@ -20,6 +21,7 @@ const jobFilters = ref({
   kind: '',
 })
 const jobDetailDialogVisible = ref(false)
+const jobLoading = ref(false)
 
 async function refreshJobs() {
   await loadJobs(jobFilters.value, true)
@@ -41,8 +43,13 @@ async function handleCancelJob(job) {
 }
 
 async function openJobDetailDialog(job) {
-  await loadJobDetail(job.job_id)
-  jobDetailDialogVisible.value = true
+  jobLoading.value = true
+  try {
+    await loadJobDetail(job.job_id)
+    jobDetailDialogVisible.value = true
+  } finally {
+    jobLoading.value = false
+  }
 }
 
 onMounted(async () => {
@@ -84,7 +91,11 @@ onMounted(async () => {
         <el-table-column prop="kind" label="类型" width="140" />
         <el-table-column prop="status" label="状态" width="120" />
         <el-table-column prop="target" label="目标表" min-width="160" />
-        <el-table-column prop="created_at" label="创建时间" min-width="180" />
+        <el-table-column label="创建时间" min-width="180">
+          <template #default="{ row }">
+            {{ formatDateTime(row.created_at) }}
+          </template>
+        </el-table-column>
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
               <div class="binding-action-group">
@@ -107,8 +118,8 @@ onMounted(async () => {
           <el-descriptions-item label="目标">{{ selectedJob.target || '-' }}</el-descriptions-item>
           <el-descriptions-item label="配置">{{ selectedJob.config_path || '-' }}</el-descriptions-item>
           <el-descriptions-item label="PID">{{ selectedJob.pid || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="开始时间">{{ selectedJob.started_at || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="结束时间">{{ selectedJob.finished_at || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="开始时间">{{ formatDateTime(selectedJob.started_at) }}</el-descriptions-item>
+          <el-descriptions-item label="结束时间">{{ formatDateTime(selectedJob.finished_at) }}</el-descriptions-item>
           <el-descriptions-item label="错误" :span="2">{{ selectedJob.error || '-' }}</el-descriptions-item>
         </el-descriptions>
         <el-input :model-value="jobLogs" type="textarea" :rows="22" readonly :loading="jobLoading" />

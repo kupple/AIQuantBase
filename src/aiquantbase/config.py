@@ -132,6 +132,7 @@ def _parse_filter_expression(data: Any) -> FilterExpression:
 
 
 def _parse_node(item: dict[str, Any]) -> Node:
+    physical_node = str(item.get("physical_node") or "").strip() or None
     return Node(
         name=item["name"],
         table=item["table"],
@@ -143,7 +144,7 @@ def _parse_node(item: dict[str, Any]) -> Node:
         description_zh=item.get("description_zh"),
         node_role=item.get("node_role"),
         status=item.get("status", "enabled"),
-        physical_node=item.get("physical_node"),
+        physical_node=physical_node,
         asset_type=item.get("asset_type"),
         query_freq=item.get("query_freq"),
         base_filters=list(item.get("base_filters", [])),

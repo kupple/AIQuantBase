@@ -3213,41 +3213,6 @@ fields:
   binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 股权记录日期
-  field_role: corporate_action_field
-  formula: null
-  join_keys:
-  - base: code
-    source: market_code
-  lookahead_category: published_event
-  notes:
-  - Equity record date
-  path_domain: null
-  path_group: null
-  relation_type: direct
-  resolver_type: direct
-  source_field: date_eqy_record
-  source_node: null
-  source_table: starlight.ad_dividend
-  standard_field: equity_record_date
-  time_binding:
-    allow_equal: true
-    available_time_field: null
-    base_time_cast: date
-    base_time_field: trade_time
-    lookahead_safe: true
-    mode: asof
-    source_end_field: null
-    source_start_field: null
-    source_time_cast: null
-    source_time_field: ann_date
-  time_semantics: event_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
   description_zh: 分红派付日期
   field_role: corporate_action_field
   formula: null
@@ -5319,41 +5284,6 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: ETF 代码
-  field_role: etf_constituent_identity_field
-  formula: null
-  join_keys:
-  - base: code
-    source: underlying_symbol
-  lookahead_category: none
-  notes:
-  - ETF 代码
-  path_domain: null
-  path_group: null
-  relation_type: direct
-  resolver_type: direct
-  source_field: etf_code
-  source_node: null
-  source_table: starlight.ad_etf_pcf_constituent
-  standard_field: etf_constituent_etf_code
-  time_binding:
-    allow_equal: true
-    available_time_field: null
-    base_time_cast: date
-    base_time_field: trade_time
-    lookahead_safe: true
-    mode: same_date
-    source_end_field: null
-    source_start_field: null
-    source_time_cast: null
-    source_time_field: trading_day
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
   base_node: etf_pcf_real
   binding_mode: source_table
   bridge_steps: []
@@ -5529,41 +5459,6 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 成分证券数量
-  field_role: etf_constituent_position_field
-  formula: null
-  join_keys:
-  - base: code
-    source: underlying_symbol
-  lookahead_category: none
-  notes:
-  - 成分证券数量
-  path_domain: null
-  path_group: null
-  relation_type: direct
-  resolver_type: direct
-  source_field: component_share
-  source_node: null
-  source_table: starlight.ad_etf_pcf_constituent
-  standard_field: etf_constituent_component_share
-  time_binding:
-    allow_equal: true
-    available_time_field: null
-    base_time_cast: date
-    base_time_field: trade_time
-    lookahead_safe: true
-    mode: same_date
-    source_end_field: null
-    source_start_field: null
-    source_time_cast: null
-    source_time_field: trading_day
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
   base_node: etf_pcf_real
   binding_mode: source_table
   bridge_steps: []
@@ -5590,41 +5485,6 @@ fields:
     available_time_field: null
     base_time_cast: null
     base_time_field: trading_day
-    lookahead_safe: true
-    mode: same_date
-    source_end_field: null
-    source_start_field: null
-    source_time_cast: null
-    source_time_field: trading_day
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 替代标志
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys:
-  - base: code
-    source: underlying_symbol
-  lookahead_category: none
-  notes:
-  - 替代标志
-  path_domain: null
-  path_group: null
-  relation_type: direct
-  resolver_type: direct
-  source_field: substitute_flag
-  source_node: null
-  source_table: starlight.ad_etf_pcf_constituent
-  standard_field: etf_constituent_substitute_flag
-  time_binding:
-    allow_equal: true
-    available_time_field: null
-    base_time_cast: date
-    base_time_field: trade_time
     lookahead_safe: true
     mode: same_date
     source_end_field: null
@@ -5669,41 +5529,6 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 申购溢价比例
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys:
-  - base: code
-    source: underlying_symbol
-  lookahead_category: none
-  notes:
-  - 申购溢价比例
-  path_domain: null
-  path_group: null
-  relation_type: direct
-  resolver_type: direct
-  source_field: premium_ratio
-  source_node: null
-  source_table: starlight.ad_etf_pcf_constituent
-  standard_field: etf_constituent_premium_ratio
-  time_binding:
-    allow_equal: true
-    available_time_field: null
-    base_time_cast: date
-    base_time_field: trade_time
-    lookahead_safe: true
-    mode: same_date
-    source_end_field: null
-    source_start_field: null
-    source_time_cast: null
-    source_time_field: trading_day
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
   base_node: etf_pcf_real
   binding_mode: source_table
   bridge_steps: []
@@ -5730,41 +5555,6 @@ fields:
     available_time_field: null
     base_time_cast: null
     base_time_field: trading_day
-    lookahead_safe: true
-    mode: same_date
-    source_end_field: null
-    source_start_field: null
-    source_time_cast: null
-    source_time_field: trading_day
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 赎回折价比例
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys:
-  - base: code
-    source: underlying_symbol
-  lookahead_category: none
-  notes:
-  - 赎回折价比例
-  path_domain: null
-  path_group: null
-  relation_type: direct
-  resolver_type: direct
-  source_field: discount_ratio
-  source_node: null
-  source_table: starlight.ad_etf_pcf_constituent
-  standard_field: etf_constituent_discount_ratio
-  time_binding:
-    allow_equal: true
-    available_time_field: null
-    base_time_cast: date
-    base_time_field: trade_time
     lookahead_safe: true
     mode: same_date
     source_end_field: null
@@ -5809,41 +5599,6 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 申购现金替代金额
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys:
-  - base: code
-    source: underlying_symbol
-  lookahead_category: none
-  notes:
-  - 申购现金替代金额
-  path_domain: null
-  path_group: null
-  relation_type: direct
-  resolver_type: direct
-  source_field: creation_cash_substitute
-  source_node: null
-  source_table: starlight.ad_etf_pcf_constituent
-  standard_field: etf_constituent_creation_cash_substitute
-  time_binding:
-    allow_equal: true
-    available_time_field: null
-    base_time_cast: date
-    base_time_field: trade_time
-    lookahead_safe: true
-    mode: same_date
-    source_end_field: null
-    source_start_field: null
-    source_time_cast: null
-    source_time_field: trading_day
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
   base_node: etf_pcf_real
   binding_mode: source_table
   bridge_steps: []
@@ -5870,41 +5625,6 @@ fields:
     available_time_field: null
     base_time_cast: null
     base_time_field: trading_day
-    lookahead_safe: true
-    mode: same_date
-    source_end_field: null
-    source_start_field: null
-    source_time_cast: null
-    source_time_field: trading_day
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 赎回现金替代金额
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys:
-  - base: code
-    source: underlying_symbol
-  lookahead_category: none
-  notes:
-  - 赎回现金替代金额
-  path_domain: null
-  path_group: null
-  relation_type: direct
-  resolver_type: direct
-  source_field: redemption_cash_substitute
-  source_node: null
-  source_table: starlight.ad_etf_pcf_constituent
-  standard_field: etf_constituent_redemption_cash_substitute
-  time_binding:
-    allow_equal: true
-    available_time_field: null
-    base_time_cast: date
-    base_time_field: trade_time
     lookahead_safe: true
     mode: same_date
     source_end_field: null
@@ -8979,198 +8699,6 @@ fields:
   via_node: null
 - applies_to_grain: daily
   base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: null
-  field_role: direct_field
-  formula: null
-  join_keys: []
-  lookahead_category: null
-  notes:
-  - 股票当日成交金额
-  - 表示股票在交易日内的总成交金额
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: amount
-  source_node: null
-  source_table: starlight.ad_market_kline_daily
-  standard_field: amount
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: null
-  field_role: direct_field
-  formula: null
-  join_keys: []
-  lookahead_category: null
-  notes:
-  - 股票当日收盘价
-  - 交易日结束时的股票价格
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: close
-  source_node: null
-  source_table: starlight.ad_market_kline_daily
-  standard_field: close
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: null
-  field_role: direct_field
-  formula: null
-  join_keys: []
-  lookahead_category: null
-  notes:
-  - 股票代码标识
-  - 用于唯一识别股票的代码
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: code
-  source_node: null
-  source_table: starlight.ad_market_kline_daily
-  standard_field: code
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: null
-  field_role: direct_field
-  formula: null
-  join_keys: []
-  lookahead_category: null
-  notes:
-  - 股票当日最高价
-  - 交易日内达到的最高价格
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: high
-  source_node: null
-  source_table: starlight.ad_market_kline_daily
-  standard_field: high
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: null
-  field_role: direct_field
-  formula: null
-  join_keys: []
-  lookahead_category: null
-  notes:
-  - 股票当日最低价
-  - 交易日内达到的最低价格
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: low
-  source_node: null
-  source_table: starlight.ad_market_kline_daily
-  standard_field: low
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: null
-  field_role: direct_field
-  formula: null
-  join_keys: []
-  lookahead_category: null
-  notes:
-  - 股票当日开盘价
-  - 交易日开始时的股票价格
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: open
-  source_node: null
-  source_table: starlight.ad_market_kline_daily
-  standard_field: open
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: null
-  field_role: direct_field
-  formula: null
-  join_keys: []
-  lookahead_category: null
-  notes:
-  - 股票交易日期
-  - 标识股票交易发生的具体日期
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: trade_time
-  source_node: null
-  source_table: starlight.ad_market_kline_daily
-  standard_field: trade_time
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: null
-  field_role: direct_field
-  formula: null
-  join_keys: []
-  lookahead_category: null
-  notes:
-  - 股票当日成交量
-  - 交易日内成交的股票数量
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: volume
-  source_node: null
-  source_table: starlight.ad_market_kline_daily
-  standard_field: volume
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
@@ -9221,23 +8749,143 @@ fields:
   time_binding: null
   time_semantics: null
   via_node: null
-- base_node: stock_daily_real
-  standard_field: is_bjs
+- applies_to_grain: daily
+  base_node: stock_daily_real
   binding_mode: derived
-  source_table: null
-  source_node: null
-  source_field: null
-  relation_type: null
-  join_keys: []
-  time_binding: null
   bridge_steps: []
-  field_role: derived_field
-  resolver_type: derived
   depends_on:
   - code
+  description_zh: null
+  field_role: derived_field
   formula: endsWith({code}, '.BJ')
-  applies_to_grain: daily
+  join_keys: []
+  lookahead_category: null
   notes:
   - 'Derived board flag for Beijing Stock Exchange stocks
 
     Returns true when stock code ends with .BJ'
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: is_bjs
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: index_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 证券名称
+  field_role: basic_info_field
+  formula: null
+  join_keys:
+  - base: code
+    source: market_code
+  lookahead_category: none
+  notes:
+  - Security short name
+  path_domain: null
+  path_group: null
+  relation_type: direct
+  resolver_type: direct
+  source_field: security_name
+  source_node: null
+  source_table: starlight.ad_stock_basic
+  standard_field: security_name
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: snapshot_date
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: index_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 上市日期
+  field_role: basic_info_field
+  formula: null
+  join_keys:
+  - base: code
+    source: market_code
+  lookahead_category: none
+  notes:
+  - Listing date
+  path_domain: null
+  path_group: null
+  relation_type: direct
+  resolver_type: direct
+  source_field: list_date
+  source_node: null
+  source_table: "(SELECT market_code, argMax(list_date, snapshot_date) AS list_date,\n\
+    \ argMax(delist_date, snapshot_date) AS delist_date FROM starlight.ad_stock_basic\
+    \ GROUP BY market_code)"
+  standard_field: list_date
+  time_binding: null
+  time_semantics: listing_start_date
+  via_node: null
+- applies_to_grain: daily
+  base_node: index_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: delist日期
+  field_role: basic_info_field
+  formula: null
+  join_keys:
+  - base: code
+    source: market_code
+  lookahead_category: none
+  notes:
+  - Delisting date
+  path_domain: null
+  path_group: null
+  relation_type: direct
+  resolver_type: direct
+  source_field: delist_date
+  source_node: null
+  source_table: "(SELECT market_code, argMax(list_date, snapshot_date) AS list_date,\n\
+    \ argMax(delist_date, snapshot_date) AS delist_date FROM starlight.ad_stock_basic\
+    \ GROUP BY market_code)"
+  standard_field: delist_date
+  time_binding: null
+  time_semantics: listing_end_date
+  via_node: null
+- applies_to_grain: daily
+  base_node: index_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 证券type
+  field_role: code_info_field
+  formula: null
+  join_keys:
+  - base: code
+    source: code
+  lookahead_category: none
+  notes:
+  - Security type
+  path_domain: null
+  path_group: null
+  relation_type: direct
+  resolver_type: direct
+  source_field: security_type
+  source_node: null
+  source_table: starlight.ad_code_info
+  standard_field: security_type
+  time_binding: null
+  time_semantics: null
+  via_node: null

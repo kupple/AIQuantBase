@@ -21,7 +21,6 @@ wide_tables:
   - high_adj
   - low_adj
   - close_adj
-  - security_name
   - is_st
   - is_suspended
   - is_wd_sec

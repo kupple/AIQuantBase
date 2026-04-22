@@ -1,0 +1,52 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# Data
+data/
+amazing_data_cache/
+amazing_data_cache_fresh/
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+__pycache__/__pycache__/
+__pycache__/
+repositories/__pycache__/
+__pycache__/amazingdata_sdk_provider.cpython-313.pyc
+__pycache__/amazingdata_sdk_provider.cpython-313.pyc
+
+
+__pycache__/
+*.pyc

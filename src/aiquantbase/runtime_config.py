@@ -42,10 +42,32 @@ class DiscoveryConfig:
 
 
 @dataclass(slots=True)
+class SyncAmazingDataConfig:
+    username: str = ""
+    password: str = ""
+    host: str = ""
+    port: int = 0
+    local_path: str = ""
+
+
+@dataclass(slots=True)
+class SyncBaoStockConfig:
+    user_id: str = "anonymous"
+    password: str = "123456"
+
+
+@dataclass(slots=True)
+class SyncConfig:
+    amazingdata: SyncAmazingDataConfig = field(default_factory=SyncAmazingDataConfig)
+    baostock: SyncBaoStockConfig = field(default_factory=SyncBaoStockConfig)
+
+
+@dataclass(slots=True)
 class RuntimeConfig:
     llm: LlmConfig
     datasource: DatasourceConfig
     discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
+    sync: SyncConfig = field(default_factory=SyncConfig)
 
 
 DEFAULT_RUNTIME_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.local.yaml"
@@ -66,4 +88,8 @@ def load_runtime_config(path: str | Path = DEFAULT_RUNTIME_CONFIG_PATH) -> Runti
         llm=LlmConfig(**data["llm"]),
         datasource=DatasourceConfig(**data["datasource"]),
         discovery=DiscoveryConfig(**data.get("discovery", {})),
+        sync=SyncConfig(
+            amazingdata=SyncAmazingDataConfig(**(data.get("sync", {}).get("amazingdata", {}) or {})),
+            baostock=SyncBaoStockConfig(**(data.get("sync", {}).get("baostock", {}) or {})),
+        ),
     )

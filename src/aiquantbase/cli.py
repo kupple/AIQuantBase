@@ -21,6 +21,7 @@ from .nl_intent import enrich_query_intent_with_aliases, normalize_query_intent_
 from .planner import GraphRegistry, QueryPlanner
 from .runtime_config import DEFAULT_RUNTIME_CONFIG_PATH, DiscoveryConfig, load_runtime_config
 from .sql import SqlRenderer
+from .sync.service import build_sync_service
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -53,6 +54,49 @@ def build_parser() -> argparse.ArgumentParser:
     studio_cmd = subparsers.add_parser("studio", help="Run local Graph Studio workbench")
     studio_cmd.add_argument("--host", default="127.0.0.1")
     studio_cmd.add_argument("--port", type=int, default=8000)
+    studio_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
+
+    sync_configs_cmd = subparsers.add_parser("sync-list-configs", help="List bundled sync config files")
+    sync_configs_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
+
+    sync_tasks_cmd = subparsers.add_parser("sync-list-tasks", help="List bundled sync tasks")
+    sync_tasks_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
+
+    sync_jobs_cmd = subparsers.add_parser("sync-list-jobs", help="List sync job records")
+    sync_jobs_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
+    sync_jobs_cmd.add_argument("--status")
+    sync_jobs_cmd.add_argument("--task")
+    sync_jobs_cmd.add_argument("--kind")
+
+    sync_job_cmd = subparsers.add_parser("sync-job", help="Show a sync job record")
+    sync_job_cmd.add_argument("job_id")
+    sync_job_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
+    sync_job_cmd.add_argument("--tail-lines", type=int, default=100)
+
+    sync_cancel_cmd = subparsers.add_parser("sync-cancel-job", help="Cancel a running sync job")
+    sync_cancel_cmd.add_argument("job_id")
+    sync_cancel_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
+
+    sync_run_config_cmd = subparsers.add_parser("sync-run-config", help="Run a bundled sync config")
+    sync_run_config_cmd.add_argument("config")
+    sync_run_config_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
+    sync_run_config_cmd.add_argument("--log-level")
+
+    sync_run_task_cmd = subparsers.add_parser("sync-run-task", help="Run a bundled sync task")
+    sync_run_task_cmd.add_argument("name")
+    sync_run_task_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
+    sync_run_task_cmd.add_argument("--codes", default="")
+    sync_run_task_cmd.add_argument("--begin-date", type=int)
+    sync_run_task_cmd.add_argument("--end-date", type=int)
+    sync_run_task_cmd.add_argument("--limit", type=int, default=0)
+    sync_run_task_cmd.add_argument("--force", action="store_true")
+    sync_run_task_cmd.add_argument("--resume", action="store_true")
+    sync_run_task_cmd.add_argument("--log-level")
+
+    sync_run_wide_table_cmd = subparsers.add_parser("sync-run-wide-tables", help="Run bundled wide table sync jobs")
+    sync_run_wide_table_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
+    sync_run_wide_table_cmd.add_argument("--wide-table-name", action="append", dest="wide_table_names", default=[])
+    sync_run_wide_table_cmd.add_argument("--state-database")
 
     exec_cmd = subparsers.add_parser("execute-intent", help="Plan, render and execute a Query Intent")
     exec_cmd.add_argument("graph", help="Path to graph YAML")
@@ -340,7 +384,83 @@ def main() -> None:
     if args.command == "studio":
         from .server import run_server
 
-        run_server(host=args.host, port=args.port)
+        run_server(host=args.host, port=args.port, sync_project_root=args.sync_project_root)
+        return
+
+    if args.command == "sync-list-configs":
+        integration = build_sync_service(args.sync_project_root)
+        print(json.dumps({"configs": integration.list_configs()}, indent=2, ensure_ascii=False))
+        return
+
+    if args.command == "sync-list-tasks":
+        integration = build_sync_service(args.sync_project_root)
+        print(json.dumps(integration.list_tasks(), indent=2, ensure_ascii=False))
+        return
+
+    if args.command == "sync-list-jobs":
+        integration = build_sync_service(args.sync_project_root)
+        print(
+            json.dumps(
+                integration.list_jobs(status=args.status, task=args.task, kind=args.kind),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return
+
+    if args.command == "sync-job":
+        integration = build_sync_service(args.sync_project_root)
+        print(json.dumps(integration.get_job(args.job_id, tail_lines=args.tail_lines), indent=2, ensure_ascii=False))
+        return
+
+    if args.command == "sync-cancel-job":
+        integration = build_sync_service(args.sync_project_root)
+        print(json.dumps(integration.cancel_job(args.job_id), indent=2, ensure_ascii=False))
+        return
+
+    if args.command == "sync-run-config":
+        integration = build_sync_service(args.sync_project_root)
+        print(
+            json.dumps(
+                integration.run_config(config=args.config, log_level=args.log_level),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return
+
+    if args.command == "sync-run-task":
+        integration = build_sync_service(args.sync_project_root)
+        print(
+            json.dumps(
+                integration.run_task(
+                    name=args.name,
+                    codes=[item.strip() for item in args.codes.split(",") if item.strip()],
+                    begin_date=args.begin_date,
+                    end_date=args.end_date,
+                    limit=args.limit,
+                    force=args.force,
+                    resume=args.resume,
+                    log_level=args.log_level,
+                ),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return
+
+    if args.command == "sync-run-wide-tables":
+        integration = build_sync_service(args.sync_project_root)
+        print(
+            json.dumps(
+                integration.run_wide_tables(
+                    wide_table_names=list(args.wide_table_names or []),
+                    state_database=args.state_database,
+                ),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         return
 
     if args.command == "discover-schema":

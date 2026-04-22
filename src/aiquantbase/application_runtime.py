@@ -129,6 +129,7 @@ class ApplicationRuntime:
         end_hhmm: str,
         fields: list[str],
         asset_type: str = 'stock',
+        hhmm_list: list[str] | None = None,
     ) -> dict[str, Any]:
         return self.graph_runtime.query_minute_window_by_trading_day(
             symbols=symbols,
@@ -137,6 +138,7 @@ class ApplicationRuntime:
             end_hhmm=end_hhmm,
             fields=fields,
             asset_type=asset_type,
+            hhmm_list=hhmm_list,
         )
 
     def query_next_trading_day_intraday_windows(
@@ -147,6 +149,7 @@ class ApplicationRuntime:
         end_hhmm: str,
         fields: list[str],
         asset_type: str = 'stock',
+        hhmm_list: list[str] | None = None,
     ) -> dict[str, Any]:
         return self.graph_runtime.query_next_trading_day_intraday_windows(
             anchors=anchors,
@@ -154,6 +157,7 @@ class ApplicationRuntime:
             end_hhmm=end_hhmm,
             fields=fields,
             asset_type=asset_type,
+            hhmm_list=hhmm_list,
         )
 
     def query_membership(

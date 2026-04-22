@@ -85,6 +85,12 @@ class ClickHouseExecutor:
             'parser_engine': parser_engine,
         }
 
+    def _ensure_json_format(self, sql: str) -> str:
+        rendered_sql = self._normalize_sql(sql)
+        if rendered_sql.upper().endswith("FORMAT JSON"):
+            return rendered_sql
+        return f"{rendered_sql}\nFORMAT JSON"
+
     def execute_sql_raw(self, sql: str) -> str:
         rendered_sql = self._normalize_sql(sql)
         return self._post(rendered_sql)

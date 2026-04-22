@@ -296,6 +296,38 @@ wide_table:
 
 不建议直接 destructive 修改原表。
 
+### 当前已实现的执行语义
+
+上面是理想设计。
+
+当前已经接通的同步实现里，真实执行语义进一步收敛成：
+
+1. `create_and_sync`
+2. `sync`
+3. `rebuild`
+
+这三种动作在真正落库前都会先检查目标表是否存在。
+
+当前真实执行流程：
+
+1. 查询 `system.tables` 检查目标表
+2. 如果目标表已存在，先执行 `DROP TABLE IF EXISTS target`
+3. 重新 `CREATE TABLE`
+4. 再执行整表 `INSERT INTO target SELECT ...`
+
+当前限制：
+
+1. 当前是删表重建语义
+2. 还不是增量同步语义
+3. 也不是 rename-swap 临时表切换语义
+4. `action` 名称继续保留，用于表达规划层结果和状态表记录
+
+所以当前应该把同步宽表理解成：
+
+1. 已支持真实执行
+2. 但执行方式是“全量重建”
+3. 更适合当前的 Memory 宽表使用模式
+
 ---
 
 ## 6. 建表建议
@@ -495,4 +527,10 @@ wide_table:
 
 **优先消费 AIQuantBase 导出的 `wide_table + materialization_bundle`，而不是只靠宽表定义或者自己重新推图谱。**
 
-这样实现成本最低，也最不容易和 AIQuantBase 的字段解析逻辑偏离。*** End Patch
+这样实现成本最低，也最不容易和 AIQuantBase 的字段解析逻辑偏离。
+
+补充当前状态：
+
+1. 这条链路已经支持真实 ClickHouse 执行
+2. 当前执行语义是“目标表存在则先删表，再重建并整表重刷”
+3. 如果继续推进，下一步重点应放在增量同步和非 destructive rebuild

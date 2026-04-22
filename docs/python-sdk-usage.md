@@ -44,6 +44,7 @@ runtime = ApplicationRuntime.from_defaults()
 1. `config/graph.yaml`
 2. `config/fields.yaml`
 3. `config/runtime.local.yaml`
+4. `config/wide_tables.yaml`
 
 ### 显式传路径初始化
 
@@ -64,6 +65,30 @@ from aiquantbase import GraphRuntime
 
 runtime = GraphRuntime.from_defaults()
 ```
+
+### 宽表覆盖说明
+
+当前 `GraphRuntime` 默认还会读取：
+
+1. `config/wide_tables.yaml`
+
+如果存在：
+
+1. 与入口节点同名
+2. `status = enabled`
+
+的宽表节点，则运行时会优先把这个逻辑入口覆盖到宽表目标表。
+
+例如当前：
+
+1. `stock_daily_real` 对外名字不变
+2. 但默认查询会优先走 `starlight.stock_daily_real`
+
+这意味着：
+
+1. 上层仍然传 `stock_daily_real`
+2. `debug.sql` 里看到的实际 `FROM` 可能已经是宽表
+3. 不应该再假设 `stock_daily_real` 一定直接来自 `starlight.ad_market_kline_daily`
 
 ## 3. 上层应用推荐接口
 
@@ -140,6 +165,12 @@ result = runtime.query_daily(
     end="2025-01-31 23:59:59",
 )
 ```
+
+补充：
+
+1. 如果 `stock_daily_real` 宽表已启用，`close_adj / is_st / pre_close / is_suspended` 这类已经物化到宽表的字段，会直接从宽表读取
+2. 此时 `debug["sql"]` 中不一定再出现这些字段原来的 join 源表
+3. 这属于正常行为，说明宽表平替已经生效
 
 ### 直接执行分钟查询
 

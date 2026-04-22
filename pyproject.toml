@@ -7,6 +7,11 @@ dependencies = [
   "Flask>=3.0",
   "PyYAML>=6.0",
   "pandas>=2.0",
+  "python-dotenv>=1.0.0",
+  "clickhouse-connect>=0.7.8",
+  "baostock>=0.8.9",
+  "fastapi>=0.115.0",
+  "uvicorn>=0.30.0",
 ]
 
 [project.scripts]
@@ -17,7 +22,22 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+packages = [
+  "aiquantbase",
+  "aiquantbase.sync",
+  "sync_data_system",
+  "sync_data_system.repositories",
+  "sync_data_system.scripts",
+  "sync_data_system.service",
+  "sync_data_system.sources",
+  "sync_data_system.sources.amazingdata",
+  "sync_data_system.sources.baostock",
+  "sync_data_system.sync_core",
+]
+
+[tool.setuptools.package-dir]
+aiquantbase = "src/aiquantbase"
+sync_data_system = "sync_data_system"
 
 [tool.setuptools.package-data]
 aiquantbase = [
@@ -26,6 +46,3 @@ aiquantbase = [
   "static/js/*.js",
   "static/vendor/*.js",
 ]
-
-[tool.setuptools.packages.find]
-where = ["src"]

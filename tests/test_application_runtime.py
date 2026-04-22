@@ -37,7 +37,10 @@ class IntradayExecutor:
                 statistics={},
                 meta=[],
             )
-        if "high_limited" in sql and "starlight.ad_market_kline_daily" in sql:
+        if "high_limited" in sql and (
+            "starlight.ad_market_kline_daily" in sql
+            or "starlight.stock_daily_real" in sql
+        ):
             return QueryExecutionResult(
                 sql=sql,
                 data=[
@@ -194,6 +197,7 @@ def test_application_runtime_query_minute_window_by_trading_day():
         trading_days=["2024-03-04"],
         start_hhmm="14:30",
         end_hhmm="14:31",
+        hhmm_list=["14:30", "14:31"],
         fields=["open", "is_limit_up"],
         asset_type="stock",
     )
@@ -202,6 +206,7 @@ def test_application_runtime_query_minute_window_by_trading_day():
     assert result["meta"]["freq"] == "1m"
     assert result["df"].shape[0] == 2
     assert result["df"]["is_limit_up"].tolist() == [0, 1]
+    assert result["debug"]["intent"]["hhmm_list"] == ["14:30", "14:31"]
 
 
 def test_application_runtime_query_next_trading_day_intraday_windows():
@@ -218,6 +223,7 @@ def test_application_runtime_query_next_trading_day_intraday_windows():
         ],
         start_hhmm="14:30",
         end_hhmm="14:31",
+        hhmm_list=["14:30", "14:31"],
         fields=["open", "is_limit_up"],
         asset_type="stock",
     )
@@ -225,3 +231,4 @@ def test_application_runtime_query_next_trading_day_intraday_windows():
     assert result["ok"] is True
     assert result["meta"]["anchor_count"] == 1
     assert "execution_date" in result["df"].columns
+    assert result["debug"]["intent"]["hhmm_list"] == ["14:30", "14:31"]
