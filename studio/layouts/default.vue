@@ -9,7 +9,6 @@ const route = useRoute()
 const planningItems = [
   { path: '/database', label: '节点工作台' },
   { path: '/membership', label: '归属管理' },
-  { path: '/graph', label: '图谱关系' },
   { path: '/query', label: '查询测试' },
 ]
 
@@ -18,7 +17,6 @@ const syncItems = [
   { path: '/sync/tasks', label: '同步任务' },
   { path: '/sync/jobs', label: '同步记录' },
   { path: '/sync/configs', label: '配置同步' },
-  { path: '/sync/wide-tables', label: '同步宽表' },
 ]
 
 const otherItems = [
@@ -55,7 +53,7 @@ onMounted(() => {
           duration: 2400,
           grouping: true,
         })
-        if (!['/settings', '/guide', '/membership', '/graph'].includes(route.path) && !route.path.startsWith('/sync')) {
+        if (!['/settings', '/guide', '/membership'].includes(route.path) && !route.path.startsWith('/sync')) {
           navigateTo('/settings')
         }
         return
@@ -70,7 +68,7 @@ onMounted(() => {
         message: error instanceof Error ? error.message : '工作区载入失败',
         duration: 3200,
       })
-      if (!['/settings', '/guide', '/membership', '/graph'].includes(route.path) && !route.path.startsWith('/sync')) {
+      if (!['/settings', '/guide', '/membership'].includes(route.path) && !route.path.startsWith('/sync')) {
         navigateTo('/settings')
       }
     })

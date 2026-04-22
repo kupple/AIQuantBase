@@ -8,10 +8,6 @@
     "preview": "nuxt preview"
   },
   "dependencies": {
-    "@vue-flow/controls": "^1.1.2",
-    "@vue-flow/core": "^1.48.2",
-    "@vue-flow/minimap": "^1.5.3",
-    "@vue-flow/node-toolbar": "^1.1.1",
     "element-plus": "^2.11.4",
     "nuxt": "^3.17.7",
     "vue": "^3.5.13",

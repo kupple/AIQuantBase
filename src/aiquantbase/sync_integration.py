@@ -10,7 +10,7 @@ from typing import Any
 from flask import jsonify, request
 
 from sync_data_system.config_paths import resolve_sync_plan_root, resolve_sync_spec_dir
-from .wide_table import export_wide_table_yaml, list_wide_tables
+from .wide_table import build_wide_table_export_payload, export_wide_table_yaml, list_wide_tables
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -121,6 +121,39 @@ class SyncIntegration:
             "ok": True,
             "exported_path": str(file_path),
             "content": yaml_text,
+        }
+
+    def run_wide_table_inline(
+        self,
+        *,
+        design_id: str,
+        wide_table_path: str | Path | None = None,
+        graph_path: str | Path | None = None,
+        fields_path: str | Path | None = None,
+        state_database: str | None = None,
+    ) -> dict[str, Any]:
+        self._ensure_vendor_path()
+        from sync_data_system.clickhouse_client import ClickHouseConfig
+        from sync_data_system.wide_table_sync import build_wide_table_metadata, run_wide_table_sync_payloads_with_clickhouse
+
+        payload = build_wide_table_export_payload(
+            design_id,
+            path=wide_table_path,
+            graph_path=graph_path,
+            fields_path=fields_path,
+        )
+        spec_name = str(((payload.get("wide_table") or {}).get("name")) or design_id).strip() or design_id
+        spec_path = f"inline://{spec_name}.yaml"
+        metadata = build_wide_table_metadata(payload, spec_path=spec_path)
+        results = run_wide_table_sync_payloads_with_clickhouse(
+            {spec_path: payload},
+            {spec_path: metadata},
+            config=ClickHouseConfig.from_env(),
+            state_database=state_database,
+        )
+        return {
+            "ok": all(item.status == "success" for item in results),
+            "results": [item.__dict__ for item in results],
         }
 
     def read_wide_table_spec_file(self, name: str) -> dict[str, Any]:
@@ -622,6 +655,25 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
             return jsonify(
                 integration.run_wide_tables(
                     wide_table_names=list(payload.get("wide_table_names") or []),
+                    state_database=payload.get("state_database") or None,
+                )
+            )
+        except Exception as exc:
+            return _json_error(exc)
+
+    @app.post("/api/sync/wide-tables/run-inline")
+    def sync_run_wide_table_inline():
+        try:
+            payload = request.get_json(force=True) or {}
+            design_id = str(payload.get("id") or "").strip()
+            if not design_id:
+                raise ValueError("id is required")
+            return jsonify(
+                integration.run_wide_table_inline(
+                    design_id=design_id,
+                    wide_table_path=payload.get("wide_table_path") or None,
+                    graph_path=payload.get("graph_path") or None,
+                    fields_path=payload.get("fields_path") or None,
                     state_database=payload.get("state_database") or None,
                 )
             )

@@ -96,6 +96,21 @@ def export_wide_table_yaml(
     graph_path: str | Path | None = None,
     fields_path: str | Path | None = None,
 ) -> str:
+    payload = build_wide_table_export_payload(
+        design_id,
+        path=path,
+        graph_path=graph_path,
+        fields_path=fields_path,
+    )
+    return dump_yaml(payload)
+
+
+def build_wide_table_export_payload(
+    design_id: str,
+    path: str | Path | None = None,
+    graph_path: str | Path | None = None,
+    fields_path: str | Path | None = None,
+) -> dict[str, Any]:
     workspace = load_wide_table_workspace(path)
     target_id = str(design_id or '').strip()
     design = next((item for item in workspace['wide_tables'] if item['id'] == target_id), None)
@@ -125,7 +140,7 @@ def export_wide_table_yaml(
         edges=edges,
         field_catalog=field_catalog,
     )
-    payload = {
+    return {
         'wide_table': {
             'id': design['id'],
             'name': design['name'],
@@ -157,7 +172,6 @@ def export_wide_table_yaml(
             'format_version': 1,
         },
     }
-    return dump_yaml(payload)
 
 
 def get_wide_table_summary(path: str | Path | None = None) -> dict[str, Any]:

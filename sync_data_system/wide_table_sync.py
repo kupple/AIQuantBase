@@ -370,6 +370,10 @@ def parse_wide_table_metadata(path: Path, payload: dict[str, Any]) -> WideTableM
     )
 
 
+def build_wide_table_metadata(payload: dict[str, Any], *, spec_path: str = "inline://wide_table.yaml") -> WideTableMetadata:
+    return parse_wide_table_metadata(Path(spec_path), payload)
+
+
 def validate_wide_table_payload(metadata: WideTableMetadata, payload: dict[str, Any]) -> WideTableValidation:
     messages: list[str] = []
     if not metadata.wide_table_id:
@@ -588,11 +592,11 @@ def load_and_plan_specs_with_clickhouse(
         connection.close()
 
 
-def run_wide_table_sync_with_clickhouse(
-    project_root: Path,
+def run_wide_table_sync_payloads_with_clickhouse(
+    payload_map: dict[str, dict[str, Any]],
+    metadata_map: dict[str, WideTableMetadata],
     *,
     config: ClickHouseConfig,
-    wide_table_names: Optional[Sequence[str]] = None,
     state_database: Optional[str] = None,
 ) -> list[WideTableRunResult]:
     connection = create_clickhouse_client(config)
@@ -602,7 +606,6 @@ def run_wide_table_sync_with_clickhouse(
     )
     try:
         repository.ensure_table()
-        payload_map, metadata_map = load_specs_payloads_and_metadata(project_root, wide_table_names=wide_table_names)
         targets = [(meta.target.database, meta.target.table) for meta in metadata_map.values()]
         target_exists_lookup = repository.load_target_exists_lookup(targets)
         previous_signature_lookup = repository.load_previous_signature_lookup(targets)
@@ -656,6 +659,22 @@ def run_wide_table_sync_with_clickhouse(
         return results
     finally:
         connection.close()
+
+
+def run_wide_table_sync_with_clickhouse(
+    project_root: Path,
+    *,
+    config: ClickHouseConfig,
+    wide_table_names: Optional[Sequence[str]] = None,
+    state_database: Optional[str] = None,
+) -> list[WideTableRunResult]:
+    payload_map, metadata_map = load_specs_payloads_and_metadata(project_root, wide_table_names=wide_table_names)
+    return run_wide_table_sync_payloads_with_clickhouse(
+        payload_map,
+        metadata_map,
+        config=config,
+        state_database=state_database,
+    )
 
 
 def _execute_wide_table_plan(
@@ -994,6 +1013,7 @@ __all__ = [
     "parse_wide_table_metadata",
     "plan_wide_table_sync",
     "run_wide_table_sync_with_clickhouse",
+    "run_wide_table_sync_payloads_with_clickhouse",
     "validate_wide_table_payload",
     "WideTableSyncStateRepository",
     "WideTableSyncStateRow",
@@ -1002,4 +1022,5 @@ __all__ = [
     "wide_table_plan_to_dict",
     "wide_table_state_to_dict",
     "wide_table_validation_to_dict",
+    "build_wide_table_metadata",
 ]

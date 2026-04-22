@@ -20,10 +20,8 @@ const aiNotesLoading = ref(false)
 const wideTableFieldSearch = ref('')
 const selectedWorkbenchType = ref('node')
 const wideTableDialogVisible = ref(false)
-const wideTableExportDialogVisible = ref(false)
 const wideTableDesigns = ref([])
 const wideTableSyncStates = ref([])
-const wideTableExportYaml = ref('')
 const wideTableForm = ref(blankWideTable())
 const wideTableTargetTables = ref([])
 const selectedWideTableId = ref('')
@@ -765,32 +763,20 @@ async function handleDeleteWideTable(row) {
   })
 }
 
-async function handleExportWideTable(row) {
-  const payload = await callJson(`/api/wide-tables/export?id=${encodeURIComponent(row.id)}`)
-  wideTableExportYaml.value = String(payload.yaml || '')
-  wideTableExportDialogVisible.value = true
-}
-
-async function exportWideTableSyncSpec(row) {
-  return callJson('/api/sync-wide-tables', {
-    method: 'POST',
-    body: JSON.stringify({
-      id: row.id,
-      name: row.name,
-    }),
-  })
-}
-
 async function handleRunWideTableSync(row) {
   wideTableSyncLoading.value = true
   try {
-    await exportWideTableSyncSpec(row)
-    const payload = await callJson(
-      `/api/sync/wide-tables/run/${encodeURIComponent(row.name)}?state_database=${encodeURIComponent(wideTableSyncStateDatabase.value || 'default')}`,
-      { method: 'POST' }
-    )
+    const payload = await callJson('/api/sync/wide-tables/run-inline', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: row.id,
+        state_database: wideTableSyncStateDatabase.value || 'default',
+      }),
+    })
     await loadWideTableSyncStates()
-    await notifyAction(`宽表同步作业已启动：${payload.job_id}`, async () => {})
+    const firstResult = Array.isArray(payload.results) ? payload.results[0] : null
+    const actionMessage = firstResult?.message || (payload.ok ? '宽表同步完成' : '宽表同步失败')
+    await notifyAction(actionMessage, async () => {})
   } finally {
     wideTableSyncLoading.value = false
   }
@@ -1434,7 +1420,6 @@ function normalizeRouteQueryValue(value) {
                   <el-button :loading="wideTableStateLoading" :disabled="!selectedWideTable" @click="loadWideTableSyncStates">刷新同步状态</el-button>
                   <el-button type="success" :loading="wideTableSyncLoading" :disabled="!selectedWideTable" @click="selectedWideTable && handleRunWideTableSync(selectedWideTable)">同步宽表</el-button>
                   <el-button :disabled="!selectedWideTable" @click="selectedWideTable && openWideTableEditDialog(selectedWideTable)">编辑宽表节点</el-button>
-                  <el-button :disabled="!selectedWideTable" @click="selectedWideTable && handleExportWideTable(selectedWideTable)">导出配置</el-button>
                   <el-button type="danger" plain :disabled="!selectedWideTable" @click="selectedWideTable && handleDeleteWideTable(selectedWideTable)">删除宽表节点</el-button>
                 </div>
               </div>
@@ -1459,10 +1444,6 @@ function normalizeRouteQueryValue(value) {
                   {{ item.value }}
                 </el-descriptions-item>
               </el-descriptions>
-
-              <div class="mini-description">
-                上一次同步时间：{{ formatDateTime(selectedWideTableSyncState?.last_finished_at || selectedWideTableSyncState?.updated_at) }}
-              </div>
             </div>
             <el-empty v-else description="请先从左侧选择一个宽表节点" :image-size="84" />
           </el-card>
@@ -2030,14 +2011,5 @@ function normalizeRouteQueryValue(value) {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="wideTableExportDialogVisible" title="导出宽表节点同步配置" width="920px" destroy-on-close>
-      <div class="form-stack">
-        <div class="mini-description">下面这份 YAML 可以直接交给你的同步程序加载。</div>
-        <el-input :model-value="wideTableExportYaml" type="textarea" :rows="20" readonly />
-      </div>
-      <template #footer>
-        <el-button @click="wideTableExportDialogVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>

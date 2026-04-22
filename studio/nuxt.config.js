@@ -18,10 +18,6 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   css: [
     'element-plus/dist/index.css',
-    '@vue-flow/core/dist/style.css',
-    '@vue-flow/core/dist/theme-default.css',
-    '@vue-flow/controls/dist/style.css',
-    '@vue-flow/minimap/dist/style.css',
     '~/assets/main.css',
   ],
   app: {
