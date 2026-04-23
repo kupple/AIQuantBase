@@ -981,7 +981,7 @@ class GraphRuntime:
         fields: list[str],
     ) -> str:
         node = self.registry.nodes.get(node_name)
-        table_name = node.table if node is not None else (self._physical_node_for(node_name) or node_name)
+        table_name = node.table if node is not None else node_name
         identity_fields = self._identity_fields_for_node(node_name)
         symbol_field = identity_fields[0] if identity_fields else 'code'
         time_field = identity_fields[1] if len(identity_fields) > 1 else 'trade_time'
@@ -2367,7 +2367,6 @@ class GraphRuntime:
             description_zh=str(spec.get('description_zh') or node.description_zh or node.description or '').strip() or node.description_zh,
             node_role=node.node_role,
             status=node.status,
-            physical_node=None,
             asset_type=node.asset_type,
             query_freq=node.query_freq,
             # Wide table target already materializes the asset-specific base universe.
@@ -2443,9 +2442,6 @@ class GraphRuntime:
             'freq': freq,
             'base_filters': base_filters,
         }
-
-    def _physical_node_for(self, node_name: str | None) -> str | None:
-        return node_name
 
     def _asset_freq_for_node(self, node_name: str | None) -> tuple[str | None, str | None]:
         spec = self._logical_node_spec(node_name)

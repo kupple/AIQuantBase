@@ -27,7 +27,6 @@ nodes:
   grain: daily
   name: stock_daily_real
   node_role: query_entry
-  physical_node: null
   query_freq: 1d
   status: enabled
   table: starlight.ad_market_kline_daily
@@ -50,7 +49,6 @@ nodes:
   grain: minute
   name: stock_minute_real
   node_role: query_entry
-  physical_node: null
   query_freq: 1m
   status: enabled
   table: starlight.ad_market_kline_minute
@@ -78,7 +76,6 @@ nodes:
   grain: daily
   name: industry_daily_real
   node_role: query_entry
-  physical_node: null
   query_freq: null
   status: enabled
   table: starlight.ad_industry_daily
@@ -96,7 +93,6 @@ nodes:
   grain: daily
   name: treasury_yield_real
   node_role: query_entry
-  physical_node: null
   query_freq: null
   status: enabled
   table: starlight.ad_treasury_yield
@@ -114,7 +110,6 @@ nodes:
   grain: daily
   name: fund_iopv_real
   node_role: query_entry
-  physical_node: null
   query_freq: null
   status: enabled
   table: starlight.ad_fund_iopv
@@ -137,7 +132,6 @@ nodes:
   grain: daily
   name: fund_share_real
   node_role: query_entry
-  physical_node: null
   query_freq: null
   status: enabled
   table: starlight.ad_fund_share
@@ -180,7 +174,6 @@ nodes:
   grain: daily
   name: etf_pcf_real
   node_role: query_entry
-  physical_node: null
   query_freq: null
   status: enabled
   table: starlight.ad_etf_pcf
@@ -268,7 +261,6 @@ nodes:
   grain: daily
   name: kzz_issuance_real
   node_role: query_entry
-  physical_node: null
   query_freq: null
   status: enabled
   table: starlight.ad_kzz_issuance
@@ -297,7 +289,6 @@ nodes:
   grain: daily
   name: kzz_conv_real
   node_role: query_entry
-  physical_node: null
   query_freq: null
   status: enabled
   table: starlight.ad_kzz_conv
@@ -318,7 +309,6 @@ nodes:
   grain: daily
   name: margin_summary_real
   node_role: query_entry
-  physical_node: null
   query_freq: null
   status: enabled
   table: starlight.ad_margin_summary
@@ -344,7 +334,6 @@ nodes:
   grain: daily
   name: etf_daily_real
   node_role: query_entry
-  physical_node: stock_daily_real
   query_freq: 1d
   status: enabled
   table: starlight.ad_market_kline_daily
@@ -370,7 +359,6 @@ nodes:
   grain: daily
   name: index_daily_real
   node_role: query_entry
-  physical_node: stock_daily_real
   query_freq: 1d
   status: enabled
   table: starlight.ad_market_kline_daily
@@ -393,7 +381,6 @@ nodes:
   grain: minute
   name: etf_minute_real
   node_role: query_entry
-  physical_node: stock_minute_real
   query_freq: 1m
   status: enabled
   table: starlight.ad_market_kline_minute
@@ -416,7 +403,6 @@ nodes:
   grain: minute
   name: index_minute_real
   node_role: query_entry
-  physical_node: stock_minute_real
   query_freq: 1m
   status: enabled
   table: starlight.ad_market_kline_minute

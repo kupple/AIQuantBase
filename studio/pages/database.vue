@@ -93,7 +93,7 @@ const currentNodeSummary = computed(() => [
 
 const currentNodeBindingHint = computed(() => {
   if (!nodeForm.value.name) return ''
-  return '当前节点直接展示自身主表字段与字段绑定，不支持 physical_node 继承。'
+  return '当前节点直接展示自身主表字段与字段绑定。'
 })
 
 const canSaveNode = computed(() => Boolean(nodeForm.value.name && nodeForm.value.database && nodeForm.value.tableName))

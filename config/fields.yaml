@@ -144,16 +144,16 @@ fields:
 - applies_to_grain: daily
   base_node: stock_daily_real
   binding_mode: derived
-  bridge_steps: []
-  depends_on:
+  bridge_steps: &id001 []
+  depends_on: &id002
   - close
   - backward_adj_factor
   description_zh: 基于原始收盘价与后复权因子计算的复权收盘价
   field_role: derived_field
   formula: '{close} * {backward_adj_factor}'
-  join_keys: []
+  join_keys: &id003 []
   lookahead_category: none
-  notes:
+  notes: &id004
   - Derived adjusted close based on raw close and backward adjustment factor
   path_domain: null
   path_group: null
@@ -169,16 +169,16 @@ fields:
 - applies_to_grain: daily
   base_node: stock_daily_real
   binding_mode: derived
-  bridge_steps: []
-  depends_on:
+  bridge_steps: &id005 []
+  depends_on: &id006
   - open
   - backward_adj_factor
   description_zh: 基于原始开盘价与后复权因子计算的复权开盘价
   field_role: derived_field
   formula: '{open} * {backward_adj_factor}'
-  join_keys: []
+  join_keys: &id007 []
   lookahead_category: none
-  notes:
+  notes: &id008
   - Derived adjusted open based on raw open and backward adjustment factor
   path_domain: null
   path_group: null
@@ -194,16 +194,16 @@ fields:
 - applies_to_grain: daily
   base_node: stock_daily_real
   binding_mode: derived
-  bridge_steps: []
-  depends_on:
+  bridge_steps: &id009 []
+  depends_on: &id010
   - high
   - backward_adj_factor
   description_zh: 基于原始最高价与后复权因子计算的复权最高价
   field_role: derived_field
   formula: '{high} * {backward_adj_factor}'
-  join_keys: []
+  join_keys: &id011 []
   lookahead_category: none
-  notes:
+  notes: &id012
   - Derived adjusted high based on raw high and backward adjustment factor
   path_domain: null
   path_group: null
@@ -219,16 +219,16 @@ fields:
 - applies_to_grain: daily
   base_node: stock_daily_real
   binding_mode: derived
-  bridge_steps: []
-  depends_on:
+  bridge_steps: &id013 []
+  depends_on: &id014
   - low
   - backward_adj_factor
   description_zh: 基于原始最低价与后复权因子计算的复权最低价
   field_role: derived_field
   formula: '{low} * {backward_adj_factor}'
-  join_keys: []
+  join_keys: &id015 []
   lookahead_category: none
-  notes:
+  notes: &id016
   - Derived adjusted low based on raw low and backward adjustment factor
   path_domain: null
   path_group: null
@@ -2289,16 +2289,16 @@ fields:
 - applies_to_grain: daily
   base_node: stock_daily_real
   binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
+  bridge_steps: &id017 []
+  depends_on: &id018 []
   description_zh: 证券名称
   field_role: basic_info_field
   formula: null
-  join_keys:
+  join_keys: &id019
   - base: code
     source: market_code
   lookahead_category: none
-  notes:
+  notes: &id020
   - Security short name
   path_domain: null
   path_group: null
@@ -2308,7 +2308,7 @@ fields:
   source_node: null
   source_table: starlight.ad_stock_basic
   standard_field: security_name
-  time_binding:
+  time_binding: &id021
     allow_equal: true
     available_time_field: null
     base_time_cast: date
@@ -2429,16 +2429,16 @@ fields:
 - applies_to_grain: daily
   base_node: stock_daily_real
   binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
+  bridge_steps: &id022 []
+  depends_on: &id023 []
   description_zh: 上市日期
   field_role: basic_info_field
   formula: null
-  join_keys:
+  join_keys: &id024
   - base: code
     source: market_code
   lookahead_category: none
-  notes:
+  notes: &id025
   - Listing date
   path_domain: null
   path_group: null
@@ -2481,16 +2481,16 @@ fields:
 - applies_to_grain: daily
   base_node: stock_daily_real
   binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
+  bridge_steps: &id026 []
+  depends_on: &id027 []
   description_zh: delist日期
   field_role: basic_info_field
   formula: null
-  join_keys:
+  join_keys: &id028
   - base: code
     source: market_code
   lookahead_category: none
-  notes:
+  notes: &id029
   - Delisting date
   path_domain: null
   path_group: null
@@ -2578,16 +2578,16 @@ fields:
 - applies_to_grain: daily
   base_node: stock_daily_real
   binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
+  bridge_steps: &id030 []
+  depends_on: &id031 []
   description_zh: 证券type
   field_role: code_info_field
   formula: null
-  join_keys:
+  join_keys: &id032
   - base: code
     source: code
   lookahead_category: none
-  notes:
+  notes: &id033
   - Security type
   path_domain: null
   path_group: null
@@ -8878,6 +8878,186 @@ fields:
   lookahead_category: none
   notes:
   - Security type
+  path_domain: null
+  path_group: null
+  relation_type: direct
+  resolver_type: direct
+  source_field: security_type
+  source_node: null
+  source_table: starlight.ad_code_info
+  standard_field: security_type
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: etf_daily_real
+  binding_mode: derived
+  bridge_steps: *id001
+  depends_on: *id002
+  description_zh: 基于原始收盘价与后复权因子计算的复权收盘价
+  field_role: derived_field
+  formula: '{close} * {backward_adj_factor}'
+  join_keys: *id003
+  lookahead_category: none
+  notes: *id004
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: close_adj
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: etf_daily_real
+  binding_mode: derived
+  bridge_steps: *id005
+  depends_on: *id006
+  description_zh: 基于原始开盘价与后复权因子计算的复权开盘价
+  field_role: derived_field
+  formula: '{open} * {backward_adj_factor}'
+  join_keys: *id007
+  lookahead_category: none
+  notes: *id008
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: open_adj
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: etf_daily_real
+  binding_mode: derived
+  bridge_steps: *id009
+  depends_on: *id010
+  description_zh: 基于原始最高价与后复权因子计算的复权最高价
+  field_role: derived_field
+  formula: '{high} * {backward_adj_factor}'
+  join_keys: *id011
+  lookahead_category: none
+  notes: *id012
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: high_adj
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: etf_daily_real
+  binding_mode: derived
+  bridge_steps: *id013
+  depends_on: *id014
+  description_zh: 基于原始最低价与后复权因子计算的复权最低价
+  field_role: derived_field
+  formula: '{low} * {backward_adj_factor}'
+  join_keys: *id015
+  lookahead_category: none
+  notes: *id016
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: low_adj
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: etf_daily_real
+  binding_mode: source_table
+  bridge_steps: *id017
+  depends_on: *id018
+  description_zh: 证券名称
+  field_role: basic_info_field
+  formula: null
+  join_keys: *id019
+  lookahead_category: none
+  notes: *id020
+  path_domain: null
+  path_group: null
+  relation_type: direct
+  resolver_type: direct
+  source_field: security_name
+  source_node: null
+  source_table: starlight.ad_stock_basic
+  standard_field: security_name
+  time_binding: *id021
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: etf_daily_real
+  binding_mode: source_table
+  bridge_steps: *id022
+  depends_on: *id023
+  description_zh: 上市日期
+  field_role: basic_info_field
+  formula: null
+  join_keys: *id024
+  lookahead_category: none
+  notes: *id025
+  path_domain: null
+  path_group: null
+  relation_type: direct
+  resolver_type: direct
+  source_field: list_date
+  source_node: null
+  source_table: "(SELECT market_code, argMax(list_date, snapshot_date) AS list_date,\n\
+    \ argMax(delist_date, snapshot_date) AS delist_date FROM starlight.ad_stock_basic\
+    \ GROUP BY market_code)"
+  standard_field: list_date
+  time_binding: null
+  time_semantics: listing_start_date
+  via_node: null
+- applies_to_grain: daily
+  base_node: etf_daily_real
+  binding_mode: source_table
+  bridge_steps: *id026
+  depends_on: *id027
+  description_zh: delist日期
+  field_role: basic_info_field
+  formula: null
+  join_keys: *id028
+  lookahead_category: none
+  notes: *id029
+  path_domain: null
+  path_group: null
+  relation_type: direct
+  resolver_type: direct
+  source_field: delist_date
+  source_node: null
+  source_table: "(SELECT market_code, argMax(list_date, snapshot_date) AS list_date,\n\
+    \ argMax(delist_date, snapshot_date) AS delist_date FROM starlight.ad_stock_basic\
+    \ GROUP BY market_code)"
+  standard_field: delist_date
+  time_binding: null
+  time_semantics: listing_end_date
+  via_node: null
+- applies_to_grain: daily
+  base_node: etf_daily_real
+  binding_mode: source_table
+  bridge_steps: *id030
+  depends_on: *id031
+  description_zh: 证券type
+  field_role: code_info_field
+  formula: null
+  join_keys: *id032
+  lookahead_category: none
+  notes: *id033
   path_domain: null
   path_group: null
   relation_type: direct

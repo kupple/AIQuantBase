@@ -30,7 +30,6 @@ class Node:
     description_zh: str | None = None
     node_role: str | None = None
     status: str = "enabled"
-    physical_node: str | None = None
     asset_type: str | None = None
     query_freq: str | None = None
     base_filters: list[dict[str, Any]] = field(default_factory=list)

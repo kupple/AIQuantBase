@@ -107,7 +107,6 @@ graph_bundle:
       description_zh: null
       node_role: query_entry
       status: enabled
-      physical_node: null
       asset_type: stock
       query_freq: 1d
       base_filters:
