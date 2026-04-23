@@ -18,14 +18,11 @@ module.exports = {
     {
       name: 'aiquantbase-studio',
       cwd: studioRoot,
-      script: 'npm',
-      args: 'run preview',
+      script: path.join(studioRoot, '.output/server/index.mjs'),
       env: {
         NUXT_BACKEND_BASE: 'http://127.0.0.1:8000',
         NITRO_HOST: '0.0.0.0',
         NITRO_PORT: '3000',
-        HOST: '0.0.0.0',
-        PORT: '3000',
         NODE_ENV: 'production',
       },
     },
