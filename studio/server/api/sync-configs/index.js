@@ -10,12 +10,7 @@ import {
 
 function buildCandidateBases(config) {
   const backendBase = String(config.backendBase || '').trim()
-  const defaults = [
-    backendBase,
-    'http://127.0.0.1:8011',
-    'http://127.0.0.1:8000',
-  ]
-  return [...new Set(defaults.filter(Boolean).map((item) => item.replace(/\/$/, '')))]
+  return backendBase ? [backendBase.replace(/\/$/, '')] : []
 }
 
 export default defineEventHandler(async (event) => {
