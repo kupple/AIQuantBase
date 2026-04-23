@@ -1,36 +1,15 @@
-import { createError, defineEventHandler } from 'h3'
-
-function buildCandidateBases(config) {
-  const backendBase = String(config.backendBase || '').trim()
-  return backendBase ? [backendBase.replace(/\/$/, '')] : []
-}
+import { defineEventHandler } from 'h3'
+import { proxyToBackend, resolveBackendBase } from '../../utils/backendProxy.js'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
+  const backendBase = resolveBackendBase(config)
   const name = Array.isArray(event.context.params?.name)
     ? event.context.params.name.join('/')
     : String(event.context.params?.name || '')
-
-  const errors = []
-  for (const base of buildCandidateBases(config)) {
-    const target = `${base}/api/sync-configs/${encodeURIComponent(name)}`
-    try {
-      const response = await fetch(target)
-      const contentType = response.headers.get('content-type') || ''
-      const text = await response.text()
-      if (!response.ok) {
-        errors.push(`${base}: ${response.status} ${response.statusText} ${text}`.trim())
-        continue
-      }
-      return contentType.includes('application/json') ? JSON.parse(text) : text
-    } catch (error) {
-      errors.push(`${base}: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  throw createError({
-    statusCode: 502,
-    statusMessage: 'Bad Gateway',
-    message: `Sync config proxy failed. Tried: ${errors.join(' | ')}`,
-  })
+  return proxyToBackend(
+    event,
+    `${backendBase}/api/sync-configs/${encodeURIComponent(name)}`,
+    'Sync config proxy failed',
+  )
 })
