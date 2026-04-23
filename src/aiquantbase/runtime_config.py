@@ -84,9 +84,14 @@ def load_runtime_config(path: str | Path = DEFAULT_RUNTIME_CONFIG_PATH) -> Runti
     data = load_yaml(resolved_path)
     if "llm" not in data or "datasource" not in data:
         raise ValueError("Runtime config must contain 'llm' and 'datasource'")
+    datasource_payload = {
+        "id": "primary",
+        "name": "Primary Data Source",
+        **(data.get("datasource", {}) or {}),
+    }
     return RuntimeConfig(
         llm=LlmConfig(**data["llm"]),
-        datasource=DatasourceConfig(**data["datasource"]),
+        datasource=DatasourceConfig(**datasource_payload),
         discovery=DiscoveryConfig(**data.get("discovery", {})),
         sync=SyncConfig(
             amazingdata=SyncAmazingDataConfig(**(data.get("sync", {}).get("amazingdata", {}) or {})),
