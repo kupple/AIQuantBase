@@ -1,3 +1,10 @@
+# AlphaBlocks 内置 AIQuantBase 图谱副本
+# 说明：
+# 1. 这是从 AIQuantBase 的 config/graph.yaml 同步过来的本地副本
+# 2. AlphaBlocks 默认优先读取这里，而不是直接读 AIQuantBase 仓库里的图谱
+# 3. 这样主项目可以稳定控制 query node / graph 语义
+# 4. 如果后面需要和 AIQuantBase 上游同步，建议只做最小差异修改
+
 nodes:
 - asset_type: stock
   base_filters:
@@ -316,6 +323,32 @@ nodes:
   status: enabled
   table: starlight.ad_margin_summary
   time_key: trade_date
+- asset_type: etf
+  base_filters:
+  - field: security_type
+    op: '='
+    value: EXTRA_ETF
+  description: null
+  description_zh: ETF日线逻辑入口
+  entity_keys:
+  - code
+  fields:
+  - code
+  - trade_time
+  - open
+  - high
+  - low
+  - close
+  - volume
+  - amount
+  grain: daily
+  name: etf_daily_real
+  node_role: query_entry
+  physical_node: stock_daily_real
+  query_freq: 1d
+  status: enabled
+  table: starlight.ad_market_kline_daily
+  time_key: trade_time
 - asset_type: index
   base_filters:
   - field: security_type
@@ -337,7 +370,7 @@ nodes:
   grain: daily
   name: index_daily_real
   node_role: query_entry
-  physical_node: null
+  physical_node: stock_daily_real
   query_freq: 1d
   status: enabled
   table: starlight.ad_market_kline_daily
@@ -360,7 +393,7 @@ nodes:
   grain: minute
   name: etf_minute_real
   node_role: query_entry
-  physical_node: null
+  physical_node: stock_minute_real
   query_freq: 1m
   status: enabled
   table: starlight.ad_market_kline_minute
@@ -383,7 +416,7 @@ nodes:
   grain: minute
   name: index_minute_real
   node_role: query_entry
-  physical_node: null
+  physical_node: stock_minute_real
   query_freq: 1m
   status: enabled
   table: starlight.ad_market_kline_minute
