@@ -1,10 +1,3 @@
-# AlphaBlocks 内置 AIQuantBase 图谱副本
-# 说明：
-# 1. 这是从 AIQuantBase 的 config/graph.yaml 同步过来的本地副本
-# 2. AlphaBlocks 默认优先读取这里，而不是直接读 AIQuantBase 仓库里的图谱
-# 3. 这样主项目可以稳定控制 query node / graph 语义
-# 4. 如果后面需要和 AIQuantBase 上游同步，建议只做最小差异修改
-
 nodes:
 - asset_type: stock
   base_filters:
