@@ -171,19 +171,38 @@ class SyncIntegration:
 
         job_manager = self._job_manager_instance()
         task_items = job_manager.list_registered_tasks()
-        targets = sorted(
-            {
-                str(item.get("target") or "").strip()
-                for item in task_items
-                if str(item.get("target") or "").strip()
-            }
-        )
+        tasks_by_target: dict[str, list[str]] = {}
+        for item in task_items:
+            target = str(item.get("target") or "").strip()
+            if not target:
+                continue
+            tasks_by_target.setdefault(target, []).append(str(item.get("name") or ""))
+        targets = sorted(tasks_by_target)
         if not targets:
             return {"items": []}
 
-        config = ClickHouseConfig.from_env()
-        connection = create_clickhouse_client(config)
+        def build_connection_error(detail: str) -> dict[str, Any]:
+            return {
+                "detail": detail,
+                "items": [
+                    {
+                        "target": target,
+                        "database": "",
+                        "latest_date": "",
+                        "row_count": 0,
+                        "last_update_time": "",
+                        "status": "connection_error",
+                        "tasks": tasks_by_target.get(target, []),
+                        "error": detail,
+                    }
+                    for target in targets
+                ],
+            }
+
+        connection = None
         try:
+            config = ClickHouseConfig.from_env()
+            connection = create_clickhouse_client(config)
             table_rows = connection.query_rows(
                 """
                 SELECT database, name
@@ -246,7 +265,7 @@ class SyncIntegration:
                 }
 
             for target in targets:
-                task_names = [str(item.get("name") or "") for item in task_items if str(item.get("target") or "").strip() == target]
+                task_names = tasks_by_target.get(target, [])
                 if target not in target_lookup:
                     items.append(
                         {
@@ -281,11 +300,15 @@ class SyncIntegration:
                         "last_update_time": last_update_time,
                         "status": "ready" if latest_date else "warning",
                         "tasks": task_names,
-                    }
-                )
+                        }
+                    )
             return {"items": items}
+        except Exception as exc:
+            detail = str(exc).strip() or exc.__class__.__name__
+            return build_connection_error(detail)
         finally:
-            connection.close()
+            if connection is not None:
+                connection.close()
 
     def list_tasks(self) -> dict[str, Any]:
         job_manager = self._job_manager_instance()

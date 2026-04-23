@@ -110,10 +110,14 @@ def create_clickhouse_client(config: ClickHouseConfig) -> ClickHouseConnection:
             "未安装 clickhouse-connect，请先在环境中安装该依赖。"
         ) from exc
 
+    host = str(config.host or "").strip()
+    if not host:
+        raise RuntimeError("ClickHouse datasource.host is empty in runtime config")
+
     settings: MutableMapping[str, Any] = dict(config.settings)
 
     client = clickhouse_connect.get_client(
-        host=config.host,
+        host=host,
         port=config.port,
         username=config.username,
         password=config.password,

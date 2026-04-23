@@ -1,2 +1,2481 @@
-nodes: []
-edges: []
+nodes:
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 股票日线行情主表
+  entity_keys:
+  - code
+  fields:
+  - code
+  - trade_time
+  - open
+  - high
+  - low
+  - close
+  - volume
+  - amount
+  grain: daily
+  name: stock_daily_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_market_kline_daily
+  time_key: trade_time
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 股票分钟行情主表
+  entity_keys:
+  - code
+  fields:
+  - code
+  - trade_time
+  - open
+  - high
+  - low
+  - close
+  - volume
+  - amount
+  grain: minute
+  name: stock_minute_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_market_kline_minute
+  time_key: trade_time
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 前复权因子表
+  entity_keys:
+  - code
+  fields:
+  - factor_value
+  grain: daily
+  name: adj_factor_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_adj_factor
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 后复权因子表
+  entity_keys:
+  - code
+  fields:
+  - factor_value
+  grain: daily
+  name: backward_factor_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_backward_factor
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 股票历史状态表
+  entity_keys:
+  - market_code
+  fields:
+  - preclose
+  - high_limited
+  - low_limited
+  - is_st_sec
+  - is_susp_sec
+  - is_wd_sec
+  - is_xr_sec
+  grain: daily
+  name: history_stock_status_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_history_stock_status
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 股本结构表
+  entity_keys:
+  - market_code
+  fields:
+  - tot_share
+  - float_share
+  - float_a_share
+  grain: daily
+  name: equity_structure_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_equity_structure
+  time_key: change_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 行业权重映射表
+  entity_keys:
+  - con_code
+  fields:
+  - index_code
+  - weight
+  grain: daily
+  name: industry_weight_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_industry_weight
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 行业基础信息表
+  entity_keys:
+  - index_code
+  fields:
+  - index_code
+  - industry_code
+  - level1_name
+  - level2_name
+  - level3_name
+  grain: daily
+  name: industry_base_info_real
+  node_role: reference
+  query_freq: null
+  status: enabled
+  table: starlight.ad_industry_base_info
+  time_key: null
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 行业日线行情表
+  entity_keys:
+  - index_code
+  fields:
+  - index_code
+  - trade_date
+  - open
+  - high
+  - close
+  - low
+  - amount
+  - volume
+  - pb
+  - pe
+  - total_cap
+  - a_float_cap
+  - pre_close
+  grain: daily
+  name: industry_daily_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_industry_daily
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 指数成分权重表
+  entity_keys:
+  - con_code
+  fields:
+  - index_code
+  - weight
+  - close
+  grain: daily
+  name: index_weight_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_index_weight
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 指数成分关系表
+  entity_keys:
+  - con_code
+  fields:
+  - index_code
+  - index_name
+  - in_date
+  - out_date
+  grain: daily
+  name: index_constituent_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_index_constituent
+  time_key: in_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 利润表
+  entity_keys:
+  - market_code
+  fields:
+  - reporting_period
+  - ann_date
+  - opera_rev
+  - basic_eps
+  grain: daily
+  name: income_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_income
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 资产负债表
+  entity_keys:
+  - market_code
+  fields:
+  - reporting_period
+  - ann_date
+  - total_assets
+  - total_liab
+  - tot_share_equity_excl_min_int
+  grain: daily
+  name: balance_sheet_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_balance_sheet
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 现金流量表
+  entity_keys:
+  - market_code
+  fields:
+  - reporting_period
+  - ann_date
+  - net_cash_flows_opera_act
+  - net_cash_flows_inv_act
+  - net_cash_flows_fin_act
+  - net_incr_cash_and_cash_equ
+  - free_cash_flow
+  - cash_end_bal
+  grain: daily
+  name: cash_flow_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_cash_flow
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 业绩预告表
+  entity_keys:
+  - market_code
+  fields:
+  - reporting_period
+  - ann_date
+  - p_change_max
+  - p_change_min
+  - net_profit_max
+  - net_profit_min
+  - first_ann_date
+  - p_reason
+  - p_summary
+  - p_net_parent_firm
+  - report_type
+  grain: daily
+  name: profit_notice_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_profit_notice
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 业绩快报表
+  entity_keys:
+  - market_code
+  fields:
+  - reporting_period
+  - ann_date
+  - total_assets
+  - net_pro_excl_min_int_inc
+  - tot_opera_rev
+  - total_profit
+  - opera_profit
+  - eps_basic
+  - roe_weighted
+  - performance_summary
+  - yoy_gr_gross_rev
+  - yoy_gr_net_profit_parent
+  grain: daily
+  name: profit_express_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_profit_express
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 股票基础信息快照表
+  entity_keys:
+  - market_code
+  fields:
+  - snapshot_date
+  - security_name
+  - comp_name
+  - pinyin
+  - comp_name_eng
+  - list_date
+  - delist_date
+  - listplate_name
+  - is_listed
+  grain: daily
+  name: stock_basic_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_stock_basic
+  time_key: snapshot_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 股票盘口快照表
+  entity_keys:
+  - code
+  fields:
+  - trade_time
+  - code
+  - pre_close
+  - last
+  - open
+  - high
+  - low
+  - close
+  - volume
+  - amount
+  - num_trades
+  - high_limited
+  - low_limited
+  - ask_price1
+  - ask_price2
+  - ask_price3
+  - ask_price4
+  - ask_price5
+  - ask_volume1
+  - ask_volume2
+  - ask_volume3
+  - ask_volume4
+  - ask_volume5
+  - bid_price1
+  - bid_price2
+  - bid_price3
+  - bid_price4
+  - bid_price5
+  - bid_volume1
+  - bid_volume2
+  - bid_volume3
+  - bid_volume4
+  - bid_volume5
+  - iopv
+  - trading_phase_code
+  - total_long_position
+  - pre_settle
+  - auction_price
+  - auction_volume
+  - settle
+  - contract_type
+  - expire_date
+  - underlying_security_code
+  - exercise_price
+  - action_day
+  - trading_day
+  - pre_open_interest
+  - open_interest
+  - average_price
+  - nominal_price
+  grain: minute
+  name: stock_snapshot_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_market_snapshot
+  time_key: trade_time
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 历史证券代码日表
+  entity_keys:
+  - code
+  fields:
+  - trade_date
+  - security_type
+  - code
+  grain: daily
+  name: hist_code_daily_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_hist_code_daily
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 国债收益率表
+  entity_keys:
+  - term
+  fields:
+  - term
+  - trade_date
+  - yield_value
+  grain: daily
+  name: treasury_yield_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_treasury_yield
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 基金 IOPV 表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - price_date
+  - iopv_nav
+  grain: daily
+  name: fund_iopv_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_fund_iopv
+  time_key: price_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 基金份额表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - fund_share
+  - change_reason
+  - is_consolidated_data
+  - ann_date
+  - total_share
+  - change_date
+  - float_share
+  grain: daily
+  name: fund_share_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_fund_share
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 证券代码信息表
+  entity_keys:
+  - code
+  fields:
+  - security_type
+  - symbol
+  - security_status_raw
+  - pre_close
+  - high_limited
+  - low_limited
+  - price_tick
+  grain: daily
+  name: code_info_real
+  node_role: reference
+  query_freq: null
+  status: enabled
+  table: starlight.ad_code_info
+  time_key: null
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 分红送配表
+  entity_keys:
+  - market_code
+  fields:
+  - ann_date
+  - report_period
+  - div_progress
+  - dvd_per_share_stk
+  - dvd_per_share_pre_tax_cash
+  - dvd_per_share_after_tax_cash
+  - date_eqy_record
+  - date_ex
+  - date_dvd_payout
+  - div_bonusrate
+  - div_conversedrate
+  - remark
+  - div_target
+  grain: daily
+  name: dividend_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_dividend
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 股东户数表
+  entity_keys:
+  - market_code
+  fields:
+  - ann_dt
+  - holder_enddate
+  - holder_total_num
+  - holder_num
+  grain: daily
+  name: holder_num_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_holder_num
+  time_key: ann_dt
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 股东明细表
+  entity_keys:
+  - market_code
+  fields:
+  - ann_date
+  - holder_enddate
+  - holder_type
+  - qty_num
+  - holder_name
+  - holder_quantity
+  - holder_pct
+  - holder_sharecategoryname
+  - float_qty
+  grain: daily
+  name: share_holder_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_share_holder
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 配股表
+  entity_keys:
+  - market_code
+  fields:
+  - progress
+  - price
+  - ratio
+  - amt_plan
+  - amt_real
+  - collection_fund
+  - shareb_reg_date
+  - ex_dividend_date
+  - listed_date
+  - pay_start_date
+  - pay_end_date
+  - preplan_date
+  - smtg_ann_date
+  - pass_date
+  - approved_date
+  - execute_date
+  - result_date
+  - list_ann_date
+  - guarantor
+  - guartype
+  - rightsissue_code
+  - ann_date
+  - rightsissue_year
+  - rightsissue_desc
+  - rightsissue_name
+  - ratio_denominator
+  - ratio_molecular
+  - subs_method
+  - expected_fund_raising
+  grain: daily
+  name: right_issue_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_right_issue
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 限售解禁表
+  entity_keys:
+  - market_code
+  fields:
+  - list_date
+  - share_ratio
+  - share_lst_type_name
+  - share_lst
+  - share_lst_is_ann
+  - close_price
+  - share_lst_market_value
+  grain: daily
+  name: equity_restricted_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_equity_restricted
+  time_key: list_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 交易日历表
+  entity_keys: []
+  fields:
+  - trade_date
+  grain: daily
+  name: trade_calendar_real
+  node_role: reference
+  query_freq: null
+  status: enabled
+  table: starlight.ad_trade_calendar
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 股权质押冻结表
+  entity_keys:
+  - market_code
+  fields:
+  - ann_date
+  - holder_name
+  - holder_type_code
+  - total_holding_shr
+  - total_holding_shr_ratio
+  - fro_shares
+  - fro_shr_to_total_holding_ratio
+  - fro_shr_to_total_ratio
+  - total_pledge_shr
+  - is_equity_pledge_repo
+  - begin_date
+  - end_date
+  - is_disfrozen
+  - frozen_institution
+  - disfrozen_time
+  - shr_category_code
+  - freeze_type
+  grain: daily
+  name: equity_pledge_freeze_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_equity_pledge_freeze
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 北交所代码映射表
+  entity_keys:
+  - new_code
+  fields:
+  - old_code
+  - new_code
+  - security_name
+  - listing_date
+  grain: daily
+  name: bj_code_mapping_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_bj_code_mapping
+  time_key: listing_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: ETF PCF 主表
+  entity_keys:
+  - etf_code
+  fields:
+  - etf_code
+  - creation_redemption_unit
+  - max_cash_ratio
+  - publish
+  - creation
+  - redemption
+  - creation_redemption_switch
+  - record_num
+  - total_record_num
+  - estimate_cash_component
+  - trading_day
+  - pre_trading_day
+  - cash_component
+  - nav_per_cu
+  - nav
+  - symbol
+  - fund_management_company
+  - underlying_security_id
+  - underlying_security_id_source
+  - dividend_per_cu
+  - creation_limit
+  - redemption_limit
+  - creation_limit_per_user
+  - redemption_limit_per_user
+  - net_creation_limit
+  - net_redemption_limit
+  - net_creation_limit_per_user
+  - net_redemption_limit_per_user
+  grain: daily
+  name: etf_pcf_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_etf_pcf
+  time_key: trading_day
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: ETF PCF 成分表
+  entity_keys:
+  - etf_code
+  - underlying_symbol
+  fields:
+  - etf_code
+  - trading_day
+  - underlying_symbol
+  - component_share
+  - substitute_flag
+  - premium_ratio
+  - discount_ratio
+  - creation_cash_substitute
+  - redemption_cash_substitute
+  - substitution_cash_amount
+  - underlying_security_id
+  grain: daily
+  name: etf_pcf_constituent_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_etf_pcf_constituent
+  time_key: trading_day
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 行业成分关系表
+  entity_keys:
+  - con_code
+  fields:
+  - index_code
+  - con_code
+  - in_date
+  - out_date
+  - index_name
+  grain: daily
+  name: industry_constituent_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_industry_constituent
+  time_key: in_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债赎回说明表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - call_date
+  - call_price
+  - call_announcement_date
+  - call_ful_res_ann_date
+  - call_amount
+  - call_outstanding_amount
+  - call_date_pub
+  - call_fund_arrival_date
+  - call_record_day
+  - call_reason
+  grain: daily
+  name: kzz_call_explanation_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_call_explanation
+  time_key: call_announcement_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债转股价变更表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - change_date
+  - ann_date
+  - conv_price
+  - change_reason
+  grain: daily
+  name: kzz_conv_change_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_conv_change
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债下修条款表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - start_date
+  - end_date
+  - corr_trig_calc_max_period
+  - corr_trig_calc_period
+  - spec_corr_trig_ratio
+  - corr_conv_price_floor_desc
+  - ref_price_is_avg_price
+  - corr_times_limit
+  - is_timepoint_corr_clause_flag
+  - timepoint_count
+  - timepoint_corr_text_clause
+  - spec_corr_range
+  - is_spec_down_corr_clause_flag
+  grain: daily
+  name: kzz_corr_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_corr
+  time_key: start_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债发行表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - stock_code
+  - crncy_code
+  - ann_dt
+  - pre_plan_date
+  - smtg_ann_date
+  - listed_ann_date
+  - listed_date
+  - plan_schedule
+  - is_separation
+  - recommender
+  - clause_is_int_cha_de_po_rate
+  - clause_is_com_int
+  - clause_com_int_rate
+  - clause_com_int_desc
+  - clause_init_conv_price_item
+  - clause_conv_adj_item
+  - clause_conv_period_item
+  - clause_ini_conv_price
+  - clause_ini_conv_premium_ratio
+  - clause_put_item
+  - clause_call_item
+  - clause_spec_down_adj
+  - clause_orig_ration_arr_item
+  - list_pass_date
+  - list_permit_date
+  - list_ann_date
+  - list_result_ann_date
+  - list_type
+  - list_fee
+  - list_ration_date
+  - list_ration_reg_date
+  - list_ration_paymt_date
+  - list_ration_code
+  - list_ration_name
+  - list_ration_price
+  - list_ration_ratio_de
+  - list_ration_ratio_mo
+  - list_ration_vol
+  - list_household
+  - list_onl_date
+  - list_pchase_code_onl
+  - list_pch_name_onl
+  - list_pch_price_onl
+  - list_issue_vol_onl
+  - list_code_onl
+  - list_excess_pch_onl
+  - result_ef_subscr_p_off
+  - result_suc_rate_off
+  - list_date_inst_off
+  - list_vol_inst_off
+  - result_suc_rate_on
+  - list_effect_pc_hvol_off
+  - list_eff_pc_h_of
+  - list_suc_rate_off
+  - pre_ration_vol
+  - list_issue_size
+  - list_issue_quantity
+  - min_off_inst_subscr_qty
+  - off_inst_dep_ratio
+  - max_off_inst_subscr_qty
+  - off_subscr_unit_inc_desc
+  - is_conv_bonds
+  - min_unline_public
+  - max_unline_public
+  - term_year
+  - interest_type
+  - coupon_rate
+  - interest_fre_quency
+  - result_suc_rate_on2
+  - coupon_txt
+  - ratio_annce_date
+  - ratio_date
+  grain: daily
+  name: kzz_issuance_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_issuance
+  time_key: ann_dt
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债回售说明表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - put_fund_arrival_date
+  - put_price
+  - put_announcement_date
+  - put_ex_date
+  - put_amount
+  - put_outstanding
+  - repurchase_start_date
+  - repurchase_end_date
+  - resale_start_date
+  - fund_end_date
+  - repurchase_code
+  - resale_amount
+  - resale_imp_amount
+  - resale_end_date
+  grain: daily
+  name: kzz_put_explanation_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_put_explanation
+  time_key: put_announcement_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债余额变动表
+  entity_keys:
+  - market_code
+  fields:
+  - change_date
+  - ann_date
+  - market_code
+  - bond_share
+  - conv_share
+  - change_reason
+  grain: daily
+  name: kzz_share_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_share
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债停复牌表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - suspend_date
+  - suspend_type
+  - resump_date
+  - change_reason
+  - change_reason_code
+  - resump_time
+  grain: daily
+  name: kzz_suspend_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_suspend
+  time_key: suspend_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 期权基础信息表
+  entity_keys:
+  - market_code
+  fields:
+  - contract_full_name
+  - contract_type
+  - delivery_month
+  - expiry_date
+  - exercise_price
+  - exercise_end_date
+  - start_trade_date
+  - listing_ref_price
+  - last_trade_date
+  - exchange_code
+  - delivery_date
+  - contract_unit
+  - is_trade
+  - exchange_short_name
+  - contract_adjust_flag
+  - market_code
+  grain: daily
+  name: option_basic_info_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_option_basic_info
+  time_key: start_trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 期权月度合约调整表
+  entity_keys:
+  - market_code
+  fields:
+  - code_old
+  - change_date
+  - market_code
+  - name_new
+  - exercise_price_new
+  - name_old
+  - code_new
+  - exercise_price_old
+  - unit_old
+  - unit_new
+  - change_reason
+  grain: daily
+  name: option_mon_ctr_specs_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_option_mon_ctr_specs
+  time_key: change_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 期权标准合约规格表
+  entity_keys:
+  - market_code
+  fields:
+  - exercise_date
+  - contract_unit
+  - position_declare_min
+  - quote_currency_unit
+  - last_trading_date
+  - position_limit
+  - delist_date
+  - notional_value
+  - exercise_method
+  - delivery_method
+  - settlement_month
+  - trading_fee
+  - exchange_name
+  - option_en_name
+  - contract_value
+  - is_simulation
+  - contract_unit_dimension
+  - option_strike_price
+  - is_simulation_trade
+  - listed_date
+  - option_name
+  - premium
+  - option_type
+  - trading_hours_desc
+  - final_settlement_date
+  - final_settlement_price
+  - min_price_unit
+  - market_code
+  - contract_multiplier
+  grain: daily
+  name: option_std_ctr_specs_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_option_std_ctr_specs
+  time_key: listed_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 同步检查点表
+  entity_keys:
+  - task_name
+  - scope_key
+  - target_table
+  fields:
+  - task_name
+  - scope_key
+  - run_date
+  - status
+  - target_table
+  - checkpoint_date
+  - row_count
+  - message
+  - finished_at
+  grain: daily
+  name: sync_checkpoint_real
+  node_role: system
+  query_freq: null
+  status: enabled
+  table: starlight.ad_sync_checkpoint
+  time_key: run_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 同步任务日志表
+  entity_keys:
+  - task_name
+  - scope_key
+  - target_table
+  fields:
+  - task_name
+  - scope_key
+  - run_date
+  - status
+  - target_table
+  - start_date
+  - end_date
+  - row_count
+  - message
+  - started_at
+  - finished_at
+  grain: daily
+  name: sync_task_log_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_sync_task_log
+  time_key: run_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 大宗交易表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - trade_date
+  - bshare_price
+  - bshare_volume
+  - b_frequency
+  - block_avg_volume
+  - bshare_amount
+  - bbuyer_name
+  - bseller_name
+  grain: daily
+  name: block_trading_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_block_trading
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债赎回条款表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - call_price
+  - begin_date
+  - end_date
+  - tri_ratio
+  grain: daily
+  name: kzz_call_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_call
+  time_key: begin_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债转股规则表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - ann_date
+  - conv_code
+  - conv_name
+  - conv_price
+  - currency_code
+  - conv_start_date
+  - conv_end_date
+  - trade_date_last
+  - forced_conv_date
+  - forced_conv_price
+  - rel_conv_month
+  - is_forced
+  - forced_conv_reason
+  grain: daily
+  name: kzz_conv_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_conv
+  time_key: ann_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债回售条款表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - put_price
+  - begin_date
+  - end_date
+  - tri_ratio
+  grain: daily
+  name: kzz_put_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_put
+  time_key: begin_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 可转债回售赎回条款项表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - mand_put_period
+  - mand_put_price
+  - mand_put_start_date
+  - mand_put_end_date
+  - mand_put_text
+  - is_mand_put_contain_current
+  - con_put_start_date
+  - con_put_end_date
+  - max_put_triper
+  - put_triperiod
+  - add_put_con
+  - add_put_price_ins
+  - put_num_ins
+  - put_pro_period
+  - put_no_pery
+  - is_put_item
+  - is_term_put_item
+  - is_mand_put_item
+  - is_time_put_item
+  - time_put_no
+  - time_put_item
+  - term_put_price
+  - con_call_start_date
+  - con_call_end_date
+  - call_tri_con_ins
+  - max_call_triper
+  - call_tri_per
+  - call_num_ber_ins
+  - is_call_item
+  - call_pro_period
+  - call_no_pery
+  - is_time_call_item
+  - time_call_no
+  - time_call_text
+  - expired_redemption_price
+  - put_tri_cond_desc
+  grain: daily
+  name: kzz_put_call_item_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_kzz_put_call_item
+  time_key: con_put_start_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 龙虎榜表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - trade_date
+  - security_name
+  - reason_type
+  - reason_type_name
+  - change_range
+  - trader_name
+  - buy_amount
+  - sell_amount
+  - flow_mark
+  - total_amount
+  - total_volume
+  grain: daily
+  name: long_hu_bang_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_long_hu_bang
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 融资融券明细表
+  entity_keys:
+  - market_code
+  fields:
+  - market_code
+  - security_name
+  - trade_date
+  - borrow_money_balance
+  - purch_with_borrow_money
+  - repayment_of_borrow_money
+  - sec_lending_balance
+  - sales_of_borrowed_sec
+  - repayment_of_borrow_sec
+  - sec_lending_balance_vol
+  - margin_trade_balance
+  grain: daily
+  name: margin_detail_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_margin_detail
+  time_key: trade_date
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 融资融券市场汇总表
+  entity_keys: []
+  fields:
+  - trade_date
+  - sum_borrow_money_balance
+  - sum_purch_with_borrow_money
+  - sum_repayment_of_borrow_money
+  - sum_sec_lending_balance
+  - sum_sales_of_borrowed_sec
+  - sum_margin_trade_balance
+  grain: daily
+  name: margin_summary_real
+  node_role: query_entry
+  query_freq: null
+  status: enabled
+  table: starlight.ad_margin_summary
+  time_key: trade_date
+edges:
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 adj_factor_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: code
+  name: stock_daily_real_to_adj_factor_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  to_node: adj_factor_real
+  from: stock_daily_real
+  to: adj_factor_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 backward_factor_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: code
+  name: stock_daily_real_to_backward_factor_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  to_node: backward_factor_real
+  from: stock_daily_real
+  to: backward_factor_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 history_stock_status_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_history_stock_status_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  to_node: history_stock_status_real
+  from: stock_daily_real
+  to: history_stock_status_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 equity_structure_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_equity_structure_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: change_date
+  to_node: equity_structure_real
+  from: stock_daily_real
+  to: equity_structure_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 industry_weight_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: con_code
+  name: stock_daily_real_to_industry_weight_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  to_node: industry_weight_real
+  from: stock_daily_real
+  to: industry_weight_real
+- bridge_steps: []
+  description: null
+  description_zh: industry_weight_real 到 industry_base_info_real，按键值关联
+  from_node: industry_weight_real
+  join_keys:
+  - base: index_code
+    source: index_code
+  name: industry_weight_real_to_industry_base_info_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding: null
+  to_node: industry_base_info_real
+  from: industry_weight_real
+  to: industry_base_info_real
+- bridge_steps: []
+  description: null
+  description_zh: industry_daily_real 到 industry_base_info_real，按键值关联
+  from_node: industry_daily_real
+  join_keys:
+  - base: index_code
+    source: index_code
+  name: industry_daily_real_to_industry_base_info_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding: null
+  to_node: industry_base_info_real
+  from: industry_daily_real
+  to: industry_base_info_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 index_weight_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: con_code
+  name: stock_daily_real_to_index_weight_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  to_node: index_weight_real
+  from: stock_daily_real
+  to: index_weight_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 index_constituent_real，按生效区间关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: con_code
+  name: stock_daily_real_to_index_constituent_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: effective_range
+    source_end_field: out_date
+    source_start_field: in_date
+    source_time_cast: null
+    source_time_field: null
+  to_node: index_constituent_real
+  from: stock_daily_real
+  to: index_constituent_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 income_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_income_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: income_real
+  from: stock_daily_real
+  to: income_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 balance_sheet_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_balance_sheet_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: balance_sheet_real
+  from: stock_daily_real
+  to: balance_sheet_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 cash_flow_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_cash_flow_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: cash_flow_real
+  from: stock_daily_real
+  to: cash_flow_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 profit_notice_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_profit_notice_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: profit_notice_real
+  from: stock_daily_real
+  to: profit_notice_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 profit_express_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_profit_express_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: profit_express_real
+  from: stock_daily_real
+  to: profit_express_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 stock_basic_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_stock_basic_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: snapshot_date
+  to_node: stock_basic_real
+  from: stock_daily_real
+  to: stock_basic_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 code_info_real，按键值关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: code
+  name: stock_daily_real_to_code_info_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding: null
+  to_node: code_info_real
+  from: stock_daily_real
+  to: code_info_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 hist_code_daily_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: code
+  name: stock_daily_real_to_hist_code_daily_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  to_node: hist_code_daily_real
+  from: stock_daily_real
+  to: hist_code_daily_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 dividend_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_dividend_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: dividend_real
+  from: stock_daily_real
+  to: dividend_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 holder_num_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_holder_num_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_dt
+  to_node: holder_num_real
+  from: stock_daily_real
+  to: holder_num_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 share_holder_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_share_holder_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: share_holder_real
+  from: stock_daily_real
+  to: share_holder_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 right_issue_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_right_issue_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: right_issue_real
+  from: stock_daily_real
+  to: right_issue_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 equity_restricted_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_equity_restricted_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: list_date
+  to_node: equity_restricted_real
+  from: stock_daily_real
+  to: equity_restricted_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 trade_calendar_real，按同日关联
+  from_node: stock_daily_real
+  join_keys: []
+  name: stock_daily_real_to_trade_calendar_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  to_node: trade_calendar_real
+  from: stock_daily_real
+  to: trade_calendar_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 equity_pledge_freeze_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_equity_pledge_freeze_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: equity_pledge_freeze_real
+  from: stock_daily_real
+  to: equity_pledge_freeze_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 etf_pcf_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: etf_code
+  name: stock_daily_real_to_etf_pcf_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trading_day
+  to_node: etf_pcf_real
+  from: stock_daily_real
+  to: etf_pcf_real
+- bridge_steps: []
+  description: null
+  description_zh: etf_pcf_real 到 etf_pcf_constituent_real，按同日关联
+  from_node: etf_pcf_real
+  join_keys:
+  - base: etf_code
+    source: etf_code
+  name: etf_pcf_real_to_etf_pcf_constituent_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: null
+    base_time_field: trading_day
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trading_day
+  to_node: etf_pcf_constituent_real
+  from: etf_pcf_real
+  to: etf_pcf_constituent_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 etf_pcf_constituent_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: underlying_symbol
+  name: stock_daily_real_to_etf_pcf_constituent_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trading_day
+  to_node: etf_pcf_constituent_real
+  from: stock_daily_real
+  to: etf_pcf_constituent_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 industry_constituent_real，按生效区间关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: con_code
+  name: stock_daily_real_to_industry_constituent_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: effective_range
+    source_end_field: out_date
+    source_start_field: in_date
+    source_time_cast: null
+    source_time_field: null
+  to_node: industry_constituent_real
+  from: stock_daily_real
+  to: industry_constituent_real
+- bridge_steps: []
+  description: null
+  description_zh: industry_constituent_real 到 industry_base_info_real，按键值关联
+  from_node: industry_constituent_real
+  join_keys:
+  - base: index_code
+    source: index_code
+  name: industry_constituent_real_to_industry_base_info_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding: null
+  to_node: industry_base_info_real
+  from: industry_constituent_real
+  to: industry_base_info_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_call_explanation_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_call_explanation_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: call_announcement_date
+  to_node: kzz_call_explanation_real
+  from: stock_daily_real
+  to: kzz_call_explanation_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_conv_change_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_conv_change_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: kzz_conv_change_real
+  from: stock_daily_real
+  to: kzz_conv_change_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_corr_real，按生效区间关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_corr_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: effective_range
+    source_end_field: end_date
+    source_start_field: start_date
+    source_time_cast: null
+    source_time_field: null
+  to_node: kzz_corr_real
+  from: stock_daily_real
+  to: kzz_corr_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_issuance_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_issuance_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: yyyymmdd
+    source_time_field: ann_dt
+  to_node: kzz_issuance_real
+  from: stock_daily_real
+  to: kzz_issuance_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_put_explanation_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_put_explanation_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: yyyymmdd
+    source_time_field: put_announcement_date
+  to_node: kzz_put_explanation_real
+  from: stock_daily_real
+  to: kzz_put_explanation_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_share_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_share_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: yyyymmdd
+    source_time_field: ann_date
+  to_node: kzz_share_real
+  from: stock_daily_real
+  to: kzz_share_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_suspend_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_suspend_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: yyyymmdd
+    source_time_field: suspend_date
+  to_node: kzz_suspend_real
+  from: stock_daily_real
+  to: kzz_suspend_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_snapshot_real 到 option_basic_info_real，按键值关联
+  from_node: stock_snapshot_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_snapshot_real_to_option_basic_info_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding: null
+  to_node: option_basic_info_real
+  from: stock_snapshot_real
+  to: option_basic_info_real
+- bridge_steps: []
+  description: null
+  description_zh: option_basic_info_real 到 option_mon_ctr_specs_real，按键值关联
+  from_node: option_basic_info_real
+  join_keys:
+  - base: market_code
+    source: market_code
+  name: option_basic_info_real_to_option_mon_ctr_specs_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding: null
+  to_node: option_mon_ctr_specs_real
+  from: option_basic_info_real
+  to: option_mon_ctr_specs_real
+- bridge_steps: []
+  description: null
+  description_zh: option_basic_info_real 到 option_std_ctr_specs_real，按键值关联
+  from_node: option_basic_info_real
+  join_keys:
+  - base: market_code
+    source: market_code
+  name: option_basic_info_real_to_option_std_ctr_specs_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding: null
+  to_node: option_std_ctr_specs_real
+  from: option_basic_info_real
+  to: option_std_ctr_specs_real
+- bridge_steps: []
+  description: null
+  description_zh: sync_task_log_real 到 sync_checkpoint_real，按同日关联
+  from_node: sync_task_log_real
+  join_keys:
+  - base: task_name
+    source: task_name
+  - base: scope_key
+    source: scope_key
+  - base: target_table
+    source: target_table
+  name: sync_task_log_real_to_sync_checkpoint_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: null
+    base_time_field: run_date
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: run_date
+  to_node: sync_checkpoint_real
+  from: sync_task_log_real
+  to: sync_checkpoint_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 block_trading_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_block_trading_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  to_node: block_trading_real
+  from: stock_daily_real
+  to: block_trading_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_call_real，按生效区间关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_call_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: effective_range
+    source_end_field: end_date
+    source_start_field: begin_date
+    source_time_cast: null
+    source_time_field: null
+  to_node: kzz_call_real
+  from: stock_daily_real
+  to: kzz_call_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_conv_real，按截至时点关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_conv_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: asof
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: ann_date
+  to_node: kzz_conv_real
+  from: stock_daily_real
+  to: kzz_conv_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_put_real，按生效区间关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_put_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: effective_range
+    source_end_field: end_date
+    source_start_field: begin_date
+    source_time_cast: null
+    source_time_field: null
+  to_node: kzz_put_real
+  from: stock_daily_real
+  to: kzz_put_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 kzz_put_call_item_real，按生效区间关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_kzz_put_call_item_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: effective_range
+    source_end_field: con_put_end_date
+    source_start_field: con_put_start_date
+    source_time_cast: null
+    source_time_field: null
+  to_node: kzz_put_call_item_real
+  from: stock_daily_real
+  to: kzz_put_call_item_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 long_hu_bang_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_long_hu_bang_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  to_node: long_hu_bang_real
+  from: stock_daily_real
+  to: long_hu_bang_real
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 margin_detail_real，按同日关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: market_code
+  name: stock_daily_real_to_margin_detail_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: same_date
+    source_end_field: null
+    source_start_field: null
+    source_time_cast: null
+    source_time_field: trade_date
+  to_node: margin_detail_real
+  from: stock_daily_real
+  to: margin_detail_real

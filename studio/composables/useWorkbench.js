@@ -207,6 +207,10 @@ export function useWorkbench() {
     return Boolean(llm.enabled && llm.base_url && llm.model_name && llm.api_key)
   })
 
+  function datasourceConfigError() {
+    return new Error('ClickHouse 数据源未配置，请先完善 config/runtime.local.yaml 中的 datasource.host 等配置')
+  }
+
   async function api(path, options = {}) {
     const response = await fetch(path, {
       headers: {
@@ -223,7 +227,7 @@ export function useWorkbench() {
     if (!response.ok) {
       const message = typeof payload === 'string'
         ? payload
-        : payload?.message || payload?.error || JSON.stringify(payload)
+        : payload?.detail || payload?.message || payload?.error || JSON.stringify(payload)
       throw new Error(message || '请求失败')
     }
 
@@ -342,6 +346,9 @@ export function useWorkbench() {
   }
 
   async function loadDatabases() {
+    if (!hasDatasourceConfigured.value) {
+      throw datasourceConfigError()
+    }
     const payload = await api(`/api/schema/databases?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}`)
     const items = payload.items || []
     schema.value.databases = items
@@ -356,6 +363,9 @@ export function useWorkbench() {
   }
 
   async function testDatasourceConnection() {
+    if (!hasDatasourceConfigured.value) {
+      throw datasourceConfigError()
+    }
     const payload = await api(`/api/schema/databases?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}`)
     const items = payload.items || []
     schema.value.databases = items
@@ -375,7 +385,7 @@ export function useWorkbench() {
     schema.value.tables = []
     schema.value.columns = []
 
-    if (!value) return []
+    if (!value || !hasDatasourceConfigured.value) return []
 
     const payload = await api(
       `/api/schema/tables?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}&database=${encodeURIComponent(value)}`
@@ -390,7 +400,7 @@ export function useWorkbench() {
     schema.value.selectedTable = name || ''
     schema.value.columns = []
 
-    if (!schema.value.selectedDatabase || !name) return []
+    if (!schema.value.selectedDatabase || !name || !hasDatasourceConfigured.value) return []
 
     const payload = await api(
       `/api/schema/columns?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}&database=${encodeURIComponent(schema.value.selectedDatabase)}&table=${encodeURIComponent(name)}`
@@ -407,7 +417,7 @@ export function useWorkbench() {
     attach.value.columns = []
     resetBindingSourceSelection()
 
-    if (!value) return []
+    if (!value || !hasDatasourceConfigured.value) return []
 
     const payload = await api(
       `/api/schema/tables?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}&database=${encodeURIComponent(value)}`
@@ -421,7 +431,7 @@ export function useWorkbench() {
     attach.value.columns = []
     resetBindingSourceSelection({ keepDatabase: true, keepTable: true })
 
-    if (!attach.value.selectedDatabase || !name) return []
+    if (!attach.value.selectedDatabase || !name || !hasDatasourceConfigured.value) return []
 
     const payload = await api(
       `/api/schema/columns?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}&database=${encodeURIComponent(attach.value.selectedDatabase)}&table=${encodeURIComponent(name)}`
@@ -504,11 +514,18 @@ export function useWorkbench() {
 
     const { database, tableName } = parseTableRef(target.table)
 
-    if (database) {
-      await selectDatabase(database)
-    }
-    if (tableName) {
-      await selectTable(tableName)
+    if (hasDatasourceConfigured.value) {
+      if (database) {
+        await selectDatabase(database)
+      }
+      if (tableName) {
+        await selectTable(tableName)
+      }
+    } else {
+      schema.value.selectedDatabase = database || ''
+      schema.value.selectedTable = tableName || ''
+      schema.value.tables = []
+      schema.value.columns = []
     }
 
     Object.assign(nodeForm.value, {

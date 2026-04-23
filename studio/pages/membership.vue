@@ -172,7 +172,7 @@ async function api(path, options = {}) {
   const contentType = response.headers.get('content-type') || ''
   const payload = contentType.includes('application/json') ? await response.json() : await response.text()
   if (!response.ok) {
-    const message = typeof payload === 'string' ? payload : payload?.message || payload?.error || '请求失败'
+    const message = typeof payload === 'string' ? payload : payload?.detail || payload?.message || payload?.error || '请求失败'
     throw new Error(message)
   }
   return payload

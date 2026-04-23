@@ -87,6 +87,17 @@ IDENTITY_FIELDS = {
 }
 
 ASSET_FIELD_ALLOWLIST = {
+    ('stock', '1d'): {
+        'code', 'trade_time', 'open', 'high', 'low', 'close', 'volume', 'amount',
+        'security_type', 'security_name', 'list_date', 'delist_date',
+        'close_adj', 'open_adj', 'high_adj', 'low_adj',
+        'high_limited', 'low_limited',
+    },
+    ('stock', '1m'): {
+        'code', 'trade_time', 'open', 'high', 'low', 'close', 'volume', 'amount',
+        'minute_open', 'minute_high', 'minute_low', 'minute_close', 'minute_volume', 'minute_amount',
+        'security_type', 'security_name',
+    },
     ('etf', '1d'): {
         'code', 'trade_time', 'open', 'high', 'low', 'close', 'volume', 'amount',
         'security_type', 'security_name', 'list_date', 'delist_date',
@@ -2330,12 +2341,15 @@ class GraphRuntime:
     def _build_asset_node_map(self) -> dict[str, dict[str, str]]:
         mapping = {asset: dict(freq_map) for asset, freq_map in LEGACY_ASSET_NODE_MAP.items()}
         for node in self.nodes:
-            if not node.asset_type:
+            asset_type = self._effective_node_asset_type(node)
+            if not asset_type:
                 continue
             freq = self._freq_from_node(node)
             if not freq:
                 continue
-            mapping.setdefault(node.asset_type, {})[freq] = node.name
+            current = mapping.setdefault(asset_type, {}).get(freq)
+            if current is None or self._query_entry_priority(node.name, asset_type=asset_type, freq=freq) > self._query_entry_priority(current, asset_type=asset_type, freq=freq):
+                mapping.setdefault(asset_type, {})[freq] = node.name
         return mapping
 
     def _apply_wide_table_overlays(self, nodes: list[Node]) -> list[Node]:
@@ -2414,12 +2428,16 @@ class GraphRuntime:
     def _build_application_query_node_map(self) -> dict[str, dict[str, str]]:
         mapping: dict[str, dict[str, str]] = {}
         for node in self.nodes:
-            if node.status != 'enabled' or not node.asset_type:
+            asset_type = self._effective_node_asset_type(node)
+            status = self._effective_node_status(node)
+            if status != 'enabled' or not asset_type:
                 continue
             freq = self._freq_from_node(node)
             if not freq:
                 continue
-            mapping.setdefault(node.asset_type, {})[freq] = node.name
+            current = mapping.setdefault(asset_type, {}).get(freq)
+            if current is None or self._query_entry_priority(node.name, asset_type=asset_type, freq=freq) > self._query_entry_priority(current, asset_type=asset_type, freq=freq):
+                mapping.setdefault(asset_type, {})[freq] = node.name
         for asset_type, freq_map in LEGACY_ASSET_NODE_MAP.items():
             mapping.setdefault(asset_type, {}).update(
                 {freq: node_name for freq, node_name in freq_map.items() if freq not in mapping[asset_type]}
@@ -2432,7 +2450,7 @@ class GraphRuntime:
         node = self.registry.nodes.get(node_name)
         if not node:
             return None
-        asset_type = node.asset_type
+        asset_type = self._effective_node_asset_type(node)
         freq = self._freq_from_node(node)
         base_filters = list(node.base_filters)
         if not base_filters and not asset_type and not freq:
@@ -2442,6 +2460,57 @@ class GraphRuntime:
             'freq': freq,
             'base_filters': base_filters,
         }
+
+    def _effective_node_asset_type(self, node) -> str | None:
+        if node.asset_type:
+            return node.asset_type
+        name = str(getattr(node, 'name', '') or '').strip().lower()
+        if name.startswith('stock_'):
+            return 'stock'
+        if name.startswith('etf_'):
+            return 'etf'
+        if name.startswith('index_') or name.startswith('industry_'):
+            return 'index'
+        if name.startswith('fund_'):
+            return 'fund'
+        if name.startswith('treasury_'):
+            return 'macro'
+        if name.startswith('kzz_'):
+            return 'kzz'
+        return None
+
+    def _effective_node_status(self, node) -> str:
+        if node.status:
+            return node.status
+        return 'enabled'
+
+    def _query_entry_priority(self, node_name: str, *, asset_type: str, freq: str) -> int:
+        normalized = str(node_name or '').strip().lower()
+        direct_targets = {
+            ('stock', '1d'): 'stock_daily_real',
+            ('stock', '1m'): 'stock_minute_real',
+            ('index', '1d'): 'index_daily_real',
+            ('index', '1m'): 'index_minute_real',
+            ('etf', '1d'): 'etf_daily_real',
+            ('etf', '1m'): 'etf_minute_real',
+        }
+        preferred = direct_targets.get((asset_type, freq))
+        if preferred and normalized == preferred:
+            return 100
+        score = 0
+        if normalized.endswith('_daily_real') and freq == '1d':
+            score += 20
+        if normalized.endswith('_minute_real') and freq == '1m':
+            score += 20
+        if f'{asset_type}_' in normalized:
+            score += 10
+        if 'snapshot' in normalized:
+            score -= 20
+        if 'basic' in normalized:
+            score -= 10
+        if 'pcf' in normalized:
+            score -= 5
+        return score
 
     def _asset_freq_for_node(self, node_name: str | None) -> tuple[str | None, str | None]:
         spec = self._logical_node_spec(node_name)

@@ -441,40 +441,49 @@ def create_app(
 
     @app.get("/api/schema/databases")
     def list_databases():
-        runtime = load_runtime_config(request.args.get("runtime_path") or DEFAULT_RUNTIME_CONFIG_PATH)
-        executor = ClickHouseExecutor(runtime.datasource)
-        rows = executor.execute_sql("SELECT name FROM system.databases ORDER BY name").data
-        return jsonify({"items": rows})
+        try:
+            runtime = load_runtime_config(request.args.get("runtime_path") or DEFAULT_RUNTIME_CONFIG_PATH)
+            executor = ClickHouseExecutor(runtime.datasource)
+            rows = executor.execute_sql("SELECT name FROM system.databases ORDER BY name").data
+            return jsonify({"items": rows})
+        except Exception as exc:
+            return jsonify({"detail": str(exc).strip() or exc.__class__.__name__}), 400
 
     @app.get("/api/schema/tables")
     def list_tables():
-        runtime = load_runtime_config(request.args.get("runtime_path") or DEFAULT_RUNTIME_CONFIG_PATH)
-        database = request.args.get("database")
-        if not database:
-            return jsonify({"items": []})
-        executor = ClickHouseExecutor(runtime.datasource)
-        sql = (
-            "SELECT database, name, engine FROM system.tables "
-            f"WHERE database = '{database}' ORDER BY name"
-        )
-        rows = executor.execute_sql(sql).data
-        return jsonify({"items": rows})
+        try:
+            runtime = load_runtime_config(request.args.get("runtime_path") or DEFAULT_RUNTIME_CONFIG_PATH)
+            database = request.args.get("database")
+            if not database:
+                return jsonify({"items": []})
+            executor = ClickHouseExecutor(runtime.datasource)
+            sql = (
+                "SELECT database, name, engine FROM system.tables "
+                f"WHERE database = '{database}' ORDER BY name"
+            )
+            rows = executor.execute_sql(sql).data
+            return jsonify({"items": rows})
+        except Exception as exc:
+            return jsonify({"detail": str(exc).strip() or exc.__class__.__name__}), 400
 
     @app.get("/api/schema/columns")
     def list_columns():
-        runtime = load_runtime_config(request.args.get("runtime_path") or DEFAULT_RUNTIME_CONFIG_PATH)
-        database = request.args.get("database")
-        table = request.args.get("table")
-        if not database or not table:
-            return jsonify({"items": []})
-        executor = ClickHouseExecutor(runtime.datasource)
-        sql = (
-            "SELECT database, table, name, type, comment, position "
-            f"FROM system.columns WHERE database = '{database}' AND table = '{table}' "
-            "ORDER BY position"
-        )
-        rows = executor.execute_sql(sql).data
-        return jsonify({"items": rows})
+        try:
+            runtime = load_runtime_config(request.args.get("runtime_path") or DEFAULT_RUNTIME_CONFIG_PATH)
+            database = request.args.get("database")
+            table = request.args.get("table")
+            if not database or not table:
+                return jsonify({"items": []})
+            executor = ClickHouseExecutor(runtime.datasource)
+            sql = (
+                "SELECT database, table, name, type, comment, position "
+                f"FROM system.columns WHERE database = '{database}' AND table = '{table}' "
+                "ORDER BY position"
+            )
+            rows = executor.execute_sql(sql).data
+            return jsonify({"items": rows})
+        except Exception as exc:
+            return jsonify({"detail": str(exc).strip() or exc.__class__.__name__}), 400
 
     @app.get("/api/metadata/catalog")
     def metadata_catalog():

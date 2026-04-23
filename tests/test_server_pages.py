@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 from aiquantbase.config import dump_yaml
 from aiquantbase.server import create_app
@@ -85,6 +86,16 @@ def test_workspace_api_uses_configured_graph_path(tmp_path: Path):
     payload = response.get_json()
     assert payload["workspace"]["graph_path"] == str(graph_path)
     assert len(payload["graph"]["nodes"]) == 1
+
+
+def test_schema_databases_returns_json_error_when_clickhouse_fails(tmp_path: Path):
+    client, _, _, _ = _client(tmp_path)
+
+    with patch("aiquantbase.server.ClickHouseExecutor.execute_sql", side_effect=RuntimeError("clickhouse unavailable")):
+        response = client.get("/api/schema/databases", query_string={"runtime_path": "config/runtime.example.yaml"})
+
+    assert response.status_code == 400
+    assert response.get_json() == {"detail": "clickhouse unavailable"}
 
 
 def test_sync_config_endpoints_use_integrated_sync_root(tmp_path: Path):

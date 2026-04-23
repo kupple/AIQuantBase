@@ -28,3 +28,16 @@ def test_executor_appends_json_format():
 
     assert executor._ensure_json_format("SELECT 1") == "SELECT 1\nFORMAT JSON"
     assert executor._ensure_json_format("SELECT 1 FORMAT JSON") == "SELECT 1 FORMAT JSON"
+
+
+def test_executor_requires_host():
+    datasource = make_datasource()
+    datasource.host = ""
+    executor = ClickHouseExecutor(datasource)
+
+    try:
+        executor._build_url()
+    except RuntimeError as exc:
+        assert "datasource.host is empty" in str(exc)
+    else:
+        raise AssertionError("Expected missing host to raise RuntimeError")

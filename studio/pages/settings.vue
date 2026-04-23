@@ -222,7 +222,7 @@ async function fetchJson(path) {
   const response = await fetch(path)
   const payload = await response.json()
   if (!response.ok) {
-    throw new Error(payload?.message || payload?.error || '请求失败')
+    throw new Error(payload?.detail || payload?.message || payload?.error || '请求失败')
   }
   return payload
 }

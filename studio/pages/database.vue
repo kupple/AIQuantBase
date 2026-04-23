@@ -41,6 +41,7 @@ const {
   currentNodeFieldBindings,
   getNodeFieldBindings,
   loading,
+  hasDatasourceConfigured,
   ensureWorkspaceLoaded,
   saveWorkspace,
   selectDatabase,
@@ -605,7 +606,7 @@ async function callJson(path, options = {}) {
   })
   const payload = await response.json()
   if (!response.ok) {
-    throw new Error(payload?.message || payload?.error || '请求失败')
+    throw new Error(payload?.detail || payload?.message || payload?.error || '请求失败')
   }
   return payload
 }
@@ -649,6 +650,10 @@ async function loadWideTables() {
 }
 
 async function loadWideTableSyncStates() {
+  if (!hasDatasourceConfigured.value) {
+    wideTableSyncStates.value = []
+    return
+  }
   wideTableStateLoading.value = true
   try {
     const search = new URLSearchParams()
@@ -666,7 +671,7 @@ async function loadWideTableSyncStates() {
 
 async function loadWideTableTargetTables(database) {
   wideTableTargetTables.value = []
-  if (!database) return []
+  if (!database || !hasDatasourceConfigured.value) return []
   const payload = await callJson(
     `/api/schema/tables?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}&database=${encodeURIComponent(database)}`
   )
@@ -764,6 +769,9 @@ async function handleDeleteWideTable(row) {
 }
 
 async function handleRunWideTableSync(row) {
+  if (!hasDatasourceConfigured.value) {
+    throw new Error('ClickHouse 数据源未配置，无法执行宽表同步')
+  }
   wideTableSyncLoading.value = true
   try {
     const payload = await callJson('/api/sync/wide-tables/run-inline', {
@@ -1418,7 +1426,7 @@ function normalizeRouteQueryValue(value) {
                 </div>
                 <div class="panel-actions panel-actions-compact">
                   <el-button :loading="wideTableStateLoading" :disabled="!selectedWideTable" @click="loadWideTableSyncStates">刷新同步状态</el-button>
-                  <el-button type="success" :loading="wideTableSyncLoading" :disabled="!selectedWideTable" @click="selectedWideTable && handleRunWideTableSync(selectedWideTable)">同步宽表</el-button>
+                  <el-button type="success" :loading="wideTableSyncLoading" :disabled="!selectedWideTable" @click="selectedWideTable && notifyAction('', () => handleRunWideTableSync(selectedWideTable))">同步宽表</el-button>
                   <el-button :disabled="!selectedWideTable" @click="selectedWideTable && openWideTableEditDialog(selectedWideTable)">编辑宽表节点</el-button>
                   <el-button type="danger" plain :disabled="!selectedWideTable" @click="selectedWideTable && handleDeleteWideTable(selectedWideTable)">删除宽表节点</el-button>
                 </div>

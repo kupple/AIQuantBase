@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from time import perf_counter
 from typing import Any
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -123,8 +123,16 @@ class ClickHouseExecutor:
                 detail = ""
             message = detail or str(exc)
             raise RuntimeError(message) from exc
+        except URLError as exc:
+            reason = getattr(exc, "reason", exc)
+            raise RuntimeError(f"ClickHouse request failed for {url}: {reason}") from exc
+        except Exception as exc:
+            raise RuntimeError(f"ClickHouse request failed for {url}: {exc}") from exc
 
     def _build_url(self, default_format: str | None = None) -> str:
+        host = str(self.datasource.host or "").strip()
+        if not host:
+            raise RuntimeError("ClickHouse datasource.host is empty in runtime config")
         scheme = "https" if self.datasource.secure else "http"
         params: dict[str, Any] = dict(self.datasource.extra_params)
         if self.datasource.database:
@@ -132,7 +140,7 @@ class ClickHouseExecutor:
         if default_format and "default_format" not in params:
             params["default_format"] = default_format
         query = urlencode(params)
-        base = f"{scheme}://{self.datasource.host}:{self.datasource.port}/"
+        base = f"{scheme}://{host}:{self.datasource.port}/"
         return f"{base}?{query}" if query else base
 
     def _normalize_sql(self, sql: str) -> str:

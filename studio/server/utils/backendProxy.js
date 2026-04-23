@@ -53,20 +53,14 @@ export async function proxyToBackend(event, target, errorPrefix) {
     const response = await fetch(target, init)
     const contentType = response.headers.get('content-type') || ''
     const text = await response.text()
-
-    if (!response.ok) {
-      throw createError({
-        statusCode: 502,
-        statusMessage: 'Bad Gateway',
-        message: `${errorPrefix}: ${response.status} ${response.statusText} ${text}`.trim(),
-      })
-    }
+    const isJson = contentType.includes('application/json')
+    const payload = isJson ? JSON.parse(text || 'null') : text
 
     setResponseStatus(event, response.status, response.statusText)
     if (contentType) {
       setHeader(event, 'content-type', contentType)
     }
-    return contentType.includes('application/json') ? JSON.parse(text) : text
+    return payload
   } catch (error) {
     if (error && typeof error === 'object' && 'statusCode' in error) {
       throw error
