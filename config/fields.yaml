@@ -46,19 +46,19 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
   - close
-  - forward_adj_factor
-  description_zh: 基于原始收盘价与前复权因子计算的复权收盘价
+  - backward_adj_factor
+  description_zh: 基于原始收盘价与后复权因子计算的复权收盘价
   field_role: derived_field
-  formula: '{close} * {forward_adj_factor}'
+  formula: '{close} * {backward_adj_factor}'
   join_keys: []
   lookahead_category: none
   notes:
-  - Derived adjusted close based on raw close and forward adjustment factor
+  - Derived adjusted close based on raw close and backward adjustment factor
   path_domain: null
   path_group: null
   relation_type: null
@@ -71,19 +71,19 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
   - open
-  - forward_adj_factor
-  description_zh: 基于原始开盘价与前复权因子计算的复权开盘价
+  - backward_adj_factor
+  description_zh: 基于原始开盘价与后复权因子计算的复权开盘价
   field_role: derived_field
-  formula: '{open} * {forward_adj_factor}'
+  formula: '{open} * {backward_adj_factor}'
   join_keys: []
   lookahead_category: none
   notes:
-  - Derived adjusted open based on raw open and forward adjustment factor
+  - Derived adjusted open based on raw open and backward adjustment factor
   path_domain: null
   path_group: null
   relation_type: null
@@ -96,19 +96,19 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
   - high
-  - forward_adj_factor
-  description_zh: 基于原始最高价与前复权因子计算的复权最高价
+  - backward_adj_factor
+  description_zh: 基于原始最高价与后复权因子计算的复权最高价
   field_role: derived_field
-  formula: '{high} * {forward_adj_factor}'
+  formula: '{high} * {backward_adj_factor}'
   join_keys: []
   lookahead_category: none
   notes:
-  - Derived adjusted high based on raw high and forward adjustment factor
+  - Derived adjusted high based on raw high and backward adjustment factor
   path_domain: null
   path_group: null
   relation_type: null
@@ -121,19 +121,19 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
   - low
-  - forward_adj_factor
-  description_zh: 基于原始最低价与前复权因子计算的复权最低价
+  - backward_adj_factor
+  description_zh: 基于原始最低价与后复权因子计算的复权最低价
   field_role: derived_field
-  formula: '{low} * {forward_adj_factor}'
+  formula: '{low} * {backward_adj_factor}'
   join_keys: []
   lookahead_category: none
   notes:
-  - Derived adjusted low based on raw low and forward adjustment factor
+  - Derived adjusted low based on raw low and backward adjustment factor
   path_domain: null
   path_group: null
   relation_type: null
@@ -266,7 +266,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
@@ -292,7 +292,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
@@ -318,7 +318,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
+  base_node: stock_daily_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
@@ -432,6 +432,133 @@ fields:
   source_node: history_stock_status_real
   source_table: null
   standard_field: is_suspended
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_node
+  bridge_steps: []
+  depends_on: []
+  description_zh: 来自状态快照表
+  field_role: status_flag
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - Mapped from status snapshot table
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: direct
+  source_field: is_wd_sec
+  source_node: history_stock_status_real
+  source_table: null
+  standard_field: is_wd_sec
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_node
+  bridge_steps: []
+  depends_on: []
+  description_zh: 来自状态快照表
+  field_role: status_flag
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - Mapped from status snapshot table
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: direct
+  source_field: is_xr_sec
+  source_node: history_stock_status_real
+  source_table: null
+  standard_field: is_xr_sec
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: derived
+  bridge_steps: []
+  depends_on:
+  - code
+  description_zh: null
+  field_role: derived_field
+  formula: startsWith({code}, '688')
+  join_keys: []
+  lookahead_category: null
+  notes:
+  - |-
+    Derived board flag for STAR Market stocks
+
+    Returns true when stock code starts with 688
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: is_kcb
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: derived
+  bridge_steps: []
+  depends_on:
+  - code
+  description_zh: null
+  field_role: derived_field
+  formula: startsWith({code}, '30')
+  join_keys: []
+  lookahead_category: null
+  notes:
+  - |-
+    Derived board flag for GEM stocks
+
+    Returns true when stock code starts with 30
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: is_cyb
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: derived
+  bridge_steps: []
+  depends_on:
+  - code
+  description_zh: null
+  field_role: derived_field
+  formula: endsWith({code}, '.BJ')
+  join_keys: []
+  lookahead_category: null
+  notes:
+  - |-
+    Derived board flag for Beijing Stock Exchange stocks
+
+    Returns true when stock code ends with .BJ
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: is_bjs
   time_binding: null
   time_semantics: null
   via_node: null
