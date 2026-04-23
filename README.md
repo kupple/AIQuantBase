@@ -51,7 +51,7 @@ print(result["df"])
 先启动统一 Python backend：
 
 ```bash
-PYTHONPATH=src /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m aiquantbase.cli studio --host 127.0.0.1 --port 8011
+PYTHONPATH=src /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m aiquantbase.cli studio --host 127.0.0.1 --port 8011 --debug
 ```
 
 再启动 Nuxt frontend：
@@ -69,6 +69,14 @@ npm run dev
 - [http://localhost:3000/sync](http://localhost:3000/sync)
 
 当前 `studio` 的查询页和同步页都默认走同一个 Python backend，不再要求单独启动另一个同步 API 服务。
+
+服务器使用 `pm2` 时，建议：
+
+1. 后端直接运行 `python -m aiquantbase.cli studio --host 0.0.0.0 --port 8000`
+2. 前端先执行 `npm run build`
+3. 再用 `npm run preview -- --host 0.0.0.0 --port 3000`
+
+当前根目录已提供 [ecosystem.config.js](/Users/zhao/Desktop/git/AIQuantBase/ecosystem.config.js)。
 
 ### 4. 仓库内置同步项目
 

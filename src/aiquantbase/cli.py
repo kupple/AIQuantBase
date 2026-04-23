@@ -55,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     studio_cmd.add_argument("--host", default="127.0.0.1")
     studio_cmd.add_argument("--port", type=int, default=8000)
     studio_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
+    studio_cmd.add_argument("--debug", action=argparse.BooleanOptionalAction, default=False)
 
     sync_configs_cmd = subparsers.add_parser("sync-list-configs", help="List bundled sync config files")
     sync_configs_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
@@ -384,7 +385,7 @@ def main() -> None:
     if args.command == "studio":
         from .server import run_server
 
-        run_server(host=args.host, port=args.port, sync_project_root=args.sync_project_root)
+        run_server(host=args.host, port=args.port, debug=args.debug, sync_project_root=args.sync_project_root)
         return
 
     if args.command == "sync-list-configs":

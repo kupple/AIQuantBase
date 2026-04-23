@@ -640,11 +640,16 @@ def create_app(
 def run_server(
     host: str = "127.0.0.1",
     port: int = 8000,
-    debug: bool = True,
+    debug: bool = False,
     sync_project_root: str | Path | None = None,
 ) -> None:
     app = create_app(sync_project_root=Path(sync_project_root) if sync_project_root else None)
-    app.run(host=host, port=port, debug=debug)
+    app.run(
+        host=host,
+        port=port,
+        debug=debug,
+        use_reloader=bool(debug),
+    )
 
 
 def _default_graph_path() -> Path:
