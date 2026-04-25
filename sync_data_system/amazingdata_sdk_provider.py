@@ -136,15 +136,17 @@ class AmazingDataSDKConfig:
         password = str(sync_config.password or "").strip()
         host = str(sync_config.host or "").strip()
         port = int(sync_config.port or 0)
-
+        missing_fields: list[str] = []
         if not username:
-            raise ValueError(_format_missing_runtime_error("sync.amazingdata.username", resolved_runtime_path))
+            missing_fields.append("sync.amazingdata.username")
         if not password:
-            raise ValueError(_format_missing_runtime_error("sync.amazingdata.password", resolved_runtime_path))
+            missing_fields.append("sync.amazingdata.password")
         if not host:
-            raise ValueError(_format_missing_runtime_error("sync.amazingdata.host", resolved_runtime_path))
+            missing_fields.append("sync.amazingdata.host")
         if not port:
-            raise ValueError(_format_missing_runtime_error("sync.amazingdata.port", resolved_runtime_path))
+            missing_fields.append("sync.amazingdata.port")
+        if missing_fields:
+            raise ValueError(_format_missing_runtime_error(missing_fields, resolved_runtime_path))
 
         resolved_local_path = _normalize_local_path(
             local_path or str(sync_config.local_path or "").strip() or str(Path.cwd() / "amazing_data_cache")
@@ -2763,8 +2765,27 @@ def _quarantine_corrupt_hdf5_cache(path: Path) -> bool:
         return False
 
 
-def _format_missing_runtime_error(field_name: str, runtime_path: Path) -> str:
-    return f"缺少运行配置 {field_name}；已尝试读取 runtime 文件: {runtime_path}"
+def _format_missing_runtime_error(field_names: str | Sequence[str], runtime_path: Path) -> str:
+    if isinstance(field_names, str):
+        missing = [field_names]
+    else:
+        missing = [str(item).strip() for item in field_names if str(item).strip()]
+    missing_text = "、".join(missing) if missing else "sync.amazingdata"
+    snippet = "\n".join(
+        [
+            "sync:",
+            "  amazingdata:",
+            "    username: YOUR_AMAZINGDATA_ACCOUNT",
+            "    password: YOUR_AMAZINGDATA_PASSWORD",
+            "    host: YOUR_AMAZINGDATA_HOST",
+            "    port: 8600",
+            "    local_path: /path/to/amazing_data_cache",
+        ]
+    )
+    return (
+        f"缺少运行配置 {missing_text}；已尝试读取 runtime 文件: {runtime_path}\n"
+        f"请在 runtime.local.yaml 中补齐如下配置：\n{snippet}"
+    )
 
 
 def _normalize_calendar_result(result: Any) -> list:

@@ -1,0 +1,34 @@
+llm:
+  api_key: ''
+  base_url: ''
+  enabled: true
+  max_tokens: 4096
+  model_name: deepseek-chat
+  provider_name: deepseek
+  temperature: 0.1
+  verify_ssl: true
+datasource:
+  database: starlight
+  db_type: clickhouse
+  extra_params: {}
+  host: 172.16.0.68
+  id: primary
+  name: Primary Data Source
+  password: a452359549
+  port: 8123
+  secure: false
+  username: default
+discovery:
+  allow_databases: []
+  allow_tables: []
+  trading_calendar_table: ''
+sync:
+  amazingdata:
+    username: '225300062129'
+    password: '225300062129@2026'
+    host: 101.230.159.234
+    port: 8600
+    local_path: /home/mubin/local_amazing_data
+  baostock:
+    user_id: anonymous
+    password: 123456

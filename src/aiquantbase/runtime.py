@@ -527,6 +527,125 @@ class GraphRuntime:
         }
         return self._execute_query_request(request, page_size=None)
 
+    def query_dividend_events(
+        self,
+        *,
+        symbols: list[str],
+        start: str,
+        end: str,
+        finalized_only: bool = True,
+    ) -> dict[str, Any]:
+        normalized_symbols = sorted({str(symbol).strip() for symbol in list(symbols or []) if str(symbol).strip()})
+        request = {
+            'symbols': normalized_symbols,
+            'start': start,
+            'end': end,
+            'finalized_only': bool(finalized_only),
+            'kind': 'dividend_events',
+        }
+        if not normalized_symbols:
+            return {
+                'ok': False,
+                'df': pd.DataFrame(),
+                'issues': [
+                    self._issue(
+                        code='missing_symbols',
+                        message='symbols is required for dividend event query',
+                        path='symbols',
+                    )
+                ],
+                'meta': {
+                    'kind': 'dividend_events',
+                    'row_count': 0,
+                    'symbol_count': 0,
+                    'empty': True,
+                    'empty_reason': 'validation_failed',
+                },
+                'debug': {'request': request, 'sql': ''},
+            }
+
+        node = self.registry.nodes.get('dividend_real')
+        table_name = node.table if node is not None else 'starlight.ad_dividend'
+        symbol_sql = ', '.join(self._quote_sql_string(symbol) for symbol in normalized_symbols)
+        start_sql = self._quote_sql_string(str(start).strip())
+        end_sql = self._quote_sql_string(str(end).strip())
+        finalized_filter = " AND toString(div_progress) = '3'" if finalized_only else ""
+        sql = (
+            "SELECT "
+            "market_code AS code, "
+            "ann_date AS dividend_ann_date, "
+            "report_period AS dividend_report_period, "
+            "div_progress AS dividend_progress, "
+            "dvd_per_share_pre_tax_cash AS dividend_cash_pre_tax, "
+            "dvd_per_share_after_tax_cash AS dividend_cash_after_tax, "
+            "dvd_per_share_stk AS dividend_stock_per_share, "
+            "div_bonusrate AS dividend_bonus_rate, "
+            "div_conversedrate AS dividend_conversed_rate, "
+            "date_eqy_record AS equity_record_date, "
+            "date_ex AS ex_dividend_date, "
+            "date_dvd_payout AS dividend_payout_date "
+            f"FROM {table_name} "
+            f"WHERE market_code IN ({symbol_sql}) "
+            "AND date_ex IS NOT NULL "
+            f"AND date_ex BETWEEN toDate({start_sql}) AND toDate({end_sql})"
+            f"{finalized_filter} "
+            "ORDER BY market_code, date_ex, ann_date"
+        )
+        result = self.execute_sql(sql)
+        if result.get('code') != SUCCESS_CODE:
+            return {
+                'ok': False,
+                'df': pd.DataFrame(),
+                'issues': [
+                    self._issue(
+                        code='query_failed',
+                        message=str(result.get('message') or 'dividend query failed'),
+                        path='query',
+                    )
+                ],
+                'meta': {
+                    'kind': 'dividend_events',
+                    'row_count': 0,
+                    'symbol_count': len(normalized_symbols),
+                    'empty': True,
+                    'empty_reason': 'query_failed',
+                },
+                'debug': {'request': request, 'sql': sql},
+            }
+        df = result.get('df')
+        if not isinstance(df, pd.DataFrame):
+            df = pd.DataFrame()
+        if not df.empty:
+            normalized = df.copy()
+            for date_field in ['dividend_ann_date', 'equity_record_date', 'ex_dividend_date', 'dividend_payout_date']:
+                if date_field in normalized.columns:
+                    series = pd.to_datetime(normalized[date_field], errors='coerce')
+                    normalized[date_field] = series.dt.date.astype('string')
+            df = normalized
+        issues: list[dict[str, Any]] = []
+        empty = df.empty
+        if empty:
+            issues.append(
+                self._issue(
+                    code='empty_result',
+                    message='dividend query succeeded but returned no rows',
+                    path='query',
+                )
+            )
+        return {
+            'ok': not empty,
+            'df': df,
+            'issues': issues,
+            'meta': {
+                'kind': 'dividend_events',
+                'row_count': int(len(df.index)),
+                'symbol_count': len(normalized_symbols),
+                'empty': empty,
+                'empty_reason': 'no_rows' if empty else None,
+            },
+            'debug': {'request': request, 'sql': sql},
+        }
+
     def query_membership(
         self,
         security_code: str,

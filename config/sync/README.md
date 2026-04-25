@@ -15,4 +15,5 @@
 
 - 同步程序不再读取 `.env`
 - ClickHouse 与数据源账号统一从 [runtime.local.yaml](/Users/zhao/Desktop/git/AIQuantBase/config/runtime.local.yaml) 读取
+- AmazingData 同步任务额外依赖 `sync.amazingdata.username/password/host/port/local_path`
 - `plans/` 只描述“跑哪些任务、时间范围、限额、是否继续执行”等任务计划

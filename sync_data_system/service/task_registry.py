@@ -234,7 +234,7 @@ class ApiSyncExecutionContext:
 
 def build_amazingdata_context(runtime_path: Optional[str] = None) -> ApiSyncExecutionContext:
     sdk_config = AmazingDataSDKConfig.from_env(runtime_path=runtime_path)
-    clickhouse_config = ClickHouseConfig.from_env()
+    clickhouse_config = ClickHouseConfig.from_env(runtime_path=runtime_path)
     provider = AmazingDataSDKProvider(sdk_config)
     base_data = BaseData.from_clickhouse_config(clickhouse_config, sync_provider=provider)
     info_data = InfoData.from_clickhouse_config(clickhouse_config, sync_provider=provider)

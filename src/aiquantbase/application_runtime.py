@@ -120,6 +120,21 @@ class ApplicationRuntime:
             freq=freq,
         )
 
+    def query_dividend_events(
+        self,
+        *,
+        symbols: list[str],
+        start: str,
+        end: str,
+        finalized_only: bool = True,
+    ) -> dict[str, Any]:
+        return self.graph_runtime.query_dividend_events(
+            symbols=symbols,
+            start=start,
+            end=end,
+            finalized_only=finalized_only,
+        )
+
     def query_minute_window_by_trading_day(
         self,
         *,

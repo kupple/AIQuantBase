@@ -470,7 +470,7 @@ def main() -> int:
     )
 
     sdk_config = AmazingDataSDKConfig.from_env(runtime_path=plan.runtime_path)
-    clickhouse_config = ClickHouseConfig.from_env()
+    clickhouse_config = ClickHouseConfig.from_env(runtime_path=plan.runtime_path)
     provider = AmazingDataSDKProvider(sdk_config)
 
     base_data = None
