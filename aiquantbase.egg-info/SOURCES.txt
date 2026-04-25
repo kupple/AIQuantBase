@@ -91,4 +91,5 @@ tests/test_planner.py
 tests/test_runtime_sdk.py
 tests/test_server_metadata.py
 tests/test_server_pages.py
+tests/test_sync_integration.py
 tests/test_wide_table.py

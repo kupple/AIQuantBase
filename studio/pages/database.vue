@@ -178,8 +178,14 @@ const allSelectableRowsChecked = computed(() =>
 )
 
 const wideTableFieldOptions = computed(() => {
+  const sourceNodeName = String(
+    wideTableForm.value.source_node
+    || selectedWideTable.value?.source_node
+    || nodeForm.value.name
+    || ''
+  ).trim()
   const seen = new Set()
-  return currentNodeFieldBindings.value
+  return getNodeFieldBindings(sourceNodeName)
     .map((item) => String(item.standard_field || '').trim())
     .filter(Boolean)
     .filter((value) => {
@@ -726,6 +732,11 @@ async function openWideTableEditDialog(row) {
   }
   await loadWideTableTargetTables(wideTableForm.value.target_database)
   wideTableDialogVisible.value = true
+}
+
+async function handleAddWideTableField() {
+  if (!selectedWideTable.value) return
+  await openWideTableEditDialog(selectedWideTable.value)
 }
 
 function selectWideTable(row) {
@@ -1463,6 +1474,13 @@ function normalizeRouteQueryValue(value) {
                   <span class="panel-title">绑定字段表</span>
                 </div>
                 <div class="panel-actions panel-actions-compact binding-toolbar-meta">
+                  <el-button
+                    type="primary"
+                    :disabled="!selectedWideTable"
+                    @click="handleAddWideTableField"
+                  >
+                    新增字段
+                  </el-button>
                   <el-tag type="success" effect="plain" round>
                     绑定数量 {{ wideTableBindingRows.length }}
                   </el-tag>
