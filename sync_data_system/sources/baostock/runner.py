@@ -105,7 +105,7 @@ def run_config_file(path: str, *, log_level_override: str | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    clickhouse_config = ClickHouseConfig.from_env()
+    clickhouse_config = ClickHouseConfig.from_env(runtime_path=plan.runtime_path)
     provider = BaoStockProvider(BaoStockConfig.from_env(runtime_path=plan.runtime_path))
     connection = create_clickhouse_client(clickhouse_config)
     repository = BaoStockRepository(connection, database=plan.database)
@@ -140,7 +140,7 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    clickhouse_config = ClickHouseConfig.from_env()
+    clickhouse_config = ClickHouseConfig.from_env(runtime_path=args.runtime_path)
     provider = BaoStockProvider(BaoStockConfig.from_env(runtime_path=args.runtime_path))
     connection = create_clickhouse_client(clickhouse_config)
     repository = BaoStockRepository(connection, database=args.database)
@@ -214,17 +214,7 @@ def run_single_task(args: SyncArgs, provider: BaoStockProvider, repository: BaoS
 
     started_at = datetime.now(timezone.utc).replace(tzinfo=None)
     try:
-        frame = provider.fetch_dataframe(
-            args.task,
-            start_date=args.begin_date,
-            end_date=args.end_date,
-            day=args.day,
-            year=args.year,
-            quarter=args.quarter,
-            year_type=resolve_year_type(args),
-            adjustflag=args.adjustflag,
-            frequency=args.frequency,
-        )
+        frame = provider.fetch_dataframe(args.task, **build_fetch_kwargs(args, request_meta))
         inserted = repository.save_task_frame(args.task, frame, request_meta=request_meta)
         write_sync_result(
             repository=repository,
@@ -271,18 +261,7 @@ def run_code_task(args: SyncArgs, provider: BaoStockProvider, repository: BaoSto
 
         started_at = datetime.now(timezone.utc).replace(tzinfo=None)
         try:
-            frame = provider.fetch_dataframe(
-                args.task,
-                code=code,
-                start_date=args.begin_date,
-                end_date=args.end_date,
-                day=args.day,
-                year=args.year,
-                quarter=args.quarter,
-                year_type=resolve_year_type(args),
-                adjustflag=args.adjustflag,
-                frequency=args.frequency,
-            )
+            frame = provider.fetch_dataframe(args.task, **build_fetch_kwargs(args, request_meta))
             inserted = repository.save_task_frame(args.task, frame, request_meta=request_meta)
             total += inserted
             write_sync_result(
@@ -325,6 +304,20 @@ def build_request_meta(args: SyncArgs, *, code: str | None = None) -> dict[str, 
         "year": args.year,
         "quarter": args.quarter,
         "year_type": resolve_year_type(args),
+    }
+
+
+def build_fetch_kwargs(args: SyncArgs, request_meta: dict[str, str | int | None]) -> dict[str, Any]:
+    return {
+        "code": str(request_meta.get("code") or "").strip() or None,
+        "start_date": str(request_meta.get("start_date") or "").strip() or None,
+        "end_date": str(request_meta.get("end_date") or "").strip() or None,
+        "day": str(request_meta.get("day") or "").strip() or None,
+        "year": request_meta.get("year"),
+        "quarter": request_meta.get("quarter"),
+        "year_type": str(request_meta.get("year_type") or "").strip() or None,
+        "adjustflag": args.adjustflag,
+        "frequency": args.frequency,
     }
 
 

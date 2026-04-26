@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSyncService } from '~/composables/useSyncService'
 
 const {
@@ -11,6 +11,7 @@ const {
 
 const configSearch = ref('')
 const logLevel = ref('INFO')
+const deletingConfig = ref('')
 const configDialogVisible = ref(false)
 const configEditorMode = ref('create')
 const configForm = ref({
@@ -97,6 +98,35 @@ async function handleSaveConfig() {
   }
 }
 
+async function handleDeleteConfig(name) {
+  try {
+    await ElMessageBox.confirm(`确认删除配置文件“${name}”？`, '删除配置', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      confirmButtonClass: 'el-button--danger',
+    })
+  } catch {
+    return
+  }
+
+  deletingConfig.value = name
+  try {
+    await api(`/api/sync-configs/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    })
+    if (configForm.value.name === name) {
+      configDialogVisible.value = false
+    }
+    ElMessage.success('配置已删除')
+    await loadMeta(true)
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '删除配置失败')
+  } finally {
+    deletingConfig.value = ''
+  }
+}
+
 onMounted(async () => {
   await loadMeta()
 })
@@ -130,11 +160,19 @@ onMounted(async () => {
 
       <el-table :data="filteredConfigs.map((item) => ({ name: item }))" row-key="name" empty-text="暂无配置文件">
         <el-table-column prop="name" label="配置文件" min-width="320" />
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <div class="binding-action-group">
               <el-button link @click="openConfigDetail(row.name)">查看</el-button>
               <el-button link type="primary" @click="handleRunConfig(row.name)">执行</el-button>
+              <el-button
+                link
+                type="danger"
+                :loading="deletingConfig === row.name"
+                @click="handleDeleteConfig(row.name)"
+              >
+                删除
+              </el-button>
             </div>
           </template>
         </el-table-column>

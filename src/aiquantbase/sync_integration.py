@@ -79,6 +79,13 @@ class SyncIntegration:
         file_path.write_text(content, encoding="utf-8")
         return {"ok": True, "name": file_path.name}
 
+    def delete_config(self, name: str) -> dict[str, Any]:
+        file_path = self._resolve_config_path(name)
+        if not file_path.is_file():
+            raise FileNotFoundError(f"sync config not found: {name}")
+        file_path.unlink()
+        return {"ok": True, "name": file_path.name}
+
     def list_exported_wide_tables(self, wide_table_path: str | Path | None = None) -> dict[str, Any]:
         self.sync_spec_dir.mkdir(parents=True, exist_ok=True)
         items = []
@@ -555,6 +562,13 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
     def sync_config_detail(name: str):
         try:
             return jsonify(integration.read_config(name))
+        except Exception as exc:
+            return _json_error(exc)
+
+    @app.delete("/api/sync-configs/<path:name>")
+    def sync_config_delete(name: str):
+        try:
+            return jsonify(integration.delete_config(name))
         except Exception as exc:
             return _json_error(exc)
 

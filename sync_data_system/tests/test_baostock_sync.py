@@ -13,7 +13,7 @@ except Exception:  # pragma: no cover
 
 from sync_data_system.sources.baostock.provider import normalize_baostock_code, normalize_baostock_code_list, to_baostock_code
 from sync_data_system.sources.baostock.repository import BaoStockRepository
-from sync_data_system.sources.baostock.runner import SyncArgs, resolve_code_list, resolve_effective_request_meta, run_sync_args
+from sync_data_system.sources.baostock.runner import SyncArgs, resolve_code_list, resolve_effective_request_meta, run_code_task, run_sync_args
 from sync_data_system.sources.baostock.specs import BAOSTOCK_TASK_SPECS, camel_to_snake, table_columns_for_spec
 from sync_data_system.sync_core.incremental import advance_cursor_value, normalize_request_value
 
@@ -61,6 +61,39 @@ class _FakeBaoStockProvider:
     def resolve_latest_trading_day(self, day: str | None = None, *, lookback_days: int = 30) -> str | None:
         self.resolve_latest_trading_day_calls.append(day)
         return self.latest_trading_day
+
+
+class _FakeRunRepository:
+    def __init__(self, latest_cursor: str | None = None) -> None:
+        self.latest_cursor = latest_cursor
+        self.saved_request_meta: list[dict] = []
+        self.fetch_logs: list[object] = []
+
+    def load_latest_cursor(self, task: str, *, code: str | None = None):
+        return self.latest_cursor
+
+    def has_task_data_for_request(self, task: str, request_meta):
+        return False
+
+    def has_successful_sync_today(self, task_name: str, scope_key: str, run_date) -> bool:
+        return False
+
+    def save_task_frame(self, task: str, frame, *, request_meta):
+        self.saved_request_meta.append(dict(request_meta))
+        return int(len(frame.index))
+
+    def insert_sync_log(self, row) -> None:
+        self.fetch_logs.append(row)
+
+
+class _FakeRunProvider:
+    def __init__(self, frame) -> None:
+        self.frame = frame
+        self.fetch_calls: list[dict] = []
+
+    def fetch_dataframe(self, task: str, **kwargs):
+        self.fetch_calls.append({"task": task, **kwargs})
+        return self.frame
 
 
 class BaoStockCodeNormalizeTest(unittest.TestCase):
@@ -263,6 +296,40 @@ class BaoStockRepositoryTest(unittest.TestCase):
         self.assertEqual(row["source_code"], "sh.600000")
         self.assertEqual(row["query_date"], "20240110")
         self.assertIsInstance(row["ingested_at"], datetime)
+
+
+@unittest.skipIf(pd is None, "pandas is required")
+class BaoStockRunnerExecutionTest(unittest.TestCase):
+    def test_run_code_task_uses_effective_incremental_window_for_fetch(self) -> None:
+        args = SyncArgs(
+            task="daily_kline",
+            codes_raw="",
+            begin_date="20240101",
+            end_date="20240131",
+            day="",
+            year=None,
+            quarter=None,
+            year_type="",
+            adjustflag="3",
+            frequency="d",
+            limit=0,
+            force=False,
+            continue_on_error=False,
+            runtime_path=None,
+            database="baostock",
+            log_level="INFO",
+        )
+        provider = _FakeRunProvider(pd.DataFrame([{"date": "2024-01-11", "code": "sh.600000"}]))
+        repository = _FakeRunRepository(latest_cursor="2024-01-10")
+
+        inserted = run_code_task(args, provider, repository, ["600000.SH"])
+
+        self.assertEqual(inserted, 1)
+        self.assertEqual(len(provider.fetch_calls), 1)
+        self.assertEqual(provider.fetch_calls[0]["code"], "600000.SH")
+        self.assertEqual(provider.fetch_calls[0]["start_date"], "20240111")
+        self.assertEqual(provider.fetch_calls[0]["end_date"], "20240131")
+        self.assertEqual(repository.saved_request_meta[0]["start_date"], "20240111")
 
 
 if __name__ == "__main__":
