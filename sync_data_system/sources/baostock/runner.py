@@ -157,9 +157,17 @@ def main() -> int:
 
 
 def run_sync_args(args: SyncArgs, provider: BaoStockProvider, repository: BaoStockRepository) -> int:
+    spec = BAOSTOCK_TASK_SPECS[args.task]
     codes = resolve_code_list(provider, args)
     if codes:
         return run_code_task(args, provider, repository, codes)
+    if spec.uses_code:
+        if args.codes_raw.strip():
+            raise ValueError(f"BaoStock 任务 {args.task} 未解析出有效股票代码，请检查 codes 参数。")
+        raise ValueError(
+            f"BaoStock 任务 {args.task} 未获取到可用股票代码。"
+            "如果今天是非交易日，请改在交易日执行，或显式传 --codes。"
+        )
     return run_single_task(args, provider, repository)
 
 
@@ -173,6 +181,16 @@ def resolve_code_list(provider: BaoStockProvider, args: SyncArgs) -> list[str]:
     elif spec.auto_code_universe:
         snapshot_day = args.day or args.end_date or datetime.now().strftime("%Y%m%d")
         codes = provider.fetch_all_stock_codes(snapshot_day)
+        if not codes:
+            fallback_day = provider.resolve_latest_trading_day(snapshot_day)
+            if fallback_day and fallback_day != snapshot_day:
+                logger.warning(
+                    "BaoStock code universe empty task=%s snapshot_day=%s; fallback to latest trading day=%s",
+                    args.task,
+                    snapshot_day,
+                    fallback_day,
+                )
+                codes = provider.fetch_all_stock_codes(fallback_day)
     else:
         codes = []
 

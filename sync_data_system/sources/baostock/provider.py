@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 import logging
 import re
 from dataclasses import dataclass
@@ -209,6 +210,26 @@ class BaoStockProvider:
         codes = [normalize_baostock_code(value) for value in frame["code"].tolist()]
         return [code for code in codes if code]
 
+    def resolve_latest_trading_day(self, day: str | None = None, *, lookback_days: int = 30) -> str | None:
+        anchor_day = _parse_day_value(day)
+        start_day = anchor_day - timedelta(days=max(1, int(lookback_days)))
+        frame = self.fetch_dataframe(
+            "trade_dates",
+            start_date=start_day.strftime("%Y%m%d"),
+            end_date=anchor_day.strftime("%Y%m%d"),
+        )
+        if frame.empty or "calendar_date" not in frame.columns or "is_trading_day" not in frame.columns:
+            return None
+
+        trading_days: list[str] = []
+        for _, row in frame.iterrows():
+            if str(row.get("is_trading_day", "")).strip() != "1":
+                continue
+            normalized = _normalize_trade_day_output(row.get("calendar_date"))
+            if normalized:
+                trading_days.append(normalized)
+        return trading_days[-1] if trading_days else None
+
 
 def normalize_baostock_code(value: Any) -> str:
     text = str(value or "").strip()
@@ -289,6 +310,22 @@ def _to_baostock_year(value: Any) -> str:
     if len(text) < 4:
         raise ValueError(f"BaoStock 年份必须是 YYYY，当前值: {value!r}")
     return text[0:4]
+
+
+def _parse_day_value(value: Any) -> date:
+    text = re.sub(r"[^0-9]", "", str(value or "").strip())
+    if not text:
+        return date.today()
+    if len(text) != 8:
+        raise ValueError(f"BaoStock 日期必须是 YYYYMMDD 或 YYYY-MM-DD，当前值: {value!r}")
+    return date(int(text[0:4]), int(text[4:6]), int(text[6:8]))
+
+
+def _normalize_trade_day_output(value: Any) -> str:
+    text = re.sub(r"[^0-9]", "", str(value or "").strip())
+    if len(text) != 8:
+        return ""
+    return text
 
 
 __all__ = [

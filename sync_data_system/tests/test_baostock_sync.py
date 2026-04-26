@@ -13,7 +13,7 @@ except Exception:  # pragma: no cover
 
 from sync_data_system.sources.baostock.provider import normalize_baostock_code, normalize_baostock_code_list, to_baostock_code
 from sync_data_system.sources.baostock.repository import BaoStockRepository
-from sync_data_system.sources.baostock.runner import SyncArgs, resolve_effective_request_meta
+from sync_data_system.sources.baostock.runner import SyncArgs, resolve_code_list, resolve_effective_request_meta, run_sync_args
 from sync_data_system.sources.baostock.specs import BAOSTOCK_TASK_SPECS, camel_to_snake, table_columns_for_spec
 from sync_data_system.sync_core.incremental import advance_cursor_value, normalize_request_value
 
@@ -45,6 +45,22 @@ class _FakeIncrementalRepository:
 
     def has_task_data_for_request(self, task: str, request_meta):
         return self.has_request_data
+
+
+class _FakeBaoStockProvider:
+    def __init__(self, codes_by_day: dict[str, list[str]] | None = None, latest_trading_day: str | None = None) -> None:
+        self.codes_by_day = codes_by_day or {}
+        self.latest_trading_day = latest_trading_day
+        self.fetch_all_stock_calls: list[str | None] = []
+        self.resolve_latest_trading_day_calls: list[str | None] = []
+
+    def fetch_all_stock_codes(self, day: str | None = None) -> list[str]:
+        self.fetch_all_stock_calls.append(day)
+        return list(self.codes_by_day.get(str(day), []))
+
+    def resolve_latest_trading_day(self, day: str | None = None, *, lookback_days: int = 30) -> str | None:
+        self.resolve_latest_trading_day_calls.append(day)
+        return self.latest_trading_day
 
 
 class BaoStockCodeNormalizeTest(unittest.TestCase):
@@ -163,6 +179,65 @@ class BaoStockIncrementalHelperTest(unittest.TestCase):
         )
 
         self.assertIsNone(effective)
+
+    def test_resolve_code_list_falls_back_to_latest_trading_day(self) -> None:
+        args = SyncArgs(
+            task="daily_kline",
+            codes_raw="",
+            begin_date="20100101",
+            end_date="",
+            day="",
+            year=None,
+            quarter=None,
+            year_type="",
+            adjustflag="3",
+            frequency="d",
+            limit=0,
+            force=False,
+            continue_on_error=False,
+            runtime_path=None,
+            database="baostock",
+            log_level="INFO",
+        )
+        provider = _FakeBaoStockProvider(
+            codes_by_day={
+                "20260426": [],
+                "20260424": ["600000.SH", "000001.SZ"],
+            },
+            latest_trading_day="20260424",
+        )
+
+        codes = resolve_code_list(provider, args)
+
+        self.assertEqual(codes, ["600000.SH", "000001.SZ"])
+        self.assertEqual(provider.fetch_all_stock_calls, ["20260426", "20260424"])
+        self.assertEqual(provider.resolve_latest_trading_day_calls, ["20260426"])
+
+    def test_run_sync_args_raises_when_code_task_has_no_codes(self) -> None:
+        args = SyncArgs(
+            task="daily_kline",
+            codes_raw="",
+            begin_date="20100101",
+            end_date="",
+            day="",
+            year=None,
+            quarter=None,
+            year_type="",
+            adjustflag="3",
+            frequency="d",
+            limit=0,
+            force=False,
+            continue_on_error=False,
+            runtime_path=None,
+            database="baostock",
+            log_level="INFO",
+        )
+        provider = _FakeBaoStockProvider(codes_by_day={"20260426": []}, latest_trading_day=None)
+
+        with self.assertRaises(ValueError) as context:
+            run_sync_args(args, provider, _FakeIncrementalRepository())
+
+        self.assertIn("未获取到可用股票代码", str(context.exception))
 
 
 @unittest.skipIf(pd is None, "pandas is required")
