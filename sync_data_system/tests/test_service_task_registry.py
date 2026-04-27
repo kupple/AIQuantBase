@@ -44,9 +44,18 @@ class ServiceTaskRegistryTest(unittest.TestCase):
         metadata = {item["name"]: item for item in TASK_REGISTRY.list_task_metadata()}
         self.assertIn("daily_kline", metadata)
         self.assertEqual(metadata["daily_kline"]["source"], "amazingdata")
+        self.assertEqual(metadata["daily_kline"]["database"], "starlight")
         self.assertEqual(metadata["daily_kline"]["target"], "ad_market_kline_daily")
         self.assertIn("request_fields", metadata["daily_kline"])
         self.assertIn("probe_fields", metadata["daily_kline"])
+
+    def test_registry_metadata_contains_baostock_tasks(self) -> None:
+        metadata = {item["name"]: item for item in TASK_REGISTRY.list_task_metadata()}
+        self.assertIn("baostock.daily_kline", metadata)
+        self.assertEqual(metadata["baostock.daily_kline"]["source"], "baostock")
+        self.assertEqual(metadata["baostock.daily_kline"]["database"], "baostock")
+        self.assertEqual(metadata["baostock.daily_kline"]["target"], "bs_daily_kline")
+        self.assertIn("frequency", metadata["baostock.daily_kline"]["request_fields"])
 
     def test_market_kline_defaults_resolver_populates_probe(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

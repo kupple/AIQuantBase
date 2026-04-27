@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime
 
 try:
     import pandas as pd
@@ -123,7 +122,26 @@ class BaoStockSpecTest(unittest.TestCase):
         columns = table_columns_for_spec(BAOSTOCK_TASK_SPECS["stock_basic"])
         self.assertIn("source_code", columns)
         self.assertIn("code", columns)
-        self.assertIn("ingested_at", columns)
+        self.assertNotIn("ingested_at", columns)
+
+    def test_daily_kline_columns_skip_request_window_and_ingested_at(self) -> None:
+        columns = table_columns_for_spec(BAOSTOCK_TASK_SPECS["daily_kline"])
+        self.assertIn("source_code", columns)
+        self.assertIn("date", columns)
+        self.assertIn("code", columns)
+        self.assertNotIn("request_start_date", columns)
+        self.assertNotIn("request_end_date", columns)
+        self.assertNotIn("ingested_at", columns)
+
+    def test_quarterly_finance_columns_skip_request_year_quarter_and_ingested_at(self) -> None:
+        columns = table_columns_for_spec(BAOSTOCK_TASK_SPECS["profit_data"])
+        self.assertIn("source_code", columns)
+        self.assertIn("code", columns)
+        self.assertIn("pub_date", columns)
+        self.assertIn("stat_date", columns)
+        self.assertNotIn("request_year", columns)
+        self.assertNotIn("request_quarter", columns)
+        self.assertNotIn("ingested_at", columns)
 
 
 class BaoStockIncrementalHelperTest(unittest.TestCase):
@@ -218,7 +236,7 @@ class BaoStockIncrementalHelperTest(unittest.TestCase):
             task="daily_kline",
             codes_raw="",
             begin_date="20100101",
-            end_date="",
+            end_date="20260426",
             day="",
             year=None,
             quarter=None,
@@ -295,7 +313,80 @@ class BaoStockRepositoryTest(unittest.TestCase):
         self.assertEqual(row["code"], "600000.SH")
         self.assertEqual(row["source_code"], "sh.600000")
         self.assertEqual(row["query_date"], "20240110")
-        self.assertIsInstance(row["ingested_at"], datetime)
+        self.assertNotIn("ingested_at", row)
+
+    def test_save_daily_kline_skips_request_window_and_ingested_at_columns(self) -> None:
+        client = _FakeClickHouseClient()
+        repository = BaoStockRepository(client, database="baostock")
+        frame = pd.DataFrame([{
+            "date": "2024-01-10",
+            "code": "sz.000001",
+            "open": "10",
+            "high": "11",
+            "low": "9",
+            "close": "10.5",
+            "preclose": "9.8",
+            "volume": "100",
+            "amount": "1000",
+            "adjustflag": "3",
+            "turn": "1",
+            "tradestatus": "1",
+            "pctChg": "1.2",
+            "peTTM": "8",
+            "pbMRQ": "1",
+            "psTTM": "2",
+            "pcfNcfTTM": "3",
+            "isST": "0",
+        }])
+
+        inserted = repository.save_task_frame(
+            "daily_kline",
+            frame,
+            request_meta={"code": "000001.SZ", "start_date": "20240101", "end_date": "20240131"},
+        )
+
+        self.assertEqual(inserted, 1)
+        table, columns, rows = client.insert_calls[0]
+        self.assertEqual(table, "baostock.bs_daily_kline")
+        self.assertNotIn("request_start_date", columns)
+        self.assertNotIn("request_end_date", columns)
+        self.assertNotIn("ingested_at", columns)
+        row = dict(zip(columns, rows[0]))
+        self.assertEqual(row["code"], "000001.SZ")
+        self.assertEqual(row["source_code"], "sz.000001")
+
+    def test_save_quarterly_finance_skips_request_year_quarter_and_ingested_at_columns(self) -> None:
+        client = _FakeClickHouseClient()
+        repository = BaoStockRepository(client, database="baostock")
+        frame = pd.DataFrame([{
+            "code": "sh.600000",
+            "pubDate": "2024-04-30",
+            "statDate": "2024-03-31",
+            "roeAvg": "1",
+            "npMargin": "2",
+            "gpMargin": "3",
+            "netProfit": "4",
+            "epsTTM": "5",
+            "MBRevenue": "6",
+            "totalShare": "7",
+            "liqaShare": "8",
+        }])
+
+        inserted = repository.save_task_frame(
+            "profit_data",
+            frame,
+            request_meta={"code": "600000.SH", "year": 2024, "quarter": 1},
+        )
+
+        self.assertEqual(inserted, 1)
+        table, columns, rows = client.insert_calls[0]
+        self.assertEqual(table, "baostock.bs_profit_data")
+        self.assertNotIn("request_year", columns)
+        self.assertNotIn("request_quarter", columns)
+        self.assertNotIn("ingested_at", columns)
+        row = dict(zip(columns, rows[0]))
+        self.assertEqual(row["code"], "600000.SH")
+        self.assertEqual(row["source_code"], "sh.600000")
 
 
 @unittest.skipIf(pd is None, "pandas is required")

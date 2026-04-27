@@ -464,11 +464,17 @@ class SyncIntegration:
         *,
         name: str,
         codes: list[str] | None = None,
+        day: int | None = None,
         begin_date: int | None = None,
         end_date: int | None = None,
+        year: int | None = None,
+        quarter: int | None = None,
+        year_type: str | None = None,
         limit: int = 0,
         force: bool = False,
         resume: bool = False,
+        adjustflag: str | None = None,
+        frequency: str | None = None,
         log_level: str | None = None,
     ) -> dict[str, Any]:
         task_name = str(name or "").strip()
@@ -480,11 +486,17 @@ class SyncIntegration:
             job = job_manager.create_registered_task_job(
                 task=task_name,
                 codes=list(codes or []),
+                day=day,
                 begin_date=begin_date,
                 end_date=end_date,
+                year=year,
+                quarter=quarter,
+                year_type=year_type,
                 limit=limit,
                 force=force,
                 resume=resume,
+                adjustflag=adjustflag,
+                frequency=frequency,
                 log_level=log_level,
             )
             task_metadata = registered_tasks[task_name]
@@ -779,11 +791,17 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
                 integration.run_task(
                     name=str(payload.get("name") or payload.get("task") or ""),
                     codes=list(payload.get("codes") or []),
+                    day=payload.get("day"),
                     begin_date=payload.get("begin_date"),
                     end_date=payload.get("end_date"),
+                    year=payload.get("year"),
+                    quarter=payload.get("quarter"),
+                    year_type=(str(payload.get("year_type")) if payload.get("year_type") is not None else None),
                     limit=int(payload.get("limit") or 0),
                     force=bool(payload.get("force")),
                     resume=bool(payload.get("resume")),
+                    adjustflag=(str(payload.get("adjustflag")) if payload.get("adjustflag") is not None else None),
+                    frequency=(str(payload.get("frequency")) if payload.get("frequency") is not None else None),
                     log_level=(str(payload.get("log_level")) if payload.get("log_level") is not None else None),
                 )
             )

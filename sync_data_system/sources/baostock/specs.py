@@ -32,6 +32,7 @@ class BaoStockTaskSpec:
     auto_code_universe: bool = False
     cursor_fields: tuple[str, ...] = ()
     cursor_granularity: str = ""
+    persist_request_columns: bool = True
 
     @property
     def field_columns(self) -> tuple[str, ...]:
@@ -113,6 +114,7 @@ BAOSTOCK_TASK_SPECS: dict[str, BaoStockTaskSpec] = {
         auto_code_universe=True,
         cursor_fields=("date",),
         cursor_granularity="day",
+        persist_request_columns=False,
     ),
     "hs300_stocks": BaoStockTaskSpec(
         task="hs300_stocks",
@@ -408,15 +410,13 @@ BAOSTOCK_TASK_CHOICES = tuple(BAOSTOCK_TASK_SPECS.keys())
 
 
 def request_columns_for_spec(spec: BaoStockTaskSpec) -> tuple[str, ...]:
+    if not spec.persist_request_columns:
+        return ()
     columns: list[str] = []
     if spec.uses_day:
         columns.append("query_date")
     if spec.uses_begin_end:
         columns.extend(("request_start_date", "request_end_date"))
-    if spec.uses_year:
-        columns.append("request_year")
-    if spec.uses_quarter:
-        columns.append("request_quarter")
     if spec.uses_year_type:
         columns.append("request_year_type")
     return tuple(columns)
@@ -427,12 +427,12 @@ def table_columns_for_spec(spec: BaoStockTaskSpec) -> tuple[str, ...]:
     if spec.has_code_field:
         columns.append("source_code")
     columns.extend(spec.field_columns)
-    columns.append("ingested_at")
     return tuple(columns)
 
 
 def order_by_columns_for_spec(spec: BaoStockTaskSpec) -> tuple[str, ...]:
-    columns = set(table_columns_for_spec(spec))
+    table_columns = table_columns_for_spec(spec)
+    columns = set(table_columns)
     ordered: list[str] = []
     for candidate in (
         "code",
@@ -446,14 +446,11 @@ def order_by_columns_for_spec(spec: BaoStockTaskSpec) -> tuple[str, ...]:
         "profit_forcast_exp_pub_date",
         "query_date",
         "request_start_date",
-        "request_year",
     ):
         if candidate in columns and candidate not in ordered:
             ordered.append(candidate)
-    if not ordered:
-        ordered.append("ingested_at")
-    if "ingested_at" not in ordered:
-        ordered.append("ingested_at")
+    if not ordered and table_columns:
+        ordered.append(table_columns[0])
     return tuple(ordered)
 
 

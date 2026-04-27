@@ -73,11 +73,17 @@ class RunTaskRequest(BaseModel):
     name: Optional[str] = None
     task: Optional[str] = None
     codes: list[str] = Field(default_factory=list)
+    day: Optional[int] = None
     begin_date: Optional[int] = None
     end_date: Optional[int] = None
+    year: Optional[int] = None
+    quarter: Optional[int] = None
+    year_type: Optional[str] = None
     limit: int = 0
     force: bool = False
     resume: bool = False
+    adjustflag: Optional[str] = None
+    frequency: Optional[str] = None
     log_level: Optional[str] = None
 
     def resolved_name(self) -> str:
@@ -535,11 +541,17 @@ def run_task(request: RunTaskRequest):
             job = JOB_MANAGER.create_registered_task_job(
                 task=task_name,
                 codes=request.codes,
+                day=request.day,
                 begin_date=request.begin_date,
                 end_date=request.end_date,
+                year=request.year,
+                quarter=request.quarter,
+                year_type=request.year_type,
                 limit=request.limit,
                 force=request.force,
                 resume=request.resume,
+                adjustflag=request.adjustflag,
+                frequency=request.frequency,
                 log_level=request.log_level,
             )
             task_metadata = registered_tasks[task_name]

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Any, Mapping, Sequence
 
 from sync_data_system.sync_core.clickhouse import ClickHouseConnection
@@ -80,7 +80,6 @@ class BaoStockRepository:
         spec = BAOSTOCK_TASK_SPECS[task]
         columns = table_columns_for_spec(spec)
         rows: list[tuple[Any, ...]] = []
-        ingested_at = datetime.now(timezone.utc).replace(tzinfo=None)
         request_values = self._build_request_values(spec, request_meta)
 
         for _, row in frame.iterrows():
@@ -93,7 +92,6 @@ class BaoStockRepository:
                 if field == "code":
                     value = normalize_baostock_code(value)
                 record[column] = value
-            record["ingested_at"] = ingested_at
             rows.append(tuple(record.get(column) for column in columns))
 
         if not rows:
@@ -237,8 +235,6 @@ class BaoStockRepository:
             "query_date": "day",
             "request_start_date": "start_date",
             "request_end_date": "end_date",
-            "request_year": "year",
-            "request_quarter": "quarter",
             "request_year_type": "year_type",
         }
         return mapping[column]
@@ -266,10 +262,6 @@ class BaoStockRepository:
         if spec.uses_begin_end:
             values["request_start_date"] = self._stringify(request_meta.get("start_date", ""))
             values["request_end_date"] = self._stringify(request_meta.get("end_date", ""))
-        if spec.uses_year:
-            values["request_year"] = self._stringify(request_meta.get("year", ""))
-        if spec.uses_quarter:
-            values["request_quarter"] = self._stringify(request_meta.get("quarter", ""))
         if spec.uses_year_type:
             values["request_year_type"] = self._stringify(request_meta.get("year_type", ""))
         return values
@@ -320,10 +312,7 @@ class BaoStockRepository:
         table = self._table_ref(spec.table_name)
         column_defs: list[str] = []
         for column in table_columns_for_spec(spec):
-            if column == "ingested_at":
-                column_defs.append("ingested_at DateTime64(3)")
-            else:
-                column_defs.append(f"{column} String")
+            column_defs.append(f"{column} String")
         order_by = ", ".join(order_by_columns_for_spec(spec))
         columns_sql = ",\n            ".join(column_defs)
         return f"""
@@ -331,8 +320,7 @@ class BaoStockRepository:
         (
             {columns_sql}
         )
-        ENGINE = ReplacingMergeTree(ingested_at)
-        PARTITION BY toYYYYMM(ingested_at)
+        ENGINE = ReplacingMergeTree()
         ORDER BY ({order_by})
         """
 

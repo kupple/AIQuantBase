@@ -5,11 +5,17 @@ function blankTaskPayload() {
   return {
     name: '',
     codesText: '',
+    day: '',
     begin_date: '',
     end_date: '',
+    year: '',
+    quarter: '',
+    year_type: '',
     limit: '',
     force: false,
     resume: false,
+    adjustflag: '3',
+    frequency: 'd',
     log_level: 'INFO',
   }
 }

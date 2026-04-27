@@ -256,11 +256,17 @@ class SyncJobManager:
         *,
         task: str,
         codes: list[str] | None = None,
+        day: Optional[int] = None,
         begin_date: Optional[int] = None,
         end_date: Optional[int] = None,
+        year: Optional[int] = None,
+        quarter: Optional[int] = None,
+        year_type: Optional[str] = None,
         limit: int = 0,
         force: bool = False,
         resume: bool = False,
+        adjustflag: Optional[str] = None,
+        frequency: Optional[str] = None,
         log_level: Optional[str] = None,
         runtime_path: Optional[str] = None,
     ) -> JobRecord:
@@ -284,16 +290,28 @@ class SyncJobManager:
             command.extend(["--runtime-path", runtime_path])
         if code_items:
             command.extend(["--codes", ",".join(code_items)])
+        if day is not None:
+            command.extend(["--day", str(day)])
         if begin_date is not None:
             command.extend(["--begin-date", str(begin_date)])
         if end_date is not None:
             command.extend(["--end-date", str(end_date)])
+        if year is not None:
+            command.extend(["--year", str(year)])
+        if quarter is not None:
+            command.extend(["--quarter", str(quarter)])
+        if year_type:
+            command.extend(["--year-type", str(year_type)])
         if limit:
             command.extend(["--limit", str(limit)])
         if force:
             command.append("--force")
         if resume:
             command.append("--resume")
+        if adjustflag:
+            command.extend(["--adjustflag", str(adjustflag)])
+        if frequency:
+            command.extend(["--frequency", str(frequency)])
         if log_level:
             command.extend(["--log-level", str(log_level)])
         return self._start_job(
@@ -306,11 +324,17 @@ class SyncJobManager:
             request_payload={
                 "name": task,
                 "codes": code_items,
+                "day": day,
                 "begin_date": begin_date,
                 "end_date": end_date,
+                "year": year,
+                "quarter": quarter,
+                "year_type": year_type,
                 "limit": limit,
                 "force": force,
                 "resume": resume,
+                "adjustflag": adjustflag,
+                "frequency": frequency,
                 "log_level": log_level,
                 "runtime_path": runtime_path,
             },
