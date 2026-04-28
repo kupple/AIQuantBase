@@ -19,7 +19,7 @@ from .capabilities import (
     upsert_mode_capability,
     upsert_provider_node_semantic,
 )
-from .config import dump_yaml, load_field_catalog, load_nodes_and_edges
+from .config import dump_yaml, load_field_catalog, load_nodes_and_edges, load_yaml
 from .discovery import SchemaDiscoveryService
 from .executor import ClickHouseExecutor
 from .llm import DeepSeekClient
@@ -428,13 +428,17 @@ def create_app(
             }
         )
         fields_yaml = dump_yaml({"fields": payload.get("fields", [])})
-        runtime_yaml = dump_yaml(
+        runtime_payload = load_yaml(runtime_path) if runtime_path.exists() else {}
+        if not isinstance(runtime_payload, dict):
+            runtime_payload = {}
+        runtime_payload.update(
             {
                 "llm": payload.get("runtime", {}).get("llm") or asdict(current_runtime.llm),
                 "datasource": payload.get("runtime", {}).get("datasource") or asdict(current_runtime.datasource),
                 "discovery": payload.get("runtime", {}).get("discovery") or asdict(current_runtime.discovery),
             }
         )
+        runtime_yaml = dump_yaml(runtime_payload)
 
         graph_path.parent.mkdir(parents=True, exist_ok=True)
         fields_path.parent.mkdir(parents=True, exist_ok=True)

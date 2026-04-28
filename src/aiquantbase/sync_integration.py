@@ -475,6 +475,7 @@ class SyncIntegration:
         adjustflag: str | None = None,
         frequency: str | None = None,
         log_level: str | None = None,
+        runtime_path: str | None = None,
     ) -> dict[str, Any]:
         task_name = str(name or "").strip()
         if not task_name:
@@ -497,6 +498,7 @@ class SyncIntegration:
                 adjustflag=adjustflag,
                 frequency=frequency,
                 log_level=log_level,
+                runtime_path=runtime_path,
             )
             task_metadata = registered_tasks[task_name]
         else:
@@ -800,6 +802,7 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
                     adjustflag=(str(payload.get("adjustflag")) if payload.get("adjustflag") is not None else None),
                     frequency=(str(payload.get("frequency")) if payload.get("frequency") is not None else None),
                     log_level=(str(payload.get("log_level")) if payload.get("log_level") is not None else None),
+                    runtime_path=(str(payload.get("runtime_path")) if payload.get("runtime_path") is not None else None),
                 )
             )
         except Exception as exc:

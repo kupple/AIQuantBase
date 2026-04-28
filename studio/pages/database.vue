@@ -995,6 +995,7 @@ async function handleRunWideTableSync(row) {
         method: 'POST',
         body: JSON.stringify({
           name: syncTask,
+          runtime_path: workspace.value.runtimePath,
           log_level: 'INFO',
         }),
       })
