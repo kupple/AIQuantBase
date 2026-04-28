@@ -36,20 +36,21 @@ nodes:
   table: starlight.stock_daily_real
   time_key: trade_time
   wide_table:
-    id: wide::stock_daily_real::c83034b0
-    source_node: stock_daily_real
+    created_at: '2026-04-21T21:43:50'
     engine: Memory
+    id: wide::stock_daily_real::c83034b0
     key_fields:
     - code
     - trade_time
-    partition_by: []
     order_by:
     - code
     - trade_time
-    version_field: ''
+    partition_by: []
+    source_node: stock_daily_real
     status: enabled
-    created_at: '2026-04-21T21:43:50'
+    sync_task: daily_kline
     updated_at: '2026-04-21T21:43:50'
+    version_field: ''
 - asset_type: null
   base_filters: []
   description: null
@@ -72,6 +73,7 @@ nodes:
   status: enabled
   table: starlight.ad_market_kline_minute
   time_key: trade_time
+  wide_table: null
 - asset_type: null
   base_filters: []
   description: null
@@ -99,6 +101,7 @@ nodes:
   status: enabled
   table: starlight.ad_dividend
   time_key: ann_date
+  wide_table: null
 - asset_type: null
   base_filters: []
   description: null
@@ -113,6 +116,7 @@ nodes:
   status: enabled
   table: starlight.ad_trade_calendar
   time_key: trade_date
+  wide_table: null
 - asset_type: null
   base_filters: []
   description: null
@@ -139,4 +143,5 @@ nodes:
   status: enabled
   table: starlight.ad_long_hu_bang
   time_key: trade_date
+  wide_table: null
 edges: []
