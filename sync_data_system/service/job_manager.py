@@ -422,7 +422,7 @@ class SyncJobManager:
             return
         running = running_jobs[0]
         raise RuntimeError(
-            f"another sync job is running job_id={running.job_id} task={running.task or running.config_path}; cancel it first"
+            f"another sync job is running job_id={running.job_id} task={running.task or running.config_path}; wait for it to finish before starting a new sync job"
         )
 
     def _save_job(self, job: JobRecord) -> None:
