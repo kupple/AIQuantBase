@@ -20,7 +20,8 @@ aiquantbase:
         - is_st
         - is_suspended
         - listed_days
-  extension_capabilities: []
+  extension_slots: []
+  extension_capability_bindings: []
 
 query_needs:
   - id: daily_market

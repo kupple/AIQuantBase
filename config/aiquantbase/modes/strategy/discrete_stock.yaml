@@ -48,36 +48,52 @@ aiquantbase:
         - close
         - amount
         - volume
-  extension_capabilities:
+  extension_slots:
+    - slot: universe_fields
+      name: 候选池字段
+      description: 用于构建或缩小候选股票池
+      access_pattern: panel_time_series
+      freq: 1d
+    - slot: filter_fields
+      name: 过滤字段
+      description: 用于过滤候选股票
+      access_pattern: panel_time_series
+      freq: 1d
+    - slot: ranking_fields
+      name: 排序字段
+      description: 用于排序、打分和选股
+      access_pattern: panel_time_series
+      freq: 1d
+      allowed_dtypes:
+        - float
+        - int
+    - slot: signal_fields
+      name: 信号字段
+      description: 用于买卖信号表达式
+      access_pattern: panel_time_series
+      freq: 1d
+    - slot: weighting_fields
+      name: 权重字段
+      description: 用于目标权重或仓位计算
+      access_pattern: panel_time_series
+      freq: 1d
+      allowed_dtypes:
+        - float
+        - int
+    - slot: report_fields
+      name: 报告字段
+      description: 仅用于输出和诊断展示
+      access_pattern: panel_time_series
+      freq: 1d
+  extension_capability_bindings:
     - capability: valuation_snapshot
       fields:
         - market_cap
         - float_market_cap
         - turnover_rate
-      allowed_slots:
+      slots:
         - ranking_fields
         - filter_fields
-        - report_fields
-    - capability: custom_factor_daily
-      fields: []
-      allowed_slots:
-        - factor_inputs
-        - ranking_fields
-        - filter_fields
-        - risk_fields
-        - report_fields
-    - capability: industry_classification
-      fields: []
-      allowed_slots:
-        - filter_fields
-        - groupby_fields
-        - neutralization_fields
-        - report_fields
-    - capability: dragon_tiger_daily
-      fields: []
-      allowed_slots:
-        - filter_fields
-        - ranking_fields
         - report_fields
 
 query_needs:

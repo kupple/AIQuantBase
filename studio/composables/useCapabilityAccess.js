@@ -92,7 +92,7 @@ export function useCapabilityAccess() {
         required: 'required_capabilities',
         conditional: 'conditional_capabilities',
         optional: 'optional_capabilities',
-        extension: 'extension_capabilities',
+        extension: 'extension_capability_bindings',
       }
       const payload = await api('/api/capabilities/mode-capability', {
         method: 'POST',

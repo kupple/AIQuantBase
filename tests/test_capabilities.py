@@ -93,7 +93,21 @@ def _write_capability_workspace(tmp_path: Path) -> Path:
                     ],
                     "conditional_capabilities": [],
                     "optional_capabilities": [],
-                    "extension_capabilities": [],
+                    "extension_slots": [
+                        {
+                            "slot": "ranking_fields",
+                            "name": "排序字段",
+                            "access_pattern": "panel_time_series",
+                            "freq": "1d",
+                        },
+                        {
+                            "slot": "filter_fields",
+                            "name": "过滤字段",
+                            "access_pattern": "panel_time_series",
+                            "freq": "1d",
+                        },
+                    ],
+                    "extension_capability_bindings": [],
                 },
                 "query_needs": [
                     {
@@ -139,6 +153,10 @@ def test_capabilities_workspace_lists_provider_nodes_and_modes(tmp_path: Path):
     assert payload["mode_profiles"][0]["mode_id"] == "strategy_modes.discrete_stock"
     assert payload["mode_profiles"][0]["mode_name"] == "discrete_stock"
     assert payload["mode_profiles"][0]["conditional_capabilities"] == []
+    assert [item["slot"] for item in payload["mode_profiles"][0]["extension_slots"]] == [
+        "ranking_fields",
+        "filter_fields",
+    ]
     assert payload["capability_registry"][0]["capability"] == "custom_factor_daily"
     assert payload["capability_registry"][0]["name"] == "自定义日频因子"
     assert payload["capabilities"][0]["capability"] == "price.daily"
@@ -195,17 +213,17 @@ def test_capabilities_mode_upsert_and_preview_resolve_custom_field(tmp_path: Pat
         json={
             "capability_root": str(capability_root),
             "mode_id": "strategy_modes.discrete_stock",
-            "section": "extension_capabilities",
+            "section": "extension_capability_bindings",
             "capability": "custom_factor_daily",
             "fields": ["quality_score"],
-            "allowed_slots": ["ranking_fields"],
+            "slots": ["ranking_fields"],
         },
     )
     assert mode_response.status_code == 200
     mode_config = load_yaml(mode_path)
-    extension = mode_config["aiquantbase"]["extension_capabilities"][0]
-    assert extension["capability"] == "custom_factor_daily"
-    assert extension["allowed_slots"] == ["ranking_fields"]
+    binding = mode_config["aiquantbase"]["extension_capability_bindings"][0]
+    assert binding["capability"] == "custom_factor_daily"
+    assert binding["slots"] == ["ranking_fields"]
 
     preview_response = client.post(
         "/api/capabilities/preview",
@@ -236,4 +254,62 @@ def test_capabilities_mode_upsert_and_preview_resolve_custom_field(tmp_path: Pat
     assert extension["id"] == "extension_custom_factor_daily"
     assert extension["capability"] == "custom_factor_daily"
     assert extension["requested_field_map"] == {"quality_score": "quality_score"}
+    assert extension["slots"] == ["ranking_fields"]
+
+
+def test_capabilities_preview_accepts_new_bound_extension_capability(tmp_path: Path):
+    capability_root = _write_capability_workspace(tmp_path)
+    client = _client(tmp_path)
+
+    provider_response = client.post(
+        "/api/capabilities/provider-node",
+        json={
+            "capability_root": str(capability_root),
+            "node_name": "sentiment_daily_real",
+            "capability": "sentiment_news_daily",
+            "capability_name": "新闻情绪日频",
+            "fields": {"sentiment_score": "sentiment_score"},
+        },
+    )
+    assert provider_response.status_code == 200
+
+    mode_response = client.post(
+        "/api/capabilities/mode-capability",
+        json={
+            "capability_root": str(capability_root),
+            "mode_id": "strategy_modes.discrete_stock",
+            "section": "extension_capability_bindings",
+            "capability": "sentiment_news_daily",
+            "fields": ["sentiment_score"],
+            "slots": ["ranking_fields"],
+        },
+    )
+    assert mode_response.status_code == 200
+
+    preview_response = client.post(
+        "/api/capabilities/preview",
+        json={
+            "capability_root": str(capability_root),
+            "mode_id": "strategy_modes.discrete_stock",
+            "symbols": ["603005.SH"],
+            "start": "2017-01-01",
+            "end": "2017-01-31",
+            "fields": ["open", "close", "sentiment_score"],
+            "optional_data": [
+                {
+                    "capability": "sentiment_news_daily",
+                    "fields": ["sentiment_score"],
+                    "slots": ["ranking_fields"],
+                }
+            ],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    payload = preview_response.get_json()
+    extension = payload["resolved_queries"][1]
+    assert extension["id"] == "extension_sentiment_news_daily"
+    assert extension["capability"] == "sentiment_news_daily"
+    assert extension["provider_node"] == "sentiment_daily_real"
+    assert extension["requested_field_map"] == {"sentiment_score": "sentiment_score"}
     assert extension["slots"] == ["ranking_fields"]

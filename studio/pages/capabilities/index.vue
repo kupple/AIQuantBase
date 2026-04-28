@@ -97,24 +97,14 @@ const CAPABILITY_LABELS = {
 }
 
 const SLOT_LABELS = {
+  universe_fields: '候选池字段',
   ranking_fields: '排序字段',
   filter_fields: '过滤字段',
-  report_fields: '输出字段',
-  risk_fields: '风控字段',
+  signal_fields: '信号字段',
+  weighting_fields: '权重字段',
+  report_fields: '报告字段',
   factor_inputs: '因子输入',
-  groupby_fields: '分组字段',
-  neutralization_fields: '中性化字段',
 }
-
-const DEFAULT_EXTENSION_SLOTS = [
-  'factor_inputs',
-  'ranking_fields',
-  'filter_fields',
-  'groupby_fields',
-  'neutralization_fields',
-  'risk_fields',
-  'report_fields',
-]
 
 const selectedMode = computed(() =>
   modeProfiles.value.find((item) => item.mode_id === selectedModeId.value)
@@ -127,7 +117,7 @@ const modeCapabilityRows = computed(() => {
     ...normalizeModeCapabilities(mode.required_capabilities, 'required'),
     ...normalizeModeCapabilities(mode.conditional_capabilities, 'conditional'),
     ...normalizeModeCapabilities(mode.optional_capabilities, 'optional'),
-    ...normalizeModeCapabilities(mode.extension_capabilities, 'extension'),
+    ...normalizeModeCapabilities(mode.extension_capability_bindings, 'extension'),
   ]
 })
 
@@ -172,7 +162,9 @@ const sourceFieldOptions = computed(() =>
   buildSourceFieldOptions(selectedProviderBinding.value, fieldRows.value, selectedProviderNode.value)
 )
 
-const extensionSlotOptions = computed(() => DEFAULT_EXTENSION_SLOTS)
+const extensionSlotOptions = computed(() =>
+  (selectedMode.value?.extension_slots || []).map((item) => item.slot).filter(Boolean)
+)
 
 const capabilityMetaMap = computed(() => {
   const rows = new Map()
@@ -780,10 +772,8 @@ onMounted(ensureWorkspace)
             v-model="extensionForm.slots"
             multiple
             filterable
-            allow-create
-            default-first-option
             class="full-width"
-            placeholder="选择或输入使用位置，例如 ranking_fields"
+            placeholder="选择当前模式允许的使用位置"
           >
             <el-option
               v-for="slot in extensionSlotOptions"

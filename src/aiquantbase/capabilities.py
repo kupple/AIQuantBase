@@ -176,15 +176,17 @@ def upsert_mode_capability(
 
     capability = _required_text(payload, "capability")
     section = str(payload.get("section") or "optional_capabilities").strip()
+    if section == "extension_capabilities":
+        section = "extension_capability_bindings"
     if section not in {
         "required_capabilities",
         "conditional_capabilities",
         "optional_capabilities",
-        "extension_capabilities",
+        "extension_capability_bindings",
     }:
         raise ValueError(
             "section must be required_capabilities, conditional_capabilities, "
-            "optional_capabilities or extension_capabilities"
+            "optional_capabilities or extension_capability_bindings"
         )
     rows = aiqb.setdefault(section, [])
     if not isinstance(rows, list):
@@ -197,10 +199,7 @@ def upsert_mode_capability(
         "fields": fields,
     }
     if slots:
-        if section == "extension_capabilities":
-            next_item["allowed_slots"] = slots
-        else:
-            next_item["slots"] = slots
+        next_item["slots"] = slots
     for key in ("access_pattern", "method", "query_template", "description"):
         value = payload.get(key)
         if value not in (None, ""):
@@ -210,10 +209,7 @@ def upsert_mode_capability(
         if isinstance(item, dict) and str(item.get("capability") or "").strip() == capability:
             merged = deepcopy(item)
             merged.update(next_item)
-            if section == "extension_capabilities":
-                merged.pop("slots", None)
-            else:
-                merged.pop("allowed_slots", None)
+            merged.pop("allowed_slots", None)
             rows[index] = merged
             break
     else:
@@ -226,8 +222,7 @@ def upsert_mode_capability(
         "section": section,
         "capability": capability,
         "fields": fields,
-        "allowed_slots": slots if section == "extension_capabilities" else [],
-        "slots": [] if section == "extension_capabilities" else slots,
+        "slots": slots,
     }
 
 
@@ -369,7 +364,8 @@ def _load_mode_profiles(
                 "required_capabilities": list(aiqb.get("required_capabilities") or []),
                 "conditional_capabilities": list(aiqb.get("conditional_capabilities") or []),
                 "optional_capabilities": list(aiqb.get("optional_capabilities") or []),
-                "extension_capabilities": list(aiqb.get("extension_capabilities") or []),
+                "extension_slots": _extension_slot_rows(aiqb),
+                "extension_capability_bindings": list(aiqb.get("extension_capability_bindings") or []),
                 "query_needs": list(payload.get("query_needs") or []),
             }
         )
@@ -594,6 +590,34 @@ def _capability_rows(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda item: (str(item["capability"]), str(item["provider_node"])))
 
 
+def _extension_slot_rows(aiqb: dict[str, Any]) -> list[dict[str, Any]]:
+    raw = aiqb.get("extension_slots") or []
+    rows: list[dict[str, Any]] = []
+    if isinstance(raw, dict):
+        iterable = []
+        for slot, item in raw.items():
+            if isinstance(item, dict):
+                next_item = deepcopy(item)
+                next_item.setdefault("slot", slot)
+                iterable.append(next_item)
+            else:
+                iterable.append({"slot": slot})
+    elif isinstance(raw, list):
+        iterable = raw
+    else:
+        iterable = []
+    for item in iterable:
+        if not isinstance(item, dict):
+            continue
+        slot = str(item.get("slot") or item.get("id") or item.get("name") or "").strip()
+        if not slot:
+            continue
+        row = deepcopy(item)
+        row["slot"] = slot
+        rows.append(row)
+    return rows
+
+
 def _query_template_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     templates = payload.get("query_templates") or {}
@@ -677,11 +701,12 @@ def _build_extension_queries(
         return []
 
     aiqb = mode_config.get("aiquantbase") or {}
-    allowed_extensions = {
-        str(item.get("capability") or "").strip(): item
-        for item in list(aiqb.get("extension_capabilities") or [])
-        if isinstance(item, dict) and str(item.get("capability") or "").strip()
+    slot_map = {
+        str(item.get("slot") or "").strip(): item
+        for item in _extension_slot_rows(aiqb)
+        if str(item.get("slot") or "").strip()
     }
+    binding_map = _extension_binding_map(aiqb)
     scope = context.get("scope") or {}
     rows: list[dict[str, Any]] = []
     for item in optional_data:
@@ -691,36 +716,61 @@ def _build_extension_queries(
         fields = _string_list(item.get("fields"))
         if not capability or not fields:
             continue
-        allowed = allowed_extensions.get(capability)
-        if not isinstance(allowed, dict):
+        binding_config = binding_map.get(capability)
+        if not isinstance(binding_config, dict):
             diagnostics.append(
                 _diagnostic(
                     "error",
-                    "extension_capability_not_allowed",
-                    f"extension capability is not registered by mode: {capability}",
+                    "extension_capability_not_bound",
+                    f"extension capability is not bound to mode slots: {capability}",
                     capability=capability,
                 )
             )
             continue
-        allowed_slots = set(_string_list(allowed.get("allowed_slots") or allowed.get("slots")))
-        requested_slots = set(_string_list(item.get("slots")))
-        unknown_slots = sorted(requested_slots - allowed_slots) if allowed_slots else []
+        binding_slots = set(_string_list(binding_config.get("slots") or binding_config.get("allowed_slots")))
+        requested_slots = set(_string_list(item.get("slots"))) or set(binding_slots)
+        undefined_slots = sorted(slot for slot in requested_slots if slot not in slot_map)
+        if undefined_slots:
+            diagnostics.append(
+                _diagnostic(
+                    "error",
+                    "extension_slot_not_defined",
+                    f"extension slots are not defined by mode: {', '.join(undefined_slots)}",
+                    capability=capability,
+                    slots=undefined_slots,
+                )
+            )
+            continue
+        unknown_slots = sorted(requested_slots - binding_slots) if binding_slots else []
         if unknown_slots:
             diagnostics.append(
                 _diagnostic(
                     "error",
                     "extension_slot_not_allowed",
-                    f"extension capability {capability} does not allow slots: {', '.join(unknown_slots)}",
+                    f"extension capability binding {capability} does not allow slots: {', '.join(unknown_slots)}",
                     capability=capability,
                     slots=unknown_slots,
+                )
+            )
+            continue
+        binding_fields = set(_string_list(binding_config.get("fields")))
+        unknown_fields = sorted(field for field in fields if binding_fields and field not in binding_fields)
+        if unknown_fields:
+            diagnostics.append(
+                _diagnostic(
+                    "error",
+                    "extension_field_not_allowed",
+                    f"extension capability binding {capability} does not allow fields: {', '.join(unknown_fields)}",
+                    capability=capability,
+                    fields=unknown_fields,
                 )
             )
             continue
         binding = _find_provider_binding(
             manifest=manifest,
             capability=capability,
-            method=str(item.get("method") or "").strip(),
-            access_pattern=str(item.get("access_pattern") or "").strip(),
+            method=str(item.get("method") or binding_config.get("method") or "").strip(),
+            access_pattern=str(item.get("access_pattern") or binding_config.get("access_pattern") or "").strip(),
             asset_type="stock",
         )
         if binding is None:
@@ -743,8 +793,12 @@ def _build_extension_queries(
                 "use": capability,
                 "required": False,
                 "capability": capability,
-                "access_pattern": item.get("access_pattern") or binding.get("access_pattern"),
-                "method": item.get("method") or binding.get("method"),
+                "access_pattern": (
+                    item.get("access_pattern")
+                    or binding_config.get("access_pattern")
+                    or binding.get("access_pattern")
+                ),
+                "method": item.get("method") or binding_config.get("method") or binding.get("method"),
                 "provider_node": binding.get("node"),
                 "params": {
                     "asset_type": "stock",
@@ -758,8 +812,39 @@ def _build_extension_queries(
                 "requested_field_map": requested_field_map,
                 "unmapped_fields": unmapped_fields,
                 "slots": sorted(requested_slots),
+                "slot_definitions": [
+                    deepcopy(slot_map[slot])
+                    for slot in sorted(requested_slots)
+                    if slot in slot_map
+                ],
             }
         )
+    return rows
+
+
+def _extension_binding_map(aiqb: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    raw = aiqb.get("extension_capability_bindings") or []
+    rows: dict[str, dict[str, Any]] = {}
+    if not isinstance(raw, list):
+        return rows
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        capability = str(item.get("capability") or "").strip()
+        if not capability:
+            continue
+        current = rows.setdefault(capability, {"capability": capability, "fields": [], "slots": []})
+        current["fields"] = sorted(set(_string_list(current.get("fields")) + _string_list(item.get("fields"))))
+        current["slots"] = sorted(
+            set(
+                _string_list(current.get("slots"))
+                + _string_list(item.get("slots") or item.get("allowed_slots"))
+            )
+        )
+        for key in ("access_pattern", "method", "query_template", "description"):
+            value = str(item.get(key) or "").strip()
+            if value and not current.get(key):
+                current[key] = value
     return rows
 
 
