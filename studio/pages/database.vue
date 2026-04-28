@@ -25,6 +25,8 @@ const wideTableForm = ref(blankWideTable())
 const wideTableTargetTables = ref([])
 const selectedWideTableId = ref('')
 const wideTableSyncLoading = ref(false)
+const wideTableRunningNames = ref([])
+const wideTableRunningStartedAt = ref({})
 const wideTableStateLoading = ref(false)
 const wideTableSyncStateDatabase = ref('default')
 
@@ -85,15 +87,26 @@ const currentNodeWideTable = computed(() =>
   nodeForm.value.name ? (wideTableByName.value.get(nodeForm.value.name) || null) : null
 )
 
-const wideTableStateByName = computed(() =>
-  new Map((wideTableSyncStates.value || []).map((item) => [item.wide_table_name, item]))
-)
+const wideTableStateByName = computed(() => {
+  const map = new Map()
+  for (const item of wideTableSyncStates.value || []) {
+    const name = String(item?.wide_table_name || '').trim()
+    if (name && !map.has(name)) {
+      map.set(name, item)
+    }
+  }
+  return map
+})
 
 const currentNodeWideTableSyncState = computed(() => {
   const item = currentNodeWideTable.value
   if (!item) return null
   return wideTableStateByName.value.get(item.name) || null
 })
+
+const currentNodeWideTableStatus = computed(() =>
+  buildWideTableStatus(currentNodeWideTable.value, currentNodeWideTableSyncState.value)
+)
 
 const nodeListFilterOptions = computed(() => {
   const options = [
@@ -108,7 +121,7 @@ const nodeListFilterOptions = computed(() => {
 
 const currentNodeSummary = computed(() => {
   const wideTable = currentNodeWideTable.value
-  const syncState = currentNodeWideTableSyncState.value
+  const syncStatus = currentNodeWideTableStatus.value
   return [
     { label: '主表', value: currentTableProfile.value.table ? `${currentTableProfile.value.database}.${currentTableProfile.value.table}` : '-' },
     { label: '粒度', value: nodeForm.value.grain || '-' },
@@ -121,7 +134,9 @@ const currentNodeSummary = computed(() => {
       ? [
           { label: '宽表目标', value: `${wideTable.target_database}.${wideTable.target_table}` },
           { label: '宽表状态', value: wideTable.status === 'enabled' ? '可用' : '不可用' },
-          { label: '上次同步时间', value: formatDateTime(syncState?.last_finished_at || syncState?.updated_at) },
+          { label: '同步状态', value: syncStatus.label },
+          { label: syncStatus.timeLabel, value: syncStatus.timeValue },
+          { label: '同步信息', value: syncStatus.message || '-' },
         ]
       : []),
   ]
@@ -244,6 +259,10 @@ const selectedWideTableSyncState = computed(() => {
   return wideTableStateByName.value.get(item.name) || null
 })
 
+const selectedWideTableStatus = computed(() =>
+  buildWideTableStatus(selectedWideTable.value, selectedWideTableSyncState.value)
+)
+
 const workbenchRows = computed(() => {
   const keyword = nodeSearch.value.trim().toLowerCase()
   const wideDesignByName = wideTableByName.value
@@ -356,14 +375,16 @@ const currentWideTableSummary = computed(() => {
   const item = selectedWideTable.value
   if (!item) return []
   const syncState = selectedWideTableSyncState.value
+  const syncStatus = selectedWideTableStatus.value
   return [
     { label: '来源节点', value: item.source_node || '-' },
     { label: '目标表', value: item.target_database && item.target_table ? `${item.target_database}.${item.target_table}` : '-' },
     { label: '引擎', value: item.engine || '-' },
     { label: '状态', value: item.status === 'enabled' ? '可用' : '不可用' },
-    { label: '最近同步状态', value: syncState?.last_status || '-' },
+    { label: '同步状态', value: syncStatus.label },
     { label: '最近同步动作', value: syncState?.last_action || '-' },
-    { label: '上次同步时间', value: formatDateTime(syncState?.last_finished_at || syncState?.updated_at) },
+    { label: syncStatus.timeLabel, value: syncStatus.timeValue },
+    { label: '同步信息', value: syncStatus.message || '-' },
     { label: '主键字段', value: Array.isArray(item.key_fields) && item.key_fields.length ? item.key_fields.join(', ') : '-' },
     { label: '字段数量', value: String(currentWideTableFieldRows.value.length) },
   ]
@@ -723,6 +744,70 @@ function nowIsoSecond() {
   return new Date().toISOString().replace(/\.\d{3}Z$/, '')
 }
 
+function isWideTableRunning(item) {
+  const name = String(item?.name || '').trim()
+  return Boolean(name && wideTableRunningNames.value.includes(name))
+}
+
+function buildWideTableStatus(item, state) {
+  if (!item) {
+    return {
+      status: 'none',
+      label: '-',
+      tagType: 'info',
+      timeLabel: '同步时间',
+      timeValue: '-',
+      message: '',
+    }
+  }
+
+  const rawStatus = String(state?.last_status || '').trim().toLowerCase()
+  const running = isWideTableRunning(item) || rawStatus === 'running' || rawStatus === 'pending'
+  const localStartedAt = wideTableRunningStartedAt.value[String(item.name || '').trim()] || ''
+
+  if (running) {
+    return {
+      status: 'running',
+      label: '同步中',
+      tagType: 'warning',
+      timeLabel: '开始时间',
+      timeValue: formatDateTime(state?.last_started_at || localStartedAt || state?.updated_at),
+      message: state?.last_message || '宽表同步正在执行',
+    }
+  }
+
+  if (rawStatus === 'success') {
+    return {
+      status: 'success',
+      label: '同步成功',
+      tagType: 'success',
+      timeLabel: '最新同步时间',
+      timeValue: formatDateTime(state?.last_finished_at || state?.updated_at),
+      message: state?.last_message || '',
+    }
+  }
+
+  if (rawStatus === 'failed') {
+    return {
+      status: 'failed',
+      label: '同步失败',
+      tagType: 'danger',
+      timeLabel: '失败时间',
+      timeValue: formatDateTime(state?.last_finished_at || state?.updated_at),
+      message: state?.last_message || '',
+    }
+  }
+
+  return {
+    status: 'not_synced',
+    label: '要同步',
+    tagType: 'info',
+    timeLabel: '同步时间',
+    timeValue: '-',
+    message: '当前宽表还没有同步记录',
+  }
+}
+
 function normalizeWideTablePayload(payload) {
   const keyFields = [...new Set((payload.key_fields || []).map((item) => String(item || '').trim()).filter(Boolean))]
   const fields = [...new Set((payload.fields || []).map((item) => String(item || '').trim()).filter(Boolean))]
@@ -924,6 +1009,14 @@ async function handleRunWideTableSync(row) {
     throw new Error('ClickHouse 数据源未配置，无法执行宽表同步')
   }
   wideTableSyncLoading.value = true
+  const runningName = String(row?.name || '').trim()
+  if (runningName) {
+    wideTableRunningNames.value = [...new Set([...wideTableRunningNames.value, runningName])]
+    wideTableRunningStartedAt.value = {
+      ...wideTableRunningStartedAt.value,
+      [runningName]: new Date().toISOString(),
+    }
+  }
   try {
     const payload = await callJson('/api/sync/wide-tables/run-inline', {
       method: 'POST',
@@ -939,6 +1032,12 @@ async function handleRunWideTableSync(row) {
     const actionMessage = firstResult?.message || (payload.ok ? '宽表同步完成' : '宽表同步失败')
     await notifyAction(actionMessage, async () => {})
   } finally {
+    if (runningName) {
+      wideTableRunningNames.value = wideTableRunningNames.value.filter((name) => name !== runningName)
+      const nextStartedAt = { ...wideTableRunningStartedAt.value }
+      delete nextStartedAt[runningName]
+      wideTableRunningStartedAt.value = nextStartedAt
+    }
     wideTableSyncLoading.value = false
   }
 }
@@ -1605,8 +1704,8 @@ function normalizeRouteQueryValue(value) {
                 </div>
                 <div class="panel-actions panel-actions-compact">
                   <el-tag round effect="plain">字段 {{ currentWideTableFieldRows.length }}</el-tag>
-                  <el-tag v-if="selectedWideTableSyncState?.last_status" round effect="plain" :type="selectedWideTableSyncState.last_status === 'success' ? 'success' : (selectedWideTableSyncState.last_status === 'failed' ? 'danger' : 'warning')">
-                    {{ selectedWideTableSyncState.last_status }}
+                  <el-tag round effect="plain" :type="selectedWideTableStatus.tagType">
+                    {{ selectedWideTableStatus.label }}
                   </el-tag>
                 </div>
               </div>
@@ -1697,8 +1796,8 @@ function normalizeRouteQueryValue(value) {
                   <el-tag v-if="currentNodeWideTable" round effect="plain" type="warning">宽表</el-tag>
                   <el-tag v-if="currentNodeWideTable?.engine" round effect="plain" type="success">{{ currentNodeWideTable.engine }}</el-tag>
                   <el-tag round effect="plain">绑定字段 {{ currentNodeFieldBindings.length }}</el-tag>
-                  <el-tag v-if="currentNodeWideTableSyncState?.last_status" round effect="plain" :type="currentNodeWideTableSyncState.last_status === 'success' ? 'success' : (currentNodeWideTableSyncState.last_status === 'failed' ? 'danger' : 'warning')">
-                    {{ currentNodeWideTableSyncState.last_status }}
+                  <el-tag v-if="currentNodeWideTable" round effect="plain" :type="currentNodeWideTableStatus.tagType">
+                    {{ currentNodeWideTableStatus.label }}
                   </el-tag>
                 </div>
               </div>

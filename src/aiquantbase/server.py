@@ -578,6 +578,7 @@ def create_app(
                 provider_manifest_path=request.args.get("provider_manifest_path") or None,
                 mode_registry_path=request.args.get("mode_registry_path") or None,
                 query_templates_path=request.args.get("query_templates_path") or None,
+                graph_path=request.args.get("graph_path") or None,
             )
         )
 
@@ -592,6 +593,7 @@ def create_app(
                 provider_manifest_path=payload.get("provider_manifest_path") or None,
                 mode_registry_path=payload.get("mode_registry_path") or None,
                 query_templates_path=payload.get("query_templates_path") or None,
+                graph_path=payload.get("graph_path") or None,
             )
             return jsonify({"ok": True, "result": result, "workspace": workspace})
         except Exception as exc:
@@ -608,6 +610,7 @@ def create_app(
                 provider_manifest_path=payload.get("provider_manifest_path") or None,
                 mode_registry_path=payload.get("mode_registry_path") or None,
                 query_templates_path=payload.get("query_templates_path") or None,
+                graph_path=payload.get("graph_path") or None,
             )
             return jsonify({"ok": True, "result": result, "workspace": workspace})
         except Exception as exc:

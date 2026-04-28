@@ -286,7 +286,13 @@ class WideTableSyncStateRepository:
             ORDER BY wide_table_name, updated_at DESC
             """
         )
-        return [WideTableSyncStateRow(*row) for row in rows if len(row) >= 14]
+        latest_by_name: dict[str, WideTableSyncStateRow] = {}
+        for row in rows:
+            if len(row) < 14:
+                continue
+            state = WideTableSyncStateRow(*row)
+            latest_by_name.setdefault(state.wide_table_name, state)
+        return list(latest_by_name.values())
 
     def load_state(self, wide_table_name: str) -> Optional[WideTableSyncStateRow]:
         rows = self.client.query_rows(
@@ -630,6 +636,16 @@ def run_wide_table_sync_payloads_with_clickhouse(
                 status = "failed"
                 message = plan.reason
             else:
+                repository.save_state(
+                    metadata,
+                    wide_table_signature=plan.wide_table_signature,
+                    plan_signature=plan.plan_signature,
+                    last_status="running",
+                    last_action=plan.action,
+                    last_message=f"wide table execution started action={plan.action}",
+                    last_started_at=started_at,
+                    last_finished_at=None,
+                )
                 try:
                     _execute_wide_table_plan(connection, metadata, payload, plan)
                     status = "success"

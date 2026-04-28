@@ -29,6 +29,7 @@ const providerForm = reactive({
   capabilityName: '',
   capabilityDescription: '',
   defaultSlots: [],
+  keys: {},
   assetTypes: 'stock',
   accessPatterns: 'panel_time_series',
   methods: 'query_daily',
@@ -115,30 +116,6 @@ const DEFAULT_EXTENSION_SLOTS = [
   'report_fields',
 ]
 
-const COMMON_REAL_FIELDS = [
-  'code',
-  'trade_time',
-  'open',
-  'high',
-  'low',
-  'close',
-  'pre_close',
-  'volume',
-  'amount',
-  'backward_adj_factor',
-  'market_cap',
-  'float_market_cap',
-  'turnover_rate',
-  'is_st',
-  'is_suspended',
-  'is_wd_sec',
-  'is_kcb',
-  'is_cyb',
-  'is_bjs',
-  'high_limited',
-  'low_limited',
-]
-
 const selectedMode = computed(() =>
   modeProfiles.value.find((item) => item.mode_id === selectedModeId.value)
 )
@@ -165,6 +142,10 @@ const selectedProviderNode = computed(() =>
   providerNodes.value.find((item) => item.name === providerForm.nodeName)
 )
 
+const selectedExtensionNode = computed(() =>
+  providerNodes.value.find((item) => item.name === extensionForm.nodeName)
+)
+
 const selectedProviderBinding = computed(() =>
   capabilities.value.find(
     (item) => item.capability === providerForm.capability && item.provider_node === providerForm.nodeName
@@ -187,7 +168,7 @@ const providerOptions = computed(() => {
 })
 
 const sourceFieldOptions = computed(() =>
-  buildSourceFieldOptions(selectedProviderBinding.value, fieldRows.value)
+  buildSourceFieldOptions(selectedProviderBinding.value, fieldRows.value, selectedProviderNode.value)
 )
 
 const extensionSlotOptions = computed(() => DEFAULT_EXTENSION_SLOTS)
@@ -235,7 +216,11 @@ const extensionFieldOptions = computed(() => {
   const binding = capabilities.value.find(
     (item) => item.capability === extensionForm.capability && item.provider_node === extensionForm.nodeName
   )
-  return buildSourceFieldOptions(binding, extensionForm.fields.map((field) => ({ source_field: field })))
+  return buildSourceFieldOptions(
+    binding,
+    extensionForm.fields.map((field) => ({ source_field: field })),
+    selectedExtensionNode.value
+  )
 })
 
 const capabilityStats = computed(() => {
@@ -308,6 +293,7 @@ function selectCapability(row) {
   providerForm.capabilityName = capabilityLabel(row.capability)
   providerForm.capabilityDescription = binding?.description || ''
   providerForm.defaultSlots = row.slots || []
+  providerForm.keys = binding?.keys || node?.keys || {}
   providerForm.assetTypes = (binding?.asset_types || node?.asset_types || ['stock']).join(', ')
   providerForm.accessPatterns = (binding?.access_patterns || node?.access_patterns || ['panel_time_series']).join(', ')
   providerForm.methods = (binding?.methods || node?.methods || ['query_daily']).join(', ')
@@ -370,7 +356,7 @@ async function handleAddExtensionCapability() {
     return
   }
   if (!extensionForm.nodeName || !extensionForm.fields.length) {
-    ElMessage.error('请选择数据节点和 real 表字段')
+    ElMessage.error('请选择数据节点和要暴露给策略的能力字段')
     return
   }
 
@@ -393,6 +379,7 @@ async function handleAddExtensionCapability() {
         capabilityName,
         capabilityDescription,
         defaultSlots: extensionForm.slots,
+        keys: selectedNode?.keys || {},
         assetTypes: (selectedNode?.asset_types || ['stock']).join(', '),
         accessPatterns: (selectedNode?.access_patterns || ['panel_time_series']).join(', '),
         methods: (selectedNode?.methods || ['query_daily']).join(', '),
@@ -505,7 +492,7 @@ function formatFieldValue(value) {
   return String(value ?? '')
 }
 
-function buildSourceFieldOptions(binding, rows) {
+function buildSourceFieldOptions(binding, rows, node) {
   const options = new Map()
   const addOption = (value) => {
     const text = formatFieldValue(value).trim()
@@ -518,7 +505,7 @@ function buildSourceFieldOptions(binding, rows) {
     })
   }
 
-  for (const value of COMMON_REAL_FIELDS) addOption(value)
+  for (const value of node?.source_fields || []) addOption(value)
   const fields = binding?.fields || {}
   for (const [semanticField, sourceField] of Object.entries(fields)) {
     addOption(semanticField)
@@ -545,6 +532,13 @@ watch(
   () => {
     if (!selectedCapability.value) return
     rebuildFieldRows(selectedCapability.value, selectedProviderBinding.value)
+  }
+)
+
+watch(
+  () => extensionForm.nodeName,
+  () => {
+    extensionForm.fields = []
   }
 )
 
@@ -808,7 +802,7 @@ onMounted(ensureWorkspace)
           </el-select>
         </el-form-item>
 
-        <el-form-item label="real 表字段">
+        <el-form-item label="能力字段（来自所选数据节点）">
           <el-select
             v-model="extensionForm.fields"
             multiple
@@ -816,6 +810,7 @@ onMounted(ensureWorkspace)
             allow-create
             default-first-option
             class="full-width"
+            placeholder="选择要暴露给策略使用的字段"
           >
             <el-option
               v-for="option in extensionFieldOptions"

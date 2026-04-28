@@ -71,6 +71,7 @@ export function useCapabilityAccess() {
           asset_types: splitList(form.assetTypes),
           access_patterns: splitList(form.accessPatterns),
           methods: splitList(form.methods),
+          keys: form.keys || undefined,
           fields,
         }),
       })

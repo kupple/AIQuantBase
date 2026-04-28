@@ -10,6 +10,7 @@ from .config import dump_yaml, load_yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CAPABILITY_ROOT = PROJECT_ROOT / "config" / "aiquantbase"
+DEFAULT_GRAPH_PATH = PROJECT_ROOT / "config" / "graph.yaml"
 
 
 def default_alphablocks_root() -> Path:
@@ -39,6 +40,7 @@ def load_capability_workspace(
     provider_manifest_path: str | Path | None = None,
     mode_registry_path: str | Path | None = None,
     query_templates_path: str | Path | None = None,
+    graph_path: str | Path | None = None,
 ) -> dict[str, Any]:
     root = _resolve_capability_root(capability_root=capability_root, alphablocks_root=alphablocks_root)
     manifest_path = _resolve_capability_path(
@@ -58,6 +60,7 @@ def load_capability_workspace(
     manifest = _safe_load_yaml(manifest_path, diagnostics=diagnostics, label="provider_manifest")
     mode_registry = _safe_load_yaml(registry_path, diagnostics=diagnostics, label="mode_registry")
     query_templates = _safe_load_yaml(templates_path, diagnostics=diagnostics, label="query_templates")
+    graph_catalog = _load_graph_catalog(graph_path)
     mode_profiles = _load_mode_profiles(mode_registry, root=root, diagnostics=diagnostics)
 
     return {
@@ -69,7 +72,7 @@ def load_capability_workspace(
             "query_templates_path": str(templates_path),
         },
         "provider_manifest": manifest,
-        "provider_nodes": _provider_node_rows(manifest),
+        "provider_nodes": _provider_node_rows(manifest, graph_catalog=graph_catalog),
         "capability_registry": _capability_registry_rows(manifest),
         "capabilities": _capability_rows(manifest),
         "mode_registry": mode_registry,
@@ -407,26 +410,97 @@ def _mode_id(payload: dict[str, Any]) -> str:
     return f"{mode_kind}.{mode_name}" if mode_kind and mode_name else mode_name or mode_kind
 
 
-def _provider_node_rows(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+def _load_graph_catalog(path_like: str | Path | None = None) -> dict[str, dict[str, Any]]:
+    path = _resolve_path(path_like or DEFAULT_GRAPH_PATH, base=PROJECT_ROOT)
+    if not path.exists():
+        return {}
+    try:
+        payload = load_yaml(path)
+    except Exception:
+        return {}
+    rows: dict[str, dict[str, Any]] = {}
+    for item in list(payload.get("nodes") or []):
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        if not name:
+            continue
+        wide_table = item.get("wide_table") if isinstance(item.get("wide_table"), dict) else {}
+        fields = _string_list(wide_table.get("fields") or item.get("fields"))
+        rows[name] = {
+            "name": name,
+            "description": item.get("description_zh") or item.get("description"),
+            "table": wide_table.get("target_table") or item.get("table"),
+            "database": wide_table.get("target_database"),
+            "grain": item.get("grain"),
+            "asset_type": item.get("asset_type"),
+            "fields": fields,
+            "entity_keys": _string_list(item.get("entity_keys")),
+            "time_key": item.get("time_key"),
+        }
+    return rows
+
+
+def _provider_node_rows(manifest: dict[str, Any], *, graph_catalog: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    graph_catalog = graph_catalog or {}
     nodes = manifest.get("nodes") or {}
     if not isinstance(nodes, dict):
-        return rows
+        nodes = {}
     for name, node in nodes.items():
         if not isinstance(node, dict):
             continue
+        graph_node = graph_catalog.get(str(name), {})
         rows.append(
             {
                 "name": name,
-                "description": node.get("description"),
+                "description": graph_node.get("description") or node.get("description"),
                 "asset_types": list(node.get("asset_types") or []),
                 "access_patterns": list(node.get("access_patterns") or []),
                 "methods": list(node.get("methods") or []),
                 "keys": deepcopy(node.get("keys") or {}),
+                "table": graph_node.get("table"),
+                "database": graph_node.get("database"),
+                "grain": graph_node.get("grain"),
+                "source_fields": list(graph_node.get("fields") or []),
                 "capabilities": sorted((node.get("semantics") or {}).keys()),
+                "registered": True,
+            }
+        )
+    for name, graph_node in sorted(graph_catalog.items()):
+        if name in nodes:
+            continue
+        grain = str(graph_node.get("grain") or "").strip()
+        access_pattern = "anchored_intraday_window" if grain == "minute" else "panel_time_series"
+        method = "query_minute_window_by_trading_day" if grain == "minute" else "query_daily"
+        rows.append(
+            {
+                "name": name,
+                "description": graph_node.get("description"),
+                "asset_types": [graph_node.get("asset_type") or "stock"],
+                "access_patterns": [access_pattern],
+                "methods": [method],
+                "keys": _keys_from_graph_node(graph_node),
+                "table": graph_node.get("table"),
+                "database": graph_node.get("database"),
+                "grain": graph_node.get("grain"),
+                "source_fields": list(graph_node.get("fields") or []),
+                "capabilities": [],
+                "registered": False,
             }
         )
     return rows
+
+
+def _keys_from_graph_node(graph_node: dict[str, Any]) -> dict[str, str]:
+    entity_keys = _string_list(graph_node.get("entity_keys"))
+    time_key = str(graph_node.get("time_key") or "").strip()
+    keys: dict[str, str] = {}
+    if entity_keys:
+        keys["symbol"] = entity_keys[0]
+    if time_key:
+        keys["time"] = time_key
+    return keys or {"symbol": "code", "time": "trade_time"}
 
 
 def _capability_registry_map(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
