@@ -163,7 +163,9 @@ const sourceFieldOptions = computed(() =>
 )
 
 const extensionSlotOptions = computed(() =>
-  (selectedMode.value?.extension_slots || []).map((item) => item.slot).filter(Boolean)
+  (selectedMode.value?.extension_slots || [])
+    .map(normalizeExtensionSlot)
+    .filter((item) => item.slot)
 )
 
 const capabilityMetaMap = computed(() => {
@@ -452,10 +454,42 @@ function capabilityDescription(capability) {
 }
 
 function applyExtensionCapability(item) {
+  const allowedSlots = new Set(extensionSlotOptions.value.map((slot) => slot.slot))
   extensionForm.capability = item.capability
   extensionForm.capabilityName = capabilityLabel(item.capability)
   extensionForm.capabilityDescription = item.description || capabilityDescription(item.capability)
-  extensionForm.slots = [...(item.default_slots || [])]
+  extensionForm.slots = [...(item.default_slots || [])].filter((slot) => allowedSlots.has(slot))
+}
+
+function normalizeExtensionSlot(item) {
+  if (typeof item === 'string') {
+    return {
+      slot: item,
+      name: slotLabel(item),
+      description: slotDescription(item),
+    }
+  }
+  const slot = String(item?.slot || item?.id || item?.name || '').trim()
+  if (!slot) return { slot: '' }
+  return {
+    ...item,
+    slot,
+    name: item?.name || slotLabel(slot),
+    description: item?.description || slotDescription(slot),
+  }
+}
+
+function isExtensionSlotSelected(slot) {
+  return extensionForm.slots.includes(slot)
+}
+
+function toggleExtensionSlot(slot) {
+  if (!slot) return
+  if (isExtensionSlotSelected(slot)) {
+    extensionForm.slots = extensionForm.slots.filter((item) => item !== slot)
+  } else {
+    extensionForm.slots = [...extensionForm.slots, slot]
+  }
 }
 
 function normalizeExtensionCapabilityId(value) {
@@ -484,6 +518,19 @@ function fieldPreview(row) {
 
 function slotLabel(slot) {
   return SLOT_LABELS[slot] || slot
+}
+
+function slotDescription(slot) {
+  const descriptions = {
+    universe_fields: '用于构建或缩小候选股票池，例如指数成分、主题标签、自定义股票池标记。',
+    filter_fields: '用于过滤候选股票，例如财务过滤、风险过滤、龙虎榜过滤。',
+    ranking_fields: '用于排序、打分和选股，通常需要数值字段，例如市值、因子分、资金流。',
+    signal_fields: '用于买卖信号表达式，例如技术指标信号、风险预警分数。',
+    weighting_fields: '用于目标权重或仓位计算，例如目标仓位、风险权重、得分权重。',
+    report_fields: '仅用于结果输出和诊断展示，不直接影响交易决策。',
+    factor_inputs: '用于研究或因子计算的输入字段。',
+  }
+  return descriptions[slot] || '当前模式定义的扩展数据使用位置。'
 }
 
 function formatFieldValue(value) {
@@ -592,7 +639,13 @@ onMounted(ensureWorkspace)
         <section v-for="section in visibleCapabilitySections" :key="section" class="cap-section">
           <div class="section-title">
             <h2>{{ sectionTitle(section) }}</h2>
-            <el-button v-if="section === 'extension'" size="small" type="primary" @click="openExtensionDialog">
+            <el-button
+              v-if="section === 'extension'"
+              size="large"
+              type="primary"
+              class="extension-add-button"
+              @click="openExtensionDialog"
+            >
               新增扩展能力
             </el-button>
           </div>
@@ -768,20 +821,28 @@ onMounted(ensureWorkspace)
         </el-form-item>
 
         <el-form-item label="允许使用位置">
-          <el-select
-            v-model="extensionForm.slots"
-            multiple
-            filterable
-            class="full-width"
-            placeholder="选择当前模式允许的使用位置"
-          >
-            <el-option
+          <div v-if="extensionSlotOptions.length" class="slot-choice-grid">
+            <button
               v-for="slot in extensionSlotOptions"
-              :key="slot"
-              :label="slotLabel(slot)"
-              :value="slot"
-            />
-          </el-select>
+              :key="slot.slot"
+              type="button"
+              class="slot-choice-card"
+              :class="{ active: isExtensionSlotSelected(slot.slot) }"
+              @click="toggleExtensionSlot(slot.slot)"
+            >
+              <div class="slot-choice-head">
+                <strong>{{ slot.name || slotLabel(slot.slot) }}</strong>
+                <span>{{ isExtensionSlotSelected(slot.slot) ? '已选择' : '可选择' }}</span>
+              </div>
+              <code>{{ slot.slot }}</code>
+              <p>{{ slot.description || slotDescription(slot.slot) }}</p>
+              <small>
+                {{ slot.access_pattern || 'panel_time_series' }}
+                <template v-if="slot.freq"> / {{ slot.freq }}</template>
+              </small>
+            </button>
+          </div>
+          <el-empty v-else description="当前模式没有定义扩展 slot" :image-size="72" />
         </el-form-item>
 
         <el-form-item label="数据节点">
@@ -884,6 +945,15 @@ onMounted(ensureWorkspace)
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.extension-add-button {
+  min-height: 42px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 18px rgba(24, 120, 86, 0.18);
 }
 
 .mode-intro {
@@ -1088,6 +1158,79 @@ h3 {
   margin-top: 8px;
 }
 
+.slot-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.slot-choice-card {
+  min-height: 132px;
+  padding: 14px;
+  border: 1px solid rgba(65, 88, 72, 0.16);
+  border-radius: 8px;
+  background: rgba(248, 251, 248, 0.92);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.slot-choice-card:hover,
+.slot-choice-card.active {
+  border-color: rgba(23, 128, 91, 0.56);
+  background: rgba(237, 248, 242, 0.98);
+  box-shadow: 0 8px 20px rgba(31, 109, 79, 0.12);
+  transform: translateY(-1px);
+}
+
+.slot-choice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.slot-choice-head strong {
+  color: #1e3327;
+  font-size: 14px;
+}
+
+.slot-choice-head span {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(68, 91, 76, 0.1);
+  color: #526259;
+  font-size: 12px;
+}
+
+.slot-choice-card.active .slot-choice-head span {
+  background: rgba(24, 120, 86, 0.16);
+  color: #187856;
+  font-weight: 700;
+}
+
+.slot-choice-card code {
+  display: inline-block;
+  margin-top: 8px;
+  color: #187856;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+}
+
+.slot-choice-card p {
+  margin: 8px 0;
+  color: #526259;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.slot-choice-card small {
+  color: #7a867f;
+  font-size: 11px;
+}
+
 .mb {
   margin-bottom: 2px;
 }
@@ -1149,7 +1292,8 @@ h3 {
 
 @media (max-width: 1180px) {
   .workbench-grid,
-  .capability-grid {
+  .capability-grid,
+  .slot-choice-grid {
     grid-template-columns: 1fr;
   }
 }
