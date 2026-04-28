@@ -383,14 +383,17 @@ class SyncIntegration:
     def list_wide_table_states(self, state_database: str | None = None) -> dict[str, Any]:
         self._ensure_vendor_path()
         from sync_data_system.clickhouse_client import ClickHouseConfig, create_clickhouse_client
-        from sync_data_system.wide_table_sync import WideTableSyncStateRepository, wide_table_state_to_dict
+        from sync_data_system.wide_table_sync import (
+            WideTableSyncStateRepository,
+            wide_table_state_to_dict,
+        )
 
         config = ClickHouseConfig.from_env()
         connection = create_clickhouse_client(config)
         try:
             repository = WideTableSyncStateRepository(
                 connection,
-                database=state_database or config.database,
+                database=state_database or config.runtime_state_database,
             )
             repository.ensure_table()
             states = repository.load_states()
@@ -401,14 +404,17 @@ class SyncIntegration:
     def get_wide_table_state(self, name: str, state_database: str | None = None) -> dict[str, Any]:
         self._ensure_vendor_path()
         from sync_data_system.clickhouse_client import ClickHouseConfig, create_clickhouse_client
-        from sync_data_system.wide_table_sync import WideTableSyncStateRepository, wide_table_state_to_dict
+        from sync_data_system.wide_table_sync import (
+            WideTableSyncStateRepository,
+            wide_table_state_to_dict,
+        )
 
         config = ClickHouseConfig.from_env()
         connection = create_clickhouse_client(config)
         try:
             repository = WideTableSyncStateRepository(
                 connection,
-                database=state_database or config.database,
+                database=state_database or config.runtime_state_database,
             )
             repository.ensure_table()
             state = repository.load_state(name)

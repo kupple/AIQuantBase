@@ -426,7 +426,7 @@ def list_wide_table_states(state_database: Optional[str] = Query(None)):
         connection = create_clickhouse_client(config)
         repository = WideTableSyncStateRepository(
             connection,
-            database=state_database or config.database,
+            database=state_database or config.runtime_state_database,
         )
         repository.ensure_table()
         try:
@@ -445,7 +445,7 @@ def get_wide_table_state(wide_table_name: str, state_database: Optional[str] = Q
         connection = create_clickhouse_client(config)
         repository = WideTableSyncStateRepository(
             connection,
-            database=state_database or config.database,
+            database=state_database or config.runtime_state_database,
         )
         repository.ensure_table()
         try:

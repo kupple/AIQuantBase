@@ -42,6 +42,11 @@ class DiscoveryConfig:
 
 
 @dataclass(slots=True)
+class RuntimeStateConfig:
+    database: str = "alphablocks"
+
+
+@dataclass(slots=True)
 class SyncAmazingDataConfig:
     username: str = ""
     password: str = ""
@@ -67,6 +72,7 @@ class RuntimeConfig:
     llm: LlmConfig
     datasource: DatasourceConfig
     discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
+    runtime_state: RuntimeStateConfig = field(default_factory=RuntimeStateConfig)
     sync: SyncConfig = field(default_factory=SyncConfig)
 
 
@@ -93,6 +99,7 @@ def load_runtime_config(path: str | Path = DEFAULT_RUNTIME_CONFIG_PATH) -> Runti
         llm=LlmConfig(**data["llm"]),
         datasource=DatasourceConfig(**datasource_payload),
         discovery=DiscoveryConfig(**data.get("discovery", {})),
+        runtime_state=RuntimeStateConfig(**(data.get("runtime_state", {}) or {})),
         sync=SyncConfig(
             amazingdata=SyncAmazingDataConfig(**(data.get("sync", {}).get("amazingdata", {}) or {})),
             baostock=SyncBaoStockConfig(**(data.get("sync", {}).get("baostock", {}) or {})),

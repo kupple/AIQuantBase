@@ -31,6 +31,9 @@ discovery:
     - ad_history_stock_status
   trading_calendar_table: starlight.ad_trade_calendar
 
+runtime_state:
+  database: alphablocks
+
 sync:
   amazingdata:
     username: YOUR_AMAZINGDATA_ACCOUNT

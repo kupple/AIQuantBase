@@ -274,6 +274,7 @@ export function useWorkbench() {
       runtime.value.datasource = payload.runtime?.datasource || {}
       runtime.value.llm = payload.runtime?.llm || {}
       runtime.value.discovery = payload.runtime?.discovery || {}
+      runtime.value.runtime_state = payload.runtime?.runtime_state || {}
       graph.value.nodes = payload.graph?.nodes || []
       graph.value.edges = normalizeEdges(payload.graph?.edges || [])
       fields.value = normalizeFieldCatalog(payload.fields || [], graph.value.nodes, graph.value.edges)
@@ -1200,6 +1201,7 @@ function createWorkbenchState() {
       llm: {},
       datasource: {},
       discovery: {},
+      runtime_state: {},
     },
     graph: {
       nodes: [],

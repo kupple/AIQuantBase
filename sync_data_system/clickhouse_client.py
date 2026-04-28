@@ -26,6 +26,7 @@ class ClickHouseConfig:
     username: str = "default"
     password: str = ""
     database: str = "default"
+    runtime_state_database: str = "alphablocks"
     secure: bool = False
     connect_timeout: int = 30
     send_receive_timeout: int = 300
@@ -49,6 +50,7 @@ class ClickHouseConfig:
             username=datasource.username,
             password=datasource.password,
             database=datasource.database or "default",
+            runtime_state_database=runtime.runtime_state.database or "alphablocks",
             secure=datasource.secure,
         )
 

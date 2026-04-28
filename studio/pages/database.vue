@@ -20,6 +20,7 @@ const aiNotesLoading = ref(false)
 const wideTableFieldSearch = ref('')
 const selectedWorkbenchType = ref('node')
 const wideTableDialogVisible = ref(false)
+const defaultWideTableSyncStateDatabase = 'alphablocks'
 const wideTableSyncStates = ref([])
 const wideTableForm = ref(blankWideTable())
 const wideTableTargetTables = ref([])
@@ -28,10 +29,10 @@ const wideTableSyncLoading = ref(false)
 const wideTableRunningNames = ref([])
 const wideTableRunningStartedAt = ref({})
 const wideTableStateLoading = ref(false)
-const wideTableSyncStateDatabase = ref('default')
 
 const {
   workspace,
+  runtime,
   graph,
   fields,
   schema,
@@ -64,6 +65,10 @@ const {
   removeFieldBinding,
   notifyAction,
 } = useWorkbench()
+
+const wideTableSyncStateDatabase = computed(() =>
+  String(runtime.value.runtime_state?.database || defaultWideTableSyncStateDatabase).trim() || defaultWideTableSyncStateDatabase
+)
 
 const nodeTableOptions = computed(() => schema.value.tables)
 const baseColumnOptions = computed(() => schema.value.columns)
@@ -1024,7 +1029,7 @@ async function handleRunWideTableSync(row) {
         id: row.id,
         graph_path: workspace.value.graphPath,
         fields_path: workspace.value.fieldsPath,
-        state_database: wideTableSyncStateDatabase.value || 'default',
+        state_database: wideTableSyncStateDatabase.value || defaultWideTableSyncStateDatabase,
       }),
     })
     await loadWideTableSyncStates()

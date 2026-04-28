@@ -19,6 +19,7 @@ from sync_data_system.config_paths import resolve_sync_spec_dir
 
 
 SUPPORTED_SPEC_DIRS = ("wide_table_specs", "wide_table_spec")
+DEFAULT_RUNTIME_STATE_DATABASE = "alphablocks"
 WIDE_TABLE_SYNC_STATE_TABLE = "wide_table_sync_state"
 
 
@@ -556,6 +557,14 @@ def load_specs_payloads_and_metadata(
     return payload_map, metadata_map
 
 
+def _resolve_runtime_state_database(config: Any, state_database: Optional[str] = None) -> str:
+    return str(
+        state_database
+        or getattr(config, "runtime_state_database", "")
+        or DEFAULT_RUNTIME_STATE_DATABASE
+    ).strip() or DEFAULT_RUNTIME_STATE_DATABASE
+
+
 def load_and_plan_specs_with_clickhouse(
     project_root: Path,
     *,
@@ -567,7 +576,7 @@ def load_and_plan_specs_with_clickhouse(
     connection = create_clickhouse_client(config)
     repository = WideTableSyncStateRepository(
         connection,
-        database=state_database or config.database,
+        database=_resolve_runtime_state_database(config, state_database),
     )
     try:
         repository.ensure_table()
@@ -608,7 +617,7 @@ def run_wide_table_sync_payloads_with_clickhouse(
     connection = create_clickhouse_client(config)
     repository = WideTableSyncStateRepository(
         connection,
-        database=state_database or config.database,
+        database=_resolve_runtime_state_database(config, state_database),
     )
     try:
         repository.ensure_table()
@@ -1033,6 +1042,7 @@ __all__ = [
     "validate_wide_table_payload",
     "WideTableSyncStateRepository",
     "WideTableSyncStateRow",
+    "DEFAULT_RUNTIME_STATE_DATABASE",
     "WIDE_TABLE_SYNC_STATE_TABLE",
     "wide_table_metadata_to_dict",
     "wide_table_plan_to_dict",

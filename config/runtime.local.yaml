@@ -22,6 +22,8 @@ discovery:
   allow_databases: []
   allow_tables: []
   trading_calendar_table: ''
+runtime_state:
+  database: alphablocks
 sync:
   amazingdata:
     username: '225300062129'

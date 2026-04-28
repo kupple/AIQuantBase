@@ -404,6 +404,7 @@ def create_app(
                     "llm": asdict(runtime.llm),
                     "datasource": asdict(runtime.datasource),
                     "discovery": asdict(runtime.discovery),
+                    "runtime_state": asdict(runtime.runtime_state),
                 },
                 "graph": {
                     "nodes": [asdict(node) for node in nodes],
@@ -436,6 +437,7 @@ def create_app(
                 "llm": payload.get("runtime", {}).get("llm") or asdict(current_runtime.llm),
                 "datasource": payload.get("runtime", {}).get("datasource") or asdict(current_runtime.datasource),
                 "discovery": payload.get("runtime", {}).get("discovery") or asdict(current_runtime.discovery),
+                "runtime_state": payload.get("runtime", {}).get("runtime_state") or asdict(current_runtime.runtime_state),
             }
         )
         runtime_yaml = dump_yaml(runtime_payload)
