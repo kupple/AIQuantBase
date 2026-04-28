@@ -89,6 +89,7 @@ class BaoStockSession:
 class BaoStockProvider:
     def __init__(self, config: BaoStockConfig) -> None:
         self.session = BaoStockSession(config)
+        self._all_stock_codes_cache: dict[str, list[str]] = {}
 
     def close(self) -> None:
         self.session.close()
@@ -204,13 +205,34 @@ class BaoStockProvider:
         return frame
 
     def fetch_all_stock_codes(self, day: str | None = None) -> list[str]:
+        cache_key = _normalize_day_key(day)
+        if cache_key in self._all_stock_codes_cache:
+            return list(self._all_stock_codes_cache[cache_key])
         frame = self.fetch_dataframe("all_stock", day=day)
         if frame.empty or "code" not in frame.columns:
+            self._all_stock_codes_cache[cache_key] = []
             return []
         codes = [normalize_baostock_code(value) for value in frame["code"].tolist()]
-        return [code for code in codes if code]
+        resolved = [code for code in codes if code]
+        self._all_stock_codes_cache[cache_key] = resolved
+        return list(resolved)
+
+    def fetch_latest_all_stock_codes(self, day: str | None = None, *, lookback_days: int = 30) -> tuple[str | None, list[str]]:
+        """Return the nearest trading day with a non-empty all_stock universe."""
+        anchor_day = _normalize_day_key(day) or date.today().strftime("%Y%m%d")
+        candidate_days = [anchor_day]
+        candidate_days.extend(day for day in self.resolve_recent_trading_days(anchor_day, lookback_days=lookback_days) if day != anchor_day)
+        for candidate_day in candidate_days:
+            codes = self.fetch_all_stock_codes(candidate_day)
+            if codes:
+                return candidate_day, codes
+        return None, []
 
     def resolve_latest_trading_day(self, day: str | None = None, *, lookback_days: int = 30) -> str | None:
+        days = self.resolve_recent_trading_days(day, lookback_days=lookback_days)
+        return days[0] if days else None
+
+    def resolve_recent_trading_days(self, day: str | None = None, *, lookback_days: int = 30) -> list[str]:
         anchor_day = _parse_day_value(day)
         start_day = anchor_day - timedelta(days=max(1, int(lookback_days)))
         frame = self.fetch_dataframe(
@@ -219,7 +241,7 @@ class BaoStockProvider:
             end_date=anchor_day.strftime("%Y%m%d"),
         )
         if frame.empty or "calendar_date" not in frame.columns or "is_trading_day" not in frame.columns:
-            return None
+            return []
 
         trading_days: list[str] = []
         for _, row in frame.iterrows():
@@ -228,7 +250,7 @@ class BaoStockProvider:
             normalized = _normalize_trade_day_output(row.get("calendar_date"))
             if normalized:
                 trading_days.append(normalized)
-        return trading_days[-1] if trading_days else None
+        return list(reversed(trading_days))
 
 
 def normalize_baostock_code(value: Any) -> str:
@@ -286,12 +308,21 @@ def _resultset_to_frame(result) -> "pd.DataFrame":
 
 
 def _to_baostock_day(value: Any) -> str:
-    text = re.sub(r"[^0-9]", "", str(value or "").strip())
+    text = _normalize_day_key(value)
     if not text:
         return ""
     if len(text) != 8:
         raise ValueError(f"BaoStock 日期必须是 YYYYMMDD 或 YYYY-MM-DD，当前值: {value!r}")
     return f"{text[0:4]}-{text[4:6]}-{text[6:8]}"
+
+
+def _normalize_day_key(value: Any) -> str:
+    text = re.sub(r"[^0-9]", "", str(value or "").strip())
+    if not text:
+        return ""
+    if len(text) != 8:
+        raise ValueError(f"BaoStock 日期必须是 YYYYMMDD 或 YYYY-MM-DD，当前值: {value!r}")
+    return text
 
 
 def _to_baostock_month(value: Any) -> str:

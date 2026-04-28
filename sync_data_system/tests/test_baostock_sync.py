@@ -12,7 +12,7 @@ except Exception:  # pragma: no cover
 
 from sync_data_system.sources.baostock.provider import normalize_baostock_code, normalize_baostock_code_list, to_baostock_code
 from sync_data_system.sources.baostock.repository import BaoStockRepository
-from sync_data_system.sources.baostock.runner import SyncArgs, resolve_code_list, resolve_effective_request_meta, run_code_task, run_sync_args
+from sync_data_system.sources.baostock.runner import SyncArgs, resolve_all_stock_request_meta, resolve_code_list, resolve_effective_request_meta, run_code_task, run_sync_args
 from sync_data_system.sources.baostock.specs import BAOSTOCK_TASK_SPECS, camel_to_snake, table_columns_for_spec
 from sync_data_system.sync_core.incremental import advance_cursor_value, normalize_request_value
 
@@ -52,6 +52,7 @@ class _FakeBaoStockProvider:
         self.latest_trading_day = latest_trading_day
         self.fetch_all_stock_calls: list[str | None] = []
         self.resolve_latest_trading_day_calls: list[str | None] = []
+        self.fetch_latest_all_stock_calls: list[str | None] = []
 
     def fetch_all_stock_codes(self, day: str | None = None) -> list[str]:
         self.fetch_all_stock_calls.append(day)
@@ -60,6 +61,17 @@ class _FakeBaoStockProvider:
     def resolve_latest_trading_day(self, day: str | None = None, *, lookback_days: int = 30) -> str | None:
         self.resolve_latest_trading_day_calls.append(day)
         return self.latest_trading_day
+
+    def fetch_latest_all_stock_codes(self, day: str | None = None, *, lookback_days: int = 30):
+        self.fetch_latest_all_stock_calls.append(day)
+        candidate_days = [str(day)]
+        if self.latest_trading_day and self.latest_trading_day not in candidate_days:
+            candidate_days.append(self.latest_trading_day)
+        for candidate_day in candidate_days:
+            codes = self.fetch_all_stock_codes(candidate_day)
+            if codes:
+                return candidate_day, codes
+        return None, []
 
 
 class _FakeRunRepository:
@@ -262,7 +274,39 @@ class BaoStockIncrementalHelperTest(unittest.TestCase):
 
         self.assertEqual(codes, ["600000.SH", "000001.SZ"])
         self.assertEqual(provider.fetch_all_stock_calls, ["20260426", "20260424"])
-        self.assertEqual(provider.resolve_latest_trading_day_calls, ["20260426"])
+        self.assertEqual(provider.fetch_latest_all_stock_calls, ["20260426"])
+
+    def test_resolve_all_stock_request_meta_falls_back_to_latest_populated_universe_day(self) -> None:
+        args = SyncArgs(
+            task="all_stock",
+            codes_raw="",
+            begin_date="",
+            end_date="",
+            day="",
+            year=None,
+            quarter=None,
+            year_type="",
+            adjustflag="3",
+            frequency="d",
+            limit=0,
+            force=False,
+            continue_on_error=False,
+            runtime_path=None,
+            database="baostock",
+            log_level="INFO",
+        )
+        provider = _FakeBaoStockProvider(
+            codes_by_day={
+                "20260428": [],
+                "20260424": ["600000.SH"],
+            },
+            latest_trading_day="20260424",
+        )
+
+        request_meta = resolve_all_stock_request_meta(args, provider, {"day": "20260428"})
+
+        self.assertEqual(request_meta["day"], "20260424")
+        self.assertEqual(provider.fetch_all_stock_calls, ["20260428", "20260424"])
 
     def test_run_sync_args_raises_when_code_task_has_no_codes(self) -> None:
         args = SyncArgs(

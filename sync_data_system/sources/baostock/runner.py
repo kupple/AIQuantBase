@@ -180,17 +180,14 @@ def resolve_code_list(provider: BaoStockProvider, args: SyncArgs) -> list[str]:
         codes = normalize_baostock_code_list([part.strip() for part in args.codes_raw.split(",") if part.strip()])
     elif spec.auto_code_universe:
         snapshot_day = args.day or args.end_date or datetime.now().strftime("%Y%m%d")
-        codes = provider.fetch_all_stock_codes(snapshot_day)
-        if not codes:
-            fallback_day = provider.resolve_latest_trading_day(snapshot_day)
-            if fallback_day and fallback_day != snapshot_day:
-                logger.warning(
-                    "BaoStock code universe empty task=%s snapshot_day=%s; fallback to latest trading day=%s",
-                    args.task,
-                    snapshot_day,
-                    fallback_day,
-                )
-                codes = provider.fetch_all_stock_codes(fallback_day)
+        resolved_day, codes = provider.fetch_latest_all_stock_codes(snapshot_day)
+        if resolved_day and resolved_day != snapshot_day:
+            logger.warning(
+                "BaoStock code universe empty task=%s snapshot_day=%s; fallback to latest all_stock day=%s",
+                args.task,
+                snapshot_day,
+                resolved_day,
+            )
     else:
         codes = []
 
@@ -205,6 +202,11 @@ def run_single_task(args: SyncArgs, provider: BaoStockProvider, repository: BaoS
     if request_meta is None:
         logger.info("skip task=%s reason=no_incremental_window", args.task)
         return 0
+    request_meta = resolve_all_stock_request_meta(args, provider, request_meta)
+    if args.task == "all_stock" and not args.force and request_identity_is_complete(BAOSTOCK_TASK_SPECS[args.task], request_meta):
+        if repository.has_task_data_for_request(args.task, request_meta):
+            logger.info("skip task=%s day=%s reason=request_already_exists", args.task, request_meta.get("day") or "")
+            return 0
     scope_key = build_scope_key(args.task, request_meta)
     run_date = date.today()
     target_table = f"{args.database}.{BAOSTOCK_TASK_SPECS[args.task].table_name}"
@@ -242,6 +244,27 @@ def run_single_task(args: SyncArgs, provider: BaoStockProvider, repository: BaoS
             status="failed",
         )
         raise
+
+
+def resolve_all_stock_request_meta(
+    args: SyncArgs,
+    provider: BaoStockProvider,
+    request_meta: dict[str, str | int | None],
+) -> dict[str, str | int | None]:
+    if args.task != "all_stock" or args.day:
+        return request_meta
+    snapshot_day = str(request_meta.get("day") or "").strip()
+    resolved_day, codes = provider.fetch_latest_all_stock_codes(snapshot_day)
+    if resolved_day and codes and resolved_day != snapshot_day:
+        logger.warning(
+            "BaoStock all_stock empty snapshot_day=%s; fallback to latest all_stock day=%s",
+            snapshot_day,
+            resolved_day,
+        )
+        effective = dict(request_meta)
+        effective["day"] = resolved_day
+        return effective
+    return request_meta
 
 
 def run_code_task(args: SyncArgs, provider: BaoStockProvider, repository: BaoStockRepository, codes: list[str]) -> int:
