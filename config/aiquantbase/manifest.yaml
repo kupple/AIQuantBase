@@ -1,0 +1,210 @@
+version: 1
+provider: aiquantbase
+
+capability_registry:
+  valuation_snapshot:
+    name: 估值快照
+    description: 用于读取总市值、流通市值、换手率等日频估值字段
+    default_slots:
+      - ranking_fields
+      - filter_fields
+      - report_fields
+  custom_factor_daily:
+    name: 自定义日频因子
+    description: 用于接入用户自定义日频因子，供排序、过滤、风控或输出使用
+    default_slots:
+      - factor_inputs
+      - ranking_fields
+      - filter_fields
+      - risk_fields
+      - report_fields
+  industry_classification:
+    name: 行业分类
+    description: 用于接入行业、主题、板块等日频归属字段，供过滤、分组或中性化使用
+    default_slots:
+      - filter_fields
+      - groupby_fields
+      - neutralization_fields
+      - report_fields
+  dragon_tiger_daily:
+    name: 龙虎榜日频
+    description: 用于接入龙虎榜事件字段，供过滤、排序或输出使用
+    default_slots:
+      - filter_fields
+      - ranking_fields
+      - report_fields
+
+access_patterns:
+  panel_time_series:
+    description: symbols + start/end + fields 的时间序列面板查询
+  event_stream:
+    description: symbols + date range 的事件流查询
+  anchored_intraday_window:
+    description: 基于交易锚点和分钟时间列表的盘中执行窗口查询
+  virtual_runtime_rule:
+    description: 不查表，由回测运行时直接提供的市场规则能力
+
+nodes:
+  stock_daily_real:
+    description: A 股/指数/ETF 日线行情与基础状态宽表
+    asset_types:
+      - stock
+      - index
+      - etf
+    access_patterns:
+      - panel_time_series
+    methods:
+      - query_daily
+    keys:
+      symbol: code
+      time: trade_time
+    semantics:
+      price.daily:
+        fields:
+          open: open
+          high: high
+          low: low
+          close: close
+          pre_close: pre_close
+          volume: volume
+          amount: amount
+          money: amount
+          backward_adj_factor: backward_adj_factor
+          close_adj:
+            derive: "{close} * {backward_adj_factor}"
+            depends_on:
+              - close
+              - backward_adj_factor
+          open_adj:
+            derive: "{open} * {backward_adj_factor}"
+            depends_on:
+              - open
+              - backward_adj_factor
+          high_adj:
+            derive: "{high} * {backward_adj_factor}"
+            depends_on:
+              - high
+              - backward_adj_factor
+          low_adj:
+            derive: "{low} * {backward_adj_factor}"
+            depends_on:
+              - low
+              - backward_adj_factor
+      benchmark.daily:
+        fields:
+          open: open
+          close: close
+      tradability.limit_status:
+        fields:
+          high_limited: high_limited
+          low_limited: low_limited
+      universe.tradeable_flags:
+        fields:
+          is_st: is_st
+          is_suspended: is_suspended
+          is_wd_sec: is_wd_sec
+          listed_days:
+            derive: "trade_date - list_date"
+            depends_on:
+              - list_date
+      universe.board_flags:
+        fields:
+          is_kcb: is_kcb
+          is_cyb: is_cyb
+          is_bjs: is_bjs
+          is_star_board: is_kcb
+          is_gem_board: is_cyb
+      valuation_snapshot:
+        fields:
+          market_cap: market_cap
+          float_market_cap: float_market_cap
+          turnover_rate: turnover_rate
+      custom_factor_daily:
+        description: 自定义日频因子字段，字段映射由 AIQuantBase 能力接入页面维护
+        fields: {}
+      industry_classification:
+        description: 行业、主题、板块等日频归属字段，字段映射由 AIQuantBase 能力接入页面维护
+        fields: {}
+
+  stock_minute_real:
+    description: A 股/ETF 分钟行情表
+    asset_types:
+      - stock
+      - etf
+    access_patterns:
+      - anchored_intraday_window
+    methods:
+      - query_minute_window_by_trading_day
+    keys:
+      symbol: code
+      datetime: trade_time
+    semantics:
+      price.intraday:
+        fields:
+          open: open
+          high: high
+          low: low
+          close: close
+          volume: volume
+          amount: amount
+          money: amount
+
+  dragon_tiger_daily_real:
+    description: 龙虎榜日频扩展宽表
+    asset_types:
+      - stock
+    access_patterns:
+      - panel_time_series
+    methods:
+      - query_daily
+    keys:
+      symbol: code
+      time: trade_time
+    semantics:
+      dragon_tiger_daily:
+        description: 龙虎榜日频扩展字段，具体字段由能力接入页面维护
+        fields: {}
+
+  dividend_real:
+    description: 股票现金分红、送股和转增事件表
+    asset_types:
+      - stock
+    access_patterns:
+      - event_stream
+    methods:
+      - query_dividend_events
+    keys:
+      symbol: market_code
+      event_time: date_ex
+      payout_time: date_dvd_payout
+      publish_time: ann_date
+    filters:
+      finalized:
+        field: div_progress
+        value: "3"
+    semantics:
+      corporate_action.dividend:
+        fields:
+          dividend_cash_pre_tax: dvd_per_share_pre_tax_cash
+          dividend_cash_after_tax: dvd_per_share_after_tax_cash
+          dividend_stock_per_share: dvd_per_share_stk
+          dividend_bonus_rate: div_bonusrate
+          dividend_conversed_rate: div_conversedrate
+          ex_dividend_date: date_ex
+          dividend_payout_date: date_dvd_payout
+          equity_record_date: record_date
+
+  cn_stock_order_rules:
+    description: A 股订单运行时规则，不对应物理查询节点
+    asset_types:
+      - stock
+    access_patterns:
+      - virtual_runtime_rule
+    methods: []
+    keys: {}
+    semantics:
+      order_constraints.cn_stock:
+        fields:
+          lot_size: 100
+          supports_min_commission: true
+          supports_order_volume_ratio: true

@@ -12,6 +12,10 @@ const planningItems = [
   { path: '/query', label: '查询测试' },
 ]
 
+const capabilityItems = [
+  { path: '/capabilities', label: '模式工作台' },
+]
+
 const syncItems = [
   { path: '/sync', label: '同步总览' },
   { path: '/sync/tasks', label: '同步任务' },
@@ -26,6 +30,7 @@ const otherItems = [
 
 const activeTopMenu = computed(() => {
   if (planningItems.some((item) => item.path === route.path)) return '/planning'
+  if (route.path === '/capabilities') return '/capabilities-root'
   if (route.path === '/sync' || route.path.startsWith('/sync/')) return '/sync-root'
   if (otherItems.some((item) => item.path === route.path)) return '/other'
   return route.path
@@ -53,7 +58,7 @@ onMounted(() => {
           duration: 2400,
           grouping: true,
         })
-        if (!['/settings', '/guide', '/membership'].includes(route.path) && !route.path.startsWith('/sync')) {
+        if (!['/settings', '/guide', '/membership'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities')) {
           navigateTo('/settings')
         }
         return
@@ -68,7 +73,7 @@ onMounted(() => {
         message: error instanceof Error ? error.message : '工作区载入失败',
         duration: 3200,
       })
-      if (!['/settings', '/guide', '/membership'].includes(route.path) && !route.path.startsWith('/sync')) {
+      if (!['/settings', '/guide', '/membership'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities')) {
         navigateTo('/settings')
       }
     })
@@ -93,6 +98,13 @@ onMounted(() => {
           <el-sub-menu index="/planning">
             <template #title>表格规划</template>
             <el-menu-item v-for="item in planningItems" :key="item.path" :index="item.path">
+              {{ item.label }}
+            </el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="/capabilities-root">
+            <template #title>能力接入</template>
+            <el-menu-item v-for="item in capabilityItems" :key="item.path" :index="item.path">
               {{ item.label }}
             </el-menu-item>
           </el-sub-menu>

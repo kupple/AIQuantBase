@@ -1,0 +1,47 @@
+version: 1
+mode_kind: research_modes
+mode_name: factor_research
+description: 因子研究模式
+
+aiquantbase:
+  required_capabilities:
+    - capability: price.daily
+  optional_capabilities:
+    - capability: benchmark.daily
+    - capability: universe.board_flags
+    - capability: universe.tradeable_flags
+    - capability: valuation_snapshot
+  extension_capabilities:
+    - capability: custom_factor_daily
+      fields: []
+      allowed_slots:
+        - factor_inputs
+        - filter_fields
+        - report_fields
+    - capability: industry_classification
+      fields: []
+      allowed_slots:
+        - groupby_fields
+        - neutralization_fields
+        - filter_fields
+
+query_needs:
+  - id: daily_market
+    use: stock_daily_panel
+    required: true
+    derive:
+      universe_from: scope.universe
+      symbols_from: scope.symbols
+      start_from: scope.start
+      end_from: scope.end
+      fields_from:
+        - data_requirement.fields
+  - id: benchmark_daily
+    use: benchmark_daily_series
+    required: false
+    derive:
+      symbol_from: scope.benchmark
+      start_from: scope.start
+      end_from: scope.end
+      fields_default:
+        - close

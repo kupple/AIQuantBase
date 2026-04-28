@@ -56,6 +56,7 @@ def test_root_returns_api_summary(tmp_path: Path):
     assert payload["workspace"]["graph_path"] == str(graph_path)
     assert payload["workspace"]["fields_path"] == str(fields_path)
     assert "/api/workspace" in payload["available_routes"]
+    assert "/api/capabilities/workspace" in payload["available_routes"]
     assert "/api/sync/jobs" in payload["available_routes"]
 
 

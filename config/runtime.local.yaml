@@ -22,13 +22,3 @@ discovery:
   allow_databases: []
   allow_tables: []
   trading_calendar_table: ''
-sync:
-  amazingdata:
-    username: '225300062129'
-    password: '225300062129@2026'
-    host: 101.230.159.234
-    port: 8600
-    local_path: /home/mubin/local_amazing_data
-  baostock:
-    user_id: anonymous
-    password: 123456

@@ -84,9 +84,6 @@ class BaoStockRepository:
 
         for _, row in frame.iterrows():
             record: dict[str, Any] = dict(request_values)
-            if spec.has_code_field:
-                raw_code = self._stringify(row.get("code", ""))
-                record["source_code"] = raw_code
             for field, column in zip(spec.fields, spec.field_columns):
                 value = self._stringify(row.get(field, ""))
                 if field == "code":
@@ -233,8 +230,6 @@ class BaoStockRepository:
     def _request_meta_key(column: str) -> str:
         mapping = {
             "query_date": "day",
-            "request_start_date": "start_date",
-            "request_end_date": "end_date",
             "request_year_type": "year_type",
         }
         return mapping[column]
@@ -259,9 +254,6 @@ class BaoStockRepository:
         values: dict[str, Any] = {}
         if spec.uses_day:
             values["query_date"] = self._stringify(request_meta.get("day", ""))
-        if spec.uses_begin_end:
-            values["request_start_date"] = self._stringify(request_meta.get("start_date", ""))
-            values["request_end_date"] = self._stringify(request_meta.get("end_date", ""))
         if spec.uses_year_type:
             values["request_year_type"] = self._stringify(request_meta.get("year_type", ""))
         return values

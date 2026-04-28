@@ -415,8 +415,6 @@ def request_columns_for_spec(spec: BaoStockTaskSpec) -> tuple[str, ...]:
     columns: list[str] = []
     if spec.uses_day:
         columns.append("query_date")
-    if spec.uses_begin_end:
-        columns.extend(("request_start_date", "request_end_date"))
     if spec.uses_year_type:
         columns.append("request_year_type")
     return tuple(columns)
@@ -424,8 +422,6 @@ def request_columns_for_spec(spec: BaoStockTaskSpec) -> tuple[str, ...]:
 
 def table_columns_for_spec(spec: BaoStockTaskSpec) -> tuple[str, ...]:
     columns: list[str] = list(request_columns_for_spec(spec))
-    if spec.has_code_field:
-        columns.append("source_code")
     columns.extend(spec.field_columns)
     return tuple(columns)
 
@@ -445,7 +441,6 @@ def order_by_columns_for_spec(spec: BaoStockTaskSpec) -> tuple[str, ...]:
         "performance_exp_pub_date",
         "profit_forcast_exp_pub_date",
         "query_date",
-        "request_start_date",
     ):
         if candidate in columns and candidate not in ordered:
             ordered.append(candidate)

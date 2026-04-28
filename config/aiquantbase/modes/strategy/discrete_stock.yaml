@@ -1,0 +1,102 @@
+version: 1
+mode_kind: strategy_modes
+mode_name: discrete_stock
+description: 股票离散订单账户模式
+
+aiquantbase:
+  required_capabilities:
+    - capability: price.daily
+      fields:
+        - open
+        - high
+        - low
+        - close
+        - pre_close
+        - volume
+        - amount
+        - backward_adj_factor
+    - capability: benchmark.daily
+    - capability: corporate_action.dividend
+    - capability: tradability.limit_status
+      fields:
+        - high_limited
+        - low_limited
+    - capability: universe.tradeable_flags
+      fields:
+        - is_st
+        - is_suspended
+        - is_wd_sec
+    - capability: universe.board_flags
+      fields:
+        - is_star_board
+        - is_gem_board
+    - capability: order_constraints.cn_stock
+  optional_capabilities:
+    - capability: price.intraday
+      fields:
+        - open
+        - high
+        - low
+        - close
+        - amount
+        - volume
+  extension_capabilities: []
+
+query_needs:
+  - id: daily_market
+    use: stock_daily_panel
+    required: true
+    derive:
+      symbols_from: scope.symbols
+      start_from: scope.start
+      end_from: scope.end
+      fields_from:
+        - data_requirement.fields
+      fields_append:
+        - open
+        - high
+        - low
+        - close
+        - pre_close
+        - volume
+        - amount
+        - backward_adj_factor
+        - high_limited
+        - low_limited
+        - is_suspended
+        - is_st
+        - is_wd_sec
+        - is_kcb
+        - is_cyb
+        - is_bjs
+  - id: benchmark_daily
+    use: benchmark_daily_series
+    required: true
+    derive:
+      symbol_from: scope.benchmark
+      start_from: scope.start
+      end_from: scope.end
+      fields_default:
+        - close
+        - open
+  - id: dividend_events
+    use: stock_dividend_events
+    required: false
+    derive:
+      symbols_from: scope.symbols
+      start_from: scope.start
+      end_from: scope.end
+  - id: intraday_execution
+    use: stock_intraday_execution
+    required: false
+    enabled_when:
+      all_of_present:
+        - intraday_requirement
+        - intraday_anchors
+    derive:
+      anchors_from: intraday_anchors
+      start_hhmm_from: intraday_requirement.observe_times
+      end_hhmm_from: intraday_requirement.observe_times
+      hhmm_list_from: intraday_requirement.observe_times
+      fields_from:
+        - intraday_requirement.required_fields

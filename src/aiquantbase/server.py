@@ -13,6 +13,12 @@ from flask import (
     request,
 )
 
+from .capabilities import (
+    build_capability_preview,
+    load_capability_workspace,
+    upsert_mode_capability,
+    upsert_provider_node_semantic,
+)
 from .config import dump_yaml, load_field_catalog, load_nodes_and_edges
 from .discovery import SchemaDiscoveryService
 from .executor import ClickHouseExecutor
@@ -96,13 +102,17 @@ def create_app(
                 },
                 "available_routes": [
                     "/api/health",
-                        "/api/workspace",
+                    "/api/workspace",
                     "/api/schema/databases",
                     "/api/schema/tables",
                     "/api/schema/columns",
                     "/api/metadata/catalog",
                     "/api/metadata/protocol-summary",
                     "/api/metadata/disabled-node-cleanup",
+                    "/api/capabilities/workspace",
+                    "/api/capabilities/provider-node",
+                    "/api/capabilities/mode-capability",
+                    "/api/capabilities/preview",
                     "/api/membership/workspace",
                     "/api/membership/domains",
                     "/api/membership/sources",
@@ -111,14 +121,14 @@ def create_app(
                     "/api/membership/relations",
                     "/api/wide-tables",
                     "/api/wide-tables/export",
-                        "/api/fields/ai-notes",
-                        "/api/query/execute",
-                        "/api/query/nl",
-                        "/api/sync-configs",
-                        "/api/sync-wide-tables",
-                        "/api/sync-table-status",
-                        "/api/sync/meta/tasks",
-                        "/api/sync/jobs",
+                    "/api/fields/ai-notes",
+                    "/api/query/execute",
+                    "/api/query/nl",
+                    "/api/sync-configs",
+                    "/api/sync-wide-tables",
+                    "/api/sync-table-status",
+                    "/api/sync/meta/tasks",
+                    "/api/sync/jobs",
                 ],
             }
         )
@@ -558,6 +568,58 @@ def create_app(
             runtime_path=runtime_path,
         )
         return jsonify(runtime.get_disabled_node_cleanup_report())
+
+    @app.get("/api/capabilities/workspace")
+    def capabilities_workspace():
+        return jsonify(
+            load_capability_workspace(
+                capability_root=request.args.get("capability_root") or None,
+                alphablocks_root=request.args.get("alphablocks_root") or None,
+                provider_manifest_path=request.args.get("provider_manifest_path") or None,
+                mode_registry_path=request.args.get("mode_registry_path") or None,
+                query_templates_path=request.args.get("query_templates_path") or None,
+            )
+        )
+
+    @app.post("/api/capabilities/provider-node")
+    def capabilities_upsert_provider_node():
+        payload = request.get_json(force=True)
+        try:
+            result = upsert_provider_node_semantic(payload)
+            workspace = load_capability_workspace(
+                capability_root=payload.get("capability_root") or None,
+                alphablocks_root=payload.get("alphablocks_root") or None,
+                provider_manifest_path=payload.get("provider_manifest_path") or None,
+                mode_registry_path=payload.get("mode_registry_path") or None,
+                query_templates_path=payload.get("query_templates_path") or None,
+            )
+            return jsonify({"ok": True, "result": result, "workspace": workspace})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+    @app.post("/api/capabilities/mode-capability")
+    def capabilities_upsert_mode_capability():
+        payload = request.get_json(force=True)
+        try:
+            result = upsert_mode_capability(payload)
+            workspace = load_capability_workspace(
+                capability_root=payload.get("capability_root") or None,
+                alphablocks_root=payload.get("alphablocks_root") or None,
+                provider_manifest_path=payload.get("provider_manifest_path") or None,
+                mode_registry_path=payload.get("mode_registry_path") or None,
+                query_templates_path=payload.get("query_templates_path") or None,
+            )
+            return jsonify({"ok": True, "result": result, "workspace": workspace})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+    @app.post("/api/capabilities/preview")
+    def capabilities_preview():
+        payload = request.get_json(force=True)
+        try:
+            return jsonify(build_capability_preview(payload))
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc), "resolved_queries": []}), 400
 
     @app.post("/api/fields/ai-notes")
     def ai_field_notes():

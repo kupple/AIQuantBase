@@ -130,30 +130,37 @@ class BaoStockSpecTest(unittest.TestCase):
         self.assertEqual(camel_to_snake("dividOperateDate"), "divid_operate_date")
         self.assertEqual(camel_to_snake("isST"), "is_st")
 
-    def test_table_columns_include_source_code_when_task_has_code_field(self) -> None:
+    def test_code_task_columns_skip_source_code_and_ingested_at(self) -> None:
         columns = table_columns_for_spec(BAOSTOCK_TASK_SPECS["stock_basic"])
-        self.assertIn("source_code", columns)
         self.assertIn("code", columns)
+        self.assertNotIn("source_code", columns)
         self.assertNotIn("ingested_at", columns)
 
-    def test_daily_kline_columns_skip_request_window_and_ingested_at(self) -> None:
+    def test_daily_kline_columns_skip_request_window_source_code_and_ingested_at(self) -> None:
         columns = table_columns_for_spec(BAOSTOCK_TASK_SPECS["daily_kline"])
-        self.assertIn("source_code", columns)
         self.assertIn("date", columns)
         self.assertIn("code", columns)
+        self.assertNotIn("source_code", columns)
         self.assertNotIn("request_start_date", columns)
         self.assertNotIn("request_end_date", columns)
         self.assertNotIn("ingested_at", columns)
 
-    def test_quarterly_finance_columns_skip_request_year_quarter_and_ingested_at(self) -> None:
+    def test_quarterly_finance_columns_skip_request_year_quarter_source_code_and_ingested_at(self) -> None:
         columns = table_columns_for_spec(BAOSTOCK_TASK_SPECS["profit_data"])
-        self.assertIn("source_code", columns)
         self.assertIn("code", columns)
         self.assertIn("pub_date", columns)
         self.assertIn("stat_date", columns)
+        self.assertNotIn("source_code", columns)
         self.assertNotIn("request_year", columns)
         self.assertNotIn("request_quarter", columns)
         self.assertNotIn("ingested_at", columns)
+
+    def test_all_business_tables_skip_request_window_source_code_and_ingested_at(self) -> None:
+        forbidden_columns = {"request_start_date", "request_end_date", "source_code", "ingested_at"}
+        for task, spec in BAOSTOCK_TASK_SPECS.items():
+            with self.subTest(task=task):
+                columns = set(table_columns_for_spec(spec))
+                self.assertFalse(columns & forbidden_columns)
 
 
 class BaoStockIncrementalHelperTest(unittest.TestCase):
@@ -352,10 +359,9 @@ class BaoStockRepositoryTest(unittest.TestCase):
         table, columns, rows = client.insert_calls[0]
         self.assertEqual(table, "baostock.bs_all_stock")
         self.assertIn("code", columns)
-        self.assertIn("source_code", columns)
+        self.assertNotIn("source_code", columns)
         row = dict(zip(columns, rows[0]))
         self.assertEqual(row["code"], "600000.SH")
-        self.assertEqual(row["source_code"], "sh.600000")
         self.assertEqual(row["query_date"], "20240110")
         self.assertNotIn("ingested_at", row)
 
@@ -394,12 +400,12 @@ class BaoStockRepositoryTest(unittest.TestCase):
         self.assertEqual(table, "baostock.bs_daily_kline")
         self.assertNotIn("request_start_date", columns)
         self.assertNotIn("request_end_date", columns)
+        self.assertNotIn("source_code", columns)
         self.assertNotIn("ingested_at", columns)
         row = dict(zip(columns, rows[0]))
         self.assertEqual(row["code"], "000001.SZ")
-        self.assertEqual(row["source_code"], "sz.000001")
 
-    def test_save_quarterly_finance_skips_request_year_quarter_and_ingested_at_columns(self) -> None:
+    def test_save_quarterly_finance_skips_request_year_quarter_source_code_and_ingested_at_columns(self) -> None:
         client = _FakeClickHouseClient()
         repository = BaoStockRepository(client, database="baostock")
         frame = pd.DataFrame([{
@@ -427,10 +433,10 @@ class BaoStockRepositoryTest(unittest.TestCase):
         self.assertEqual(table, "baostock.bs_profit_data")
         self.assertNotIn("request_year", columns)
         self.assertNotIn("request_quarter", columns)
+        self.assertNotIn("source_code", columns)
         self.assertNotIn("ingested_at", columns)
         row = dict(zip(columns, rows[0]))
         self.assertEqual(row["code"], "600000.SH")
-        self.assertEqual(row["source_code"], "sh.600000")
 
 
 @unittest.skipIf(pd is None, "pandas is required")

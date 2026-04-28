@@ -38,5 +38,8 @@ export default defineNuxtConfig({
   future: {
     compatibilityVersion: 4,
   },
+  routeRules: {
+    '/capabilities/provider': { redirect: '/capabilities' },
+  },
   compatibilityDate: '2026-04-10',
 })
