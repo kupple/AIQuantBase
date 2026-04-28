@@ -831,11 +831,7 @@ onMounted(ensureWorkspace)
                 <span>{{ isExtensionSlotSelected(slot.slot) ? '已选择' : '可选择' }}</span>
               </div>
               <code>{{ slot.slot }}</code>
-              <p>{{ slot.description || slotDescription(slot.slot) }}</p>
-              <small>
-                {{ slot.access_pattern || 'panel_time_series' }}
-                <template v-if="slot.freq"> / {{ slot.freq }}</template>
-              </small>
+              <small>{{ slot.description || slotDescription(slot.slot) }}</small>
             </button>
           </div>
           <el-empty v-else description="当前模式没有定义扩展 slot" :image-size="72" />
@@ -1157,13 +1153,13 @@ h3 {
 .slot-choice-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
   width: 100%;
 }
 
 .slot-choice-card {
-  min-height: 92px;
-  padding: 10px 12px;
+  min-height: 62px;
+  padding: 8px 10px;
   border: 1px solid rgba(65, 88, 72, 0.16);
   border-radius: 8px;
   background: rgba(248, 251, 248, 0.92);
@@ -1184,21 +1180,21 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .slot-choice-head strong {
   color: #1e3327;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .slot-choice-head span {
   flex: 0 0 auto;
-  padding: 2px 6px;
+  padding: 1px 5px;
   border-radius: 999px;
   background: rgba(68, 91, 76, 0.1);
   color: #526259;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .slot-choice-card.active .slot-choice-head span {
@@ -1209,27 +1205,21 @@ h3 {
 
 .slot-choice-card code {
   display: inline-block;
-  margin-top: 5px;
+  margin-top: 3px;
   color: #187856;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-  font-size: 11px;
-}
-
-.slot-choice-card p {
-  display: -webkit-box;
-  min-height: 30px;
-  margin: 5px 0;
-  overflow: hidden;
-  color: #526259;
-  font-size: 11px;
-  line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  font-size: 10px;
 }
 
 .slot-choice-card small {
-  color: #7a867f;
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #526259;
   font-size: 10px;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
 }
 
 .mb {
