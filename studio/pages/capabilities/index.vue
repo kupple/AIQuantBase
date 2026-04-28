@@ -185,14 +185,10 @@ const capabilityMetaMap = computed(() => {
 
 const extensionCapabilityOptions = computed(() => {
   const rows = new Map()
-  const baseCapabilities = new Set(
-    modeCapabilityRows.value
-      .filter((item) => item.section !== 'extension')
-      .map((item) => item.capability)
-  )
+  const currentModeCapabilities = new Set(modeCapabilityRows.value.map((item) => item.capability))
   for (const item of capabilityRegistry.value || []) {
     const capability = String(item.capability || '').trim()
-    if (!capability || baseCapabilities.has(capability) || capability.startsWith('order_constraints.')) continue
+    if (!capability || currentModeCapabilities.has(capability) || capability.startsWith('order_constraints.')) continue
     rows.set(capability, {
       capability,
       label: capabilityLabel(capability),
@@ -1160,14 +1156,14 @@ h3 {
 
 .slot-choice-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
   width: 100%;
 }
 
 .slot-choice-card {
-  min-height: 132px;
-  padding: 14px;
+  min-height: 92px;
+  padding: 10px 12px;
   border: 1px solid rgba(65, 88, 72, 0.16);
   border-radius: 8px;
   background: rgba(248, 251, 248, 0.92);
@@ -1180,7 +1176,7 @@ h3 {
 .slot-choice-card.active {
   border-color: rgba(23, 128, 91, 0.56);
   background: rgba(237, 248, 242, 0.98);
-  box-shadow: 0 8px 20px rgba(31, 109, 79, 0.12);
+  box-shadow: 0 6px 14px rgba(31, 109, 79, 0.1);
   transform: translateY(-1px);
 }
 
@@ -1193,16 +1189,16 @@ h3 {
 
 .slot-choice-head strong {
   color: #1e3327;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .slot-choice-head span {
   flex: 0 0 auto;
-  padding: 3px 8px;
+  padding: 2px 6px;
   border-radius: 999px;
   background: rgba(68, 91, 76, 0.1);
   color: #526259;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .slot-choice-card.active .slot-choice-head span {
@@ -1213,22 +1209,27 @@ h3 {
 
 .slot-choice-card code {
   display: inline-block;
-  margin-top: 8px;
+  margin-top: 5px;
   color: #187856;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .slot-choice-card p {
-  margin: 8px 0;
+  display: -webkit-box;
+  min-height: 30px;
+  margin: 5px 0;
+  overflow: hidden;
   color: #526259;
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .slot-choice-card small {
   color: #7a867f;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .mb {
