@@ -179,7 +179,6 @@ def build_wide_table_export_payload(
             },
             'fields': list(design['fields']),
             'key_fields': list(design['key_fields']),
-            'sync_task': design.get('sync_task') or '',
             'status': design['status'],
             'created_at': design['created_at'],
             'updated_at': design['updated_at'],
@@ -285,7 +284,6 @@ def _normalize_design(payload: dict[str, Any]) -> dict[str, Any]:
         'partition_by': partition_by,
         'order_by': order_by,
         'version_field': str(payload.get('version_field') or '').strip(),
-        'sync_task': str(payload.get('sync_task') or '').strip(),
         'status': str(payload.get('status') or 'enabled').strip() or 'enabled',
         'created_at': str(payload.get('created_at') or _now_iso()),
         'updated_at': str(payload.get('updated_at') or _now_iso()),
@@ -345,36 +343,41 @@ def _node_to_design(node: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _create_node_from_design(design: dict[str, Any], *, source_node: dict[str, Any] | None = None) -> dict[str, Any]:
-    time_key = _infer_time_key(design, fallback=source_node.get('time_key') if source_node else None)
+    if source_node is not None:
+        time_key = source_node.get('time_key')
+        table_ref = source_node.get('table') or f"{design['target_database']}.{design['target_table']}"
+        fields = list(source_node.get('fields') or [])
+        entity_keys = list(source_node.get('entity_keys') or [])
+        base_filters = list(source_node.get('base_filters') or [])
+    else:
+        time_key = _infer_time_key(design)
+        table_ref = f"{design['target_database']}.{design['target_table']}"
+        fields = list(design['fields'])
+        entity_keys = _entity_keys_from_key_fields(design['key_fields'], time_key=time_key)
+        base_filters = []
     return {
         'name': design['name'],
-        'table': f"{design['target_database']}.{design['target_table']}",
-        'entity_keys': _entity_keys_from_key_fields(design['key_fields'], time_key=time_key),
+        'table': table_ref,
+        'entity_keys': entity_keys,
         'time_key': time_key,
         'grain': (source_node or {}).get('grain'),
-        'fields': list(design['fields']),
+        'fields': fields,
         'description': design['description'] or None,
         'description_zh': (source_node or {}).get('description_zh') or design['description'] or None,
         'node_role': (source_node or {}).get('node_role') or 'query_entry',
         'status': design['status'],
         'asset_type': (source_node or {}).get('asset_type'),
         'query_freq': (source_node or {}).get('query_freq'),
-        'base_filters': [],
+        'base_filters': base_filters,
         'wide_table': _design_to_node_meta(design),
     }
 
 
 def _apply_design_to_node(node: dict[str, Any], design: dict[str, Any]) -> dict[str, Any]:
     next_node = dict(node)
-    time_key = _infer_time_key(design, fallback=next_node.get('time_key'))
     next_node['name'] = design['name']
-    next_node['table'] = f"{design['target_database']}.{design['target_table']}"
-    next_node['fields'] = list(design['fields'])
-    next_node['entity_keys'] = _entity_keys_from_key_fields(design['key_fields'], time_key=time_key)
-    next_node['time_key'] = time_key
     next_node['description'] = design['description'] or next_node.get('description')
     next_node['status'] = design['status']
-    next_node['base_filters'] = []
     next_node['wide_table'] = _design_to_node_meta(design)
     return next_node
 
@@ -382,13 +385,16 @@ def _apply_design_to_node(node: dict[str, Any], design: dict[str, Any]) -> dict[
 def _design_to_node_meta(design: dict[str, Any]) -> dict[str, Any]:
     return {
         'id': design['id'],
+        'description': design['description'],
         'source_node': design['source_node'],
+        'target_database': design['target_database'],
+        'target_table': design['target_table'],
         'engine': design['engine'],
+        'fields': list(design['fields']),
         'key_fields': list(design['key_fields']),
         'partition_by': list(design['partition_by']),
         'order_by': list(design['order_by']),
         'version_field': design['version_field'],
-        **({'sync_task': design['sync_task']} if design.get('sync_task') else {}),
         'status': design['status'],
         'created_at': design['created_at'],
         'updated_at': _now_iso(),

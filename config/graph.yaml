@@ -1,8 +1,11 @@
 nodes:
 - asset_type: stock
-  base_filters: []
+  base_filters:
+  - field: security_type
+    op: '='
+    value: EXTRA_STOCK_A
   description: null
-  description_zh: 股票日频宽表
+  description_zh: 股票日线行情主表
   entity_keys:
   - code
   fields:
@@ -12,32 +15,46 @@ nodes:
   - high
   - low
   - close
-  - pre_close
   - volume
   - amount
-  - is_st
-  - is_suspended
-  - is_wd_sec
-  - is_xr_sec
-  - is_kcb
-  - is_cyb
-  - is_bjs
-  - high_limited
-  - low_limited
-  - backward_adj_factor
-  - market_cap
-  - float_market_cap
-  - turnover_rate
   grain: daily
   name: stock_daily_real
   node_role: query_entry
   query_freq: 1d
   status: enabled
-  table: starlight.stock_daily_real
+  table: starlight.ad_market_kline_daily
   time_key: trade_time
   wide_table:
     created_at: '2026-04-21T21:43:50'
+    description: 由普通节点 stock_daily_real 转换生成
     engine: Memory
+    fields:
+    - code
+    - trade_time
+    - open
+    - high
+    - low
+    - close
+    - pre_close
+    - volume
+    - amount
+    - open_adj
+    - high_adj
+    - low_adj
+    - close_adj
+    - is_st
+    - is_suspended
+    - is_wd_sec
+    - is_xr_sec
+    - is_kcb
+    - is_cyb
+    - is_bjs
+    - high_limited
+    - low_limited
+    - backward_adj_factor
+    - market_cap
+    - float_market_cap
+    - turnover_rate
     id: wide::stock_daily_real::c83034b0
     key_fields:
     - code
@@ -48,7 +65,8 @@ nodes:
     partition_by: []
     source_node: stock_daily_real
     status: enabled
-    sync_task: daily_kline
+    target_database: starlight
+    target_table: stock_daily_real
     updated_at: '2026-04-21T21:43:50'
     version_field: ''
 - asset_type: null

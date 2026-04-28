@@ -21,7 +21,6 @@ const wideTableFieldSearch = ref('')
 const selectedWorkbenchType = ref('node')
 const wideTableDialogVisible = ref(false)
 const wideTableSyncStates = ref([])
-const wideTableDirectSyncJobs = ref([])
 const wideTableForm = ref(blankWideTable())
 const wideTableTargetTables = ref([])
 const selectedWideTableId = ref('')
@@ -90,17 +89,10 @@ const wideTableStateByName = computed(() =>
   new Map((wideTableSyncStates.value || []).map((item) => [item.wide_table_name, item]))
 )
 
-const wideTableDirectJobByTask = computed(() => {
-  const items = [...(wideTableDirectSyncJobs.value || [])]
-    .filter((item) => item?.task)
-    .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
-  return new Map(items.map((item) => [item.task, item]))
-})
-
 const currentNodeWideTableSyncState = computed(() => {
   const item = currentNodeWideTable.value
   if (!item) return null
-  return getWideTableSyncState(item)
+  return wideTableStateByName.value.get(item.name) || null
 })
 
 const nodeListFilterOptions = computed(() => {
@@ -249,7 +241,7 @@ const selectedWideTable = computed(() =>
 const selectedWideTableSyncState = computed(() => {
   const item = selectedWideTable.value
   if (!item) return null
-  return getWideTableSyncState(item)
+  return wideTableStateByName.value.get(item.name) || null
 })
 
 const workbenchRows = computed(() => {
@@ -684,7 +676,6 @@ function blankWideTable() {
     partition_by_text: '',
     order_by_text: '',
     version_field: '',
-    sync_task: '',
   }
 }
 
@@ -711,44 +702,9 @@ function buildWideTableDesignFromNode(node) {
     partition_by: Array.isArray(meta.partition_by) ? [...meta.partition_by] : [],
     order_by: Array.isArray(meta.order_by) && meta.order_by.length ? [...meta.order_by] : [...keyFields],
     version_field: meta.version_field || '',
-    sync_task: meta.sync_task || inferWideTableDefaultSyncTask(node),
     created_at: meta.created_at || '',
     updated_at: meta.updated_at || '',
   }
-}
-
-function inferWideTableDefaultSyncTask(node) {
-  const nodeName = String(node?.name || '').trim()
-  if (nodeName === 'stock_daily_real') return 'daily_kline'
-  if (nodeName === 'stock_minute_real') return 'minute_kline'
-  const grain = String(node?.grain || '').trim()
-  const assetType = String(node?.asset_type || '').trim()
-  if (assetType === 'stock' && grain === 'daily') return 'daily_kline'
-  if (assetType === 'stock' && grain === 'minute') return 'minute_kline'
-  return ''
-}
-
-function resolveWideTableSyncTask(row) {
-  return String(row?.sync_task || '').trim()
-}
-
-function getWideTableSyncState(item) {
-  const syncTask = resolveWideTableSyncTask(item)
-  if (syncTask) {
-    const job = wideTableDirectJobByTask.value.get(syncTask)
-    if (job) {
-      return {
-        last_status: job.status || '',
-        last_action: 'database_sync',
-        last_message: job.error || '',
-        last_started_at: job.started_at || '',
-        last_finished_at: job.finished_at || '',
-        updated_at: job.finished_at || job.started_at || job.created_at || '',
-        job_id: job.job_id || '',
-      }
-    }
-  }
-  return wideTableStateByName.value.get(item.name) || null
 }
 
 function syncSelectedWideTableId() {
@@ -765,11 +721,6 @@ function syncSelectedWideTableId() {
 
 function nowIsoSecond() {
   return new Date().toISOString().replace(/\.\d{3}Z$/, '')
-}
-
-function inferWideTableTimeKey(payload, fallback = '') {
-  const candidates = [...(payload.key_fields || []), ...(payload.fields || [])]
-  return candidates.find((item) => ['trade_time', 'trade_date', 'date', 'ann_date', 'change_date', 'report_date', 'end_date'].includes(item)) || fallback || ''
 }
 
 function normalizeWideTablePayload(payload) {
@@ -792,7 +743,6 @@ function normalizeWideTablePayload(payload) {
     partition_by: partitionBy,
     order_by: orderBy.length ? orderBy : keyFields,
     version_field: String(payload.version_field || '').trim(),
-    sync_task: String(payload.sync_task || '').trim(),
     created_at: payload.created_at || nowIsoSecond(),
     updated_at: nowIsoSecond(),
   }
@@ -806,26 +756,23 @@ function applyWideTableDesignToGraph(payload) {
   }
 
   const node = graph.value.nodes[index]
-  const timeKey = inferWideTableTimeKey(design, node.time_key)
   graph.value.nodes[index] = {
     ...node,
     name: design.name,
-    table: `${design.target_database}.${design.target_table}`,
-    fields: [...design.fields],
-    entity_keys: design.key_fields.filter((item) => item !== timeKey),
-    time_key: timeKey || null,
     description: design.description || node.description || null,
     status: design.status,
-    base_filters: [],
     wide_table: {
       id: design.id,
+      description: design.description,
       source_node: design.source_node,
+      target_database: design.target_database,
+      target_table: design.target_table,
       engine: design.engine,
+      fields: [...design.fields],
       key_fields: [...design.key_fields],
       partition_by: [...design.partition_by],
       order_by: [...design.order_by],
       version_field: design.version_field,
-      ...(design.sync_task ? { sync_task: design.sync_task } : {}),
       status: design.status,
       created_at: design.created_at,
       updated_at: design.updated_at,
@@ -854,7 +801,6 @@ async function syncWideTableSelectionFromGraph() {
 }
 
 async function loadWideTableSyncStates() {
-  await loadWideTableDirectSyncJobs()
   if (!hasDatasourceConfigured.value) {
     wideTableSyncStates.value = []
     return
@@ -871,15 +817,6 @@ async function loadWideTableSyncStates() {
     wideTableSyncStates.value = []
   } finally {
     wideTableStateLoading.value = false
-  }
-}
-
-async function loadWideTableDirectSyncJobs() {
-  try {
-    const payload = await callJson('/api/sync/jobs?kind=registered_task')
-    wideTableDirectSyncJobs.value = payload.jobs || []
-  } catch {
-    wideTableDirectSyncJobs.value = []
   }
 }
 
@@ -988,33 +925,18 @@ async function handleRunWideTableSync(row) {
   }
   wideTableSyncLoading.value = true
   try {
-    const syncTask = resolveWideTableSyncTask(row)
-    let actionMessage = ''
-    if (syncTask) {
-      const payload = await callJson('/api/sync/jobs/run-task', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: syncTask,
-          runtime_path: workspace.value.runtimePath,
-          log_level: 'INFO',
-        }),
-      })
-      await loadWideTableDirectSyncJobs()
-      actionMessage = `数据库同步任务已启动：${payload.job_id || syncTask}`
-    } else {
-      const payload = await callJson('/api/sync/wide-tables/run-inline', {
-        method: 'POST',
-        body: JSON.stringify({
-          id: row.id,
-          graph_path: workspace.value.graphPath,
-          fields_path: workspace.value.fieldsPath,
-          state_database: wideTableSyncStateDatabase.value || 'default',
-        }),
-      })
-      await loadWideTableSyncStates()
-      const firstResult = Array.isArray(payload.results) ? payload.results[0] : null
-      actionMessage = firstResult?.message || (payload.ok ? '宽表同步完成' : '宽表同步失败')
-    }
+    const payload = await callJson('/api/sync/wide-tables/run-inline', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: row.id,
+        graph_path: workspace.value.graphPath,
+        fields_path: workspace.value.fieldsPath,
+        state_database: wideTableSyncStateDatabase.value || 'default',
+      }),
+    })
+    await loadWideTableSyncStates()
+    const firstResult = Array.isArray(payload.results) ? payload.results[0] : null
+    const actionMessage = firstResult?.message || (payload.ok ? '宽表同步完成' : '宽表同步失败')
     await notifyAction(actionMessage, async () => {})
   } finally {
     wideTableSyncLoading.value = false

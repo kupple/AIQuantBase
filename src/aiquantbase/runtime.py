@@ -150,12 +150,13 @@ class GraphRuntime:
         self.runtime_path = Path(runtime_path)
 
         self.runtime_config = load_runtime_config(self.runtime_path)
-        self.nodes, self.edges = load_nodes_and_edges(self.graph_path)
+        loaded_nodes, self.edges = load_nodes_and_edges(self.graph_path)
         self.wide_table_specs = {
             node.name: node.wide_table
-            for node in self.nodes
+            for node in loaded_nodes
             if isinstance(node.wide_table, dict) and str(node.wide_table.get('status') or 'enabled') == 'enabled'
         }
+        self.nodes = self._apply_wide_table_overlays(loaded_nodes)
         self.field_catalog = load_field_catalog(self.fields_path)
         self.registry = GraphRegistry(self.nodes, self.edges, field_catalog=self.field_catalog)
         self.planner = QueryPlanner(self.registry)

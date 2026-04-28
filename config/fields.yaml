@@ -1,510 +1,613 @@
 fields:
-- applies_to_grain: daily
+- standard_field: pre_close
+  source_node: null
+  source_field: preclose
+  field_role: status_snapshot_field
   base_node: stock_daily_real
   binding_mode: source_table
+  source_table: starlight.ad_history_stock_status
+  relation_type: any
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    source_time_field: trade_date
+    source_start_field: null
+    source_end_field: null
+    base_time_cast: date
+    source_time_cast: null
+    available_time_field: null
+    allow_equal: true
+    lookahead_safe: true
   bridge_steps: []
-  depends_on: []
-  description_zh: 股票代码
-  field_role: stock_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
   resolver_type: direct
-  source_field: code
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: code
-  time_binding: null
+  depends_on: []
+  formula: null
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
   time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 交易时间
-  field_role: stock_time_field
-  formula: null
-  join_keys: []
   lookahead_category: none
+  description_zh: 来自状态快照表
   notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: trade_time
+  - Mapped from status snapshot table
+- standard_field: open_adj
   source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: trade_time
-  time_binding: null
-  time_semantics: market_trade_time
-  via_node: null
-- applies_to_grain: daily
+  source_field: null
+  field_role: derived_field
   base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 开盘价
-  field_role: raw_market_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
+  binding_mode: derived
+  source_table: null
   relation_type: null
-  resolver_type: direct
-  source_field: open
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: open
+  join_keys: []
   time_binding: null
+  bridge_steps: []
+  resolver_type: derived
+  depends_on:
+  - open
+  - backward_adj_factor
+  formula: '{open} * {backward_adj_factor}'
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
   time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 最高价
-  field_role: raw_market_field
-  formula: null
-  join_keys: []
   lookahead_category: none
+  description_zh: 基于原始开盘价与后复权因子计算的复权开盘价
   notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: high
+  - Derived adjusted open based on raw open and backward adjustment factor
+- standard_field: backward_adj_factor
   source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: high
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
+  source_field: factor_value
+  field_role: adjustment_factor
   base_node: stock_daily_real
   binding_mode: source_table
+  source_table: starlight.ad_backward_factor
+  relation_type: any
+  join_keys:
+  - base: code
+    source: code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    source_time_field: trade_date
+    source_start_field: null
+    source_end_field: null
+    base_time_cast: date
+    source_time_cast: null
+    available_time_field: null
+    allow_equal: true
+    lookahead_safe: true
   bridge_steps: []
+  resolver_type: direct
   depends_on: []
-  description_zh: 最低价
-  field_role: raw_market_field
   formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: low
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: low
-  time_binding: null
-  time_semantics: null
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
   via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 收盘价
-  field_role: raw_market_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: close
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: close
-  time_binding: null
   time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 前收盘价
-  field_role: raw_market_field
-  formula: null
-  join_keys: []
   lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: pre_close
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: pre_close
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 成交量
-  field_role: raw_market_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: volume
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: volume
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 成交额
-  field_role: raw_market_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: amount
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: amount
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: ST标记
-  field_role: stock_status_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: is_st
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: is_st
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 停牌标记
-  field_role: stock_status_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: is_suspended
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: is_suspended
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 退市整理标记
-  field_role: stock_status_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: is_wd_sec
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: is_wd_sec
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 除权标记
-  field_role: stock_status_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: is_xr_sec
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: is_xr_sec
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 科创板标记
-  field_role: stock_status_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: is_kcb
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: is_kcb
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 创业板标记
-  field_role: stock_status_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: is_cyb
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: is_cyb
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 北交所标记
-  field_role: stock_status_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: is_bjs
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: is_bjs
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 涨停标记
-  field_role: stock_limit_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: high_limited
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: high_limited
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
-  description_zh: 跌停标记
-  field_role: stock_limit_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: low_limited
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: low_limited
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: stock_daily_real
-  binding_mode: source_table
-  bridge_steps: []
-  depends_on: []
   description_zh: 后复权因子
-  field_role: adjustment_factor_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
   notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: backward_adj_factor
+  - Mapped from ad_backward_factor
+  - Interpreted as backward adjustment factor
+- standard_field: high_adj
   source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: backward_adj_factor
+  source_field: null
+  field_role: derived_field
+  base_node: stock_daily_real
+  binding_mode: derived
+  source_table: null
+  relation_type: null
+  join_keys: []
   time_binding: null
-  time_semantics: null
+  bridge_steps: []
+  resolver_type: derived
+  depends_on:
+  - high
+  - backward_adj_factor
+  formula: '{high} * {backward_adj_factor}'
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
   via_node: null
-- applies_to_grain: daily
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 基于原始最高价与后复权因子计算的复权最高价
+  notes:
+  - Derived adjusted high based on raw high and backward adjustment factor
+- standard_field: low_adj
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  base_node: stock_daily_real
+  binding_mode: derived
+  source_table: null
+  relation_type: null
+  join_keys: []
+  time_binding: null
+  bridge_steps: []
+  resolver_type: derived
+  depends_on:
+  - low
+  - backward_adj_factor
+  formula: '{low} * {backward_adj_factor}'
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 基于原始最低价与后复权因子计算的复权最低价
+  notes:
+  - Derived adjusted low based on raw low and backward adjustment factor
+- standard_field: close_adj
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  base_node: stock_daily_real
+  binding_mode: derived
+  source_table: null
+  relation_type: null
+  join_keys: []
+  time_binding: null
+  bridge_steps: []
+  resolver_type: derived
+  depends_on:
+  - close
+  - backward_adj_factor
+  formula: '{close} * {backward_adj_factor}'
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 基于原始收盘价与后复权因子计算的复权收盘价
+  notes:
+  - Derived adjusted close based on raw close and backward adjustment factor
+- standard_field: is_st
+  source_node: null
+  source_field: is_st_sec
+  field_role: status_flag
   base_node: stock_daily_real
   binding_mode: source_table
+  source_table: starlight.ad_history_stock_status
+  relation_type: any
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    source_time_field: trade_date
+    source_start_field: null
+    source_end_field: null
+    base_time_cast: date
+    source_time_cast: null
+    available_time_field: null
+    allow_equal: true
+    lookahead_safe: true
   bridge_steps: []
-  depends_on: []
-  description_zh: 总市值
-  field_role: valuation_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
   resolver_type: direct
-  source_field: market_cap
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: market_cap
-  time_binding: null
-  time_semantics: null
+  depends_on: []
+  formula: null
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
   via_node: null
-- applies_to_grain: daily
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 来自状态快照表
+  notes:
+  - Mapped from status snapshot table
+- standard_field: is_suspended
+  source_node: null
+  source_field: is_susp_sec
+  field_role: status_flag
   base_node: stock_daily_real
   binding_mode: source_table
+  source_table: starlight.ad_history_stock_status
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    source_time_field: trade_date
+    source_start_field: null
+    source_end_field: null
+    base_time_cast: date
+    source_time_cast: null
+    available_time_field: null
+    allow_equal: true
+    lookahead_safe: true
   bridge_steps: []
-  depends_on: []
-  description_zh: 流通市值
-  field_role: valuation_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
   resolver_type: direct
-  source_field: float_market_cap
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: float_market_cap
-  time_binding: null
-  time_semantics: null
+  depends_on: []
+  formula: null
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
   via_node: null
-- applies_to_grain: daily
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 来自状态快照表
+  notes:
+  - Mapped from status snapshot table
+- standard_field: is_wd_sec
+  source_node: null
+  source_field: is_wd_sec
+  field_role: status_flag
   base_node: stock_daily_real
   binding_mode: source_table
+  source_table: starlight.ad_history_stock_status
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    source_time_field: trade_date
+    source_start_field: null
+    source_end_field: null
+    base_time_cast: date
+    source_time_cast: null
+    available_time_field: null
+    allow_equal: true
+    lookahead_safe: true
   bridge_steps: []
-  depends_on: []
-  description_zh: 换手率
-  field_role: valuation_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 股票日频宽表字段
-  path_domain: stock
-  path_group: daily
-  relation_type: null
   resolver_type: direct
-  source_field: turnover_rate
-  source_node: null
-  source_table: starlight.stock_daily_real
-  standard_field: turnover_rate
-  time_binding: null
-  time_semantics: null
+  depends_on: []
+  formula: null
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
   via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 来自状态快照表
+  notes:
+  - Mapped from status snapshot table
+- standard_field: is_xr_sec
+  source_node: null
+  source_field: is_xr_sec
+  field_role: status_flag
+  base_node: stock_daily_real
+  binding_mode: source_table
+  source_table: starlight.ad_history_stock_status
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    source_time_field: trade_date
+    source_start_field: null
+    source_end_field: null
+    base_time_cast: date
+    source_time_cast: null
+    available_time_field: null
+    allow_equal: true
+    lookahead_safe: true
+  bridge_steps: []
+  resolver_type: direct
+  depends_on: []
+  formula: null
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 来自状态快照表
+  notes:
+  - Mapped from status snapshot table
+- standard_field: is_kcb
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  base_node: stock_daily_real
+  binding_mode: derived
+  source_table: null
+  relation_type: null
+  join_keys: []
+  time_binding: null
+  bridge_steps: []
+  resolver_type: derived
+  depends_on:
+  - code
+  formula: startsWith({code}, '688')
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: null
+  description_zh: null
+  notes:
+  - 'Derived board flag for STAR Market stocks
+
+    Returns true when stock code starts with 688'
+- standard_field: is_cyb
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  base_node: stock_daily_real
+  binding_mode: derived
+  source_table: null
+  relation_type: null
+  join_keys: []
+  time_binding: null
+  bridge_steps: []
+  resolver_type: derived
+  depends_on:
+  - code
+  formula: startsWith({code}, '30')
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: null
+  description_zh: null
+  notes:
+  - 'Derived board flag for GEM stocks
+
+    Returns true when stock code starts with 30'
+- standard_field: is_bjs
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  base_node: stock_daily_real
+  binding_mode: derived
+  source_table: null
+  relation_type: null
+  join_keys: []
+  time_binding: null
+  bridge_steps: []
+  resolver_type: derived
+  depends_on:
+  - code
+  formula: endsWith({code}, '.BJ')
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: null
+  description_zh: null
+  notes:
+  - 'Derived board flag for Beijing Stock Exchange stocks
+
+    Returns true when stock code ends with .BJ'
+- standard_field: high_limited
+  source_node: null
+  source_field: high_limited
+  field_role: status_snapshot_field
+  base_node: stock_daily_real
+  binding_mode: source_table
+  source_table: starlight.ad_history_stock_status
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    source_time_field: trade_date
+    source_start_field: null
+    source_end_field: null
+    base_time_cast: date
+    source_time_cast: null
+    available_time_field: null
+    allow_equal: true
+    lookahead_safe: true
+  bridge_steps: []
+  resolver_type: direct
+  depends_on: []
+  formula: null
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 来自状态快照表
+  notes:
+  - Mapped from status snapshot table
+- standard_field: low_limited
+  source_node: null
+  source_field: low_limited
+  field_role: status_snapshot_field
+  base_node: stock_daily_real
+  binding_mode: source_table
+  source_table: starlight.ad_history_stock_status
+  relation_type: direct
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: same_date
+    base_time_field: trade_time
+    source_time_field: trade_date
+    source_start_field: null
+    source_end_field: null
+    base_time_cast: date
+    source_time_cast: null
+    available_time_field: null
+    allow_equal: true
+    lookahead_safe: true
+  bridge_steps: []
+  resolver_type: direct
+  depends_on: []
+  formula: null
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 来自状态快照表
+  notes:
+  - Mapped from status snapshot table
+- standard_field: market_cap
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  base_node: stock_daily_real
+  binding_mode: derived
+  source_table: null
+  relation_type: null
+  join_keys: []
+  time_binding: null
+  bridge_steps: []
+  resolver_type: derived
+  depends_on:
+  - close
+  - tot_share
+  formula: '{close} * ({tot_share} * 10000)'
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 派生总市值
+  notes:
+  - Derived market cap
+  - tot_share is in 10k-share units so denominator multiplies by 10000
+- standard_field: tot_share
+  source_node: null
+  source_field: tot_share
+  field_role: equity_structure_field
+  base_node: stock_daily_real
+  binding_mode: source_table
+  source_table: starlight.ad_equity_structure
+  relation_type: any
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    source_time_field: change_date
+    source_start_field: null
+    source_end_field: null
+    base_time_cast: date
+    source_time_cast: null
+    available_time_field: null
+    allow_equal: true
+    lookahead_safe: true
+  bridge_steps: []
+  resolver_type: direct
+  depends_on: []
+  formula: null
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 来自股本结构表
+  notes:
+  - Mapped from equity structure table
+  - Share unit is 10k shares
+- standard_field: float_market_cap
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  base_node: stock_daily_real
+  binding_mode: derived
+  source_table: null
+  relation_type: null
+  join_keys: []
+  time_binding: null
+  bridge_steps: []
+  resolver_type: derived
+  depends_on:
+  - close
+  - float_share
+  formula: '{close} * ({float_share} * 10000)'
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 派生流通市值
+  notes:
+  - Derived float market cap
+  - float_share is in 10k-share units so denominator multiplies by 10000
+- standard_field: float_share
+  source_node: null
+  source_field: float_share
+  field_role: equity_structure_field
+  base_node: stock_daily_real
+  binding_mode: source_table
+  source_table: starlight.ad_equity_structure
+  relation_type: any
+  join_keys:
+  - base: code
+    source: market_code
+  time_binding:
+    mode: asof
+    base_time_field: trade_time
+    source_time_field: change_date
+    source_start_field: null
+    source_end_field: null
+    base_time_cast: date
+    source_time_cast: null
+    available_time_field: null
+    allow_equal: true
+    lookahead_safe: true
+  bridge_steps: []
+  resolver_type: direct
+  depends_on: []
+  formula: null
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 来自股本结构表
+  notes:
+  - Mapped from equity structure table
+  - Share unit is 10k shares
+- standard_field: turnover_rate
+  source_node: null
+  source_field: null
+  field_role: derived_field
+  base_node: stock_daily_real
+  binding_mode: derived
+  source_table: null
+  relation_type: null
+  join_keys: []
+  time_binding: null
+  bridge_steps: []
+  resolver_type: derived
+  depends_on:
+  - volume
+  - float_share
+  formula: '{volume} / nullIf(({float_share} * 10000), 0)'
+  applies_to_grain: daily
+  path_domain: null
+  path_group: null
+  via_node: null
+  time_semantics: null
+  lookahead_category: none
+  description_zh: 按日计算的换手率
+  notes:
+  - Derived daily turnover rate
+  - float_share is in 10k-share units so denominator multiplies by 10000
 - applies_to_grain: minute
   base_node: stock_minute_real
   binding_mode: source_node
