@@ -176,8 +176,16 @@ def upsert_mode_capability(
 
     capability = _required_text(payload, "capability")
     section = str(payload.get("section") or "optional_capabilities").strip()
-    if section not in {"required_capabilities", "optional_capabilities", "extension_capabilities"}:
-        raise ValueError("section must be required_capabilities, optional_capabilities or extension_capabilities")
+    if section not in {
+        "required_capabilities",
+        "conditional_capabilities",
+        "optional_capabilities",
+        "extension_capabilities",
+    }:
+        raise ValueError(
+            "section must be required_capabilities, conditional_capabilities, "
+            "optional_capabilities or extension_capabilities"
+        )
     rows = aiqb.setdefault(section, [])
     if not isinstance(rows, list):
         raise ValueError(f"mode aiquantbase.{section} must be a list")
@@ -359,6 +367,7 @@ def _load_mode_profiles(
                 "description": payload.get("description"),
                 "config_path": str(path),
                 "required_capabilities": list(aiqb.get("required_capabilities") or []),
+                "conditional_capabilities": list(aiqb.get("conditional_capabilities") or []),
                 "optional_capabilities": list(aiqb.get("optional_capabilities") or []),
                 "extension_capabilities": list(aiqb.get("extension_capabilities") or []),
                 "query_needs": list(payload.get("query_needs") or []),

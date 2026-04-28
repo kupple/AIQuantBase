@@ -28,11 +28,19 @@ aiquantbase:
         - is_wd_sec
     - capability: universe.board_flags
       fields:
+        - is_kcb
+        - is_cyb
+        - is_bjs
         - is_star_board
         - is_gem_board
     - capability: order_constraints.cn_stock
-  optional_capabilities:
+  optional_capabilities: []
+  conditional_capabilities:
     - capability: price.intraday
+      enabled_when:
+        all_of_present:
+          - intraday_requirement
+          - intraday_anchors
       fields:
         - open
         - high
@@ -40,7 +48,37 @@ aiquantbase:
         - close
         - amount
         - volume
-  extension_capabilities: []
+  extension_capabilities:
+    - capability: valuation_snapshot
+      fields:
+        - market_cap
+        - float_market_cap
+        - turnover_rate
+      allowed_slots:
+        - ranking_fields
+        - filter_fields
+        - report_fields
+    - capability: custom_factor_daily
+      fields: []
+      allowed_slots:
+        - factor_inputs
+        - ranking_fields
+        - filter_fields
+        - risk_fields
+        - report_fields
+    - capability: industry_classification
+      fields: []
+      allowed_slots:
+        - filter_fields
+        - groupby_fields
+        - neutralization_fields
+        - report_fields
+    - capability: dragon_tiger_daily
+      fields: []
+      allowed_slots:
+        - filter_fields
+        - ranking_fields
+        - report_fields
 
 query_needs:
   - id: daily_market

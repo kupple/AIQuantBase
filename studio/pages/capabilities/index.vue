@@ -125,6 +125,7 @@ const modeCapabilityRows = computed(() => {
   if (!mode) return []
   return [
     ...normalizeModeCapabilities(mode.required_capabilities, 'required'),
+    ...normalizeModeCapabilities(mode.conditional_capabilities, 'conditional'),
     ...normalizeModeCapabilities(mode.optional_capabilities, 'optional'),
     ...normalizeModeCapabilities(mode.extension_capabilities, 'extension'),
   ]
@@ -227,11 +228,18 @@ const capabilityStats = computed(() => {
   const rows = dataCapabilityRows.value
   return {
     required: rows.filter((item) => item.section === 'required').length,
+    conditional: rows.filter((item) => item.section === 'conditional').length,
     optional: rows.filter((item) => item.section === 'optional').length,
     extension: rows.filter((item) => item.section === 'extension').length,
     missing: rows.filter((item) => item.missing_fields.length || !item.provider_bindings.length).length,
   }
 })
+
+const visibleCapabilitySections = computed(() =>
+  ['required', 'conditional', 'optional', 'extension'].filter((section) =>
+    section === 'extension' || dataCapabilityRows.value.some((item) => item.section === section)
+  )
+)
 
 async function ensureWorkspace() {
   try {
@@ -417,6 +425,7 @@ function isRuntimeRuleCapability(row) {
 
 function sectionTitle(section) {
   if (section === 'required') return '必需能力'
+  if (section === 'conditional') return '条件能力'
   if (section === 'optional') return '可选能力'
   return '扩展能力'
 }
@@ -581,13 +590,14 @@ onMounted(ensureWorkspace)
           </div>
           <div class="inline-stats">
             <span><strong>{{ capabilityStats.required }}</strong> 必需</span>
+            <span><strong>{{ capabilityStats.conditional }}</strong> 条件</span>
             <span><strong>{{ capabilityStats.optional }}</strong> 可选</span>
             <span><strong>{{ capabilityStats.extension }}</strong> 扩展</span>
             <span><strong>{{ capabilityStats.missing }}</strong> 待处理</span>
           </div>
         </div>
 
-        <section v-for="section in ['required', 'optional', 'extension']" :key="section" class="cap-section">
+        <section v-for="section in visibleCapabilitySections" :key="section" class="cap-section">
           <div class="section-title">
             <h2>{{ sectionTitle(section) }}</h2>
             <el-button v-if="section === 'extension'" size="small" type="primary" @click="openExtensionDialog">

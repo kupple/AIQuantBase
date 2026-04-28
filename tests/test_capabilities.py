@@ -91,6 +91,7 @@ def _write_capability_workspace(tmp_path: Path) -> Path:
                     "required_capabilities": [
                         {"capability": "price.daily", "fields": ["open", "close"]},
                     ],
+                    "conditional_capabilities": [],
                     "optional_capabilities": [],
                     "extension_capabilities": [],
                 },
@@ -137,6 +138,7 @@ def test_capabilities_workspace_lists_provider_nodes_and_modes(tmp_path: Path):
     assert payload["provider_nodes"][0]["name"] == "stock_daily_real"
     assert payload["mode_profiles"][0]["mode_id"] == "strategy_modes.discrete_stock"
     assert payload["mode_profiles"][0]["mode_name"] == "discrete_stock"
+    assert payload["mode_profiles"][0]["conditional_capabilities"] == []
     assert payload["capability_registry"][0]["capability"] == "custom_factor_daily"
     assert payload["capability_registry"][0]["name"] == "自定义日频因子"
     assert payload["capabilities"][0]["capability"] == "price.daily"

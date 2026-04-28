@@ -90,6 +90,7 @@ export function useCapabilityAccess() {
       }
       const sectionMap = {
         required: 'required_capabilities',
+        conditional: 'conditional_capabilities',
         optional: 'optional_capabilities',
         extension: 'extension_capabilities',
       }
