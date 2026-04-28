@@ -1,698 +1,512 @@
 fields:
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - open
-  - pre_close
-  description_zh: 基于开盘价与前收盘价计算的跳空收益率
-  field_role: derived_field
-  formula: ({open} / nullIf({pre_close}, 0)) - 1
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Derived gap open return based on raw open and previous close
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: gap_open_return
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 行业日频开盘价
-  field_role: industry_daily_field
+  description_zh: 股票代码
+  field_role: stock_identity_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Industry daily open
-  path_domain: null
-  path_group: null
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
+  relation_type: null
+  resolver_type: direct
+  source_field: code
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: code
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 交易时间
+  field_role: stock_time_field
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
+  relation_type: null
+  resolver_type: direct
+  source_field: trade_time
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: trade_time
+  time_binding: null
+  time_semantics: market_trade_time
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 开盘价
+  field_role: raw_market_field
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
   source_field: open
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_daily_open
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: open
   time_binding: null
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 行业日频最高价
-  field_role: industry_daily_field
+  description_zh: 最高价
+  field_role: raw_market_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Industry daily high
-  path_domain: null
-  path_group: null
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
   source_field: high
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_daily_high
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: high
   time_binding: null
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 行业日频最低价
-  field_role: industry_daily_field
+  description_zh: 最低价
+  field_role: raw_market_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Industry daily low
-  path_domain: null
-  path_group: null
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
   source_field: low
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_daily_low
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: low
   time_binding: null
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 行业日频收盘价
-  field_role: industry_daily_field
+  description_zh: 收盘价
+  field_role: raw_market_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Industry daily close
-  path_domain: null
-  path_group: null
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
   source_field: close
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_daily_close
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: close
   time_binding: null
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 行业日频amount
-  field_role: industry_daily_field
+  description_zh: 前收盘价
+  field_role: raw_market_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Industry daily amount
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: amount
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_daily_amount
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业日频volume
-  field_role: industry_daily_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Industry daily volume
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: volume
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_daily_volume
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业市净率
-  field_role: industry_daily_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Industry price-to-book
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: pb
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_pb
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业市盈率
-  field_role: industry_daily_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Industry price-to-earnings
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: pe
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_pe
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业总市值
-  field_role: industry_daily_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Industry total market cap
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: total_cap
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_total_cap
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业A流通市值
-  field_role: industry_daily_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Industry A-share float cap
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: a_float_cap
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_a_float_cap
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业前值收盘价
-  field_role: industry_daily_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Industry previous close
-  path_domain: null
-  path_group: null
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
   source_field: pre_close
-  source_node: industry_daily_real
-  source_table: null
-  standard_field: industry_pre_close
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: minute
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 市场快照最新成交价
-  field_role: snapshot_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Last traded price from market snapshot
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: last
-  source_node: stock_snapshot_real
-  source_table: null
-  standard_field: snapshot_last
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: minute
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 市场快照成交笔数
-  field_role: snapshot_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Number of trades in snapshot
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: num_trades
-  source_node: stock_snapshot_real
-  source_table: null
-  standard_field: snapshot_num_trades
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: minute
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 最优买价
-  field_role: snapshot_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Best bid price
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: bid_price1
-  source_node: stock_snapshot_real
-  source_table: null
-  standard_field: snapshot_bid_price1
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: minute
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 最优卖价
-  field_role: snapshot_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Best ask price
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: ask_price1
-  source_node: stock_snapshot_real
-  source_table: null
-  standard_field: snapshot_ask_price1
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: minute
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 最优买量
-  field_role: snapshot_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Best bid volume
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: bid_volume1
-  source_node: stock_snapshot_real
-  source_table: null
-  standard_field: snapshot_bid_volume1
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: minute
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 最优卖量
-  field_role: snapshot_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Best ask volume
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: ask_volume1
-  source_node: stock_snapshot_real
-  source_table: null
-  standard_field: snapshot_ask_volume1
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: minute
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 交易阶段代码
-  field_role: snapshot_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Trading phase code
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: trading_phase_code
-  source_node: stock_snapshot_real
-  source_table: null
-  standard_field: snapshot_trading_phase_code
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: pre_close
   time_binding: null
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 国债收益率期限
-  field_role: macro_treasury_identity_field
+  description_zh: 成交量
+  field_role: raw_market_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Treasury yield term
-  path_domain: macro
-  path_group: treasury
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
-  source_field: term
-  source_node: treasury_yield_real
-  source_table: null
-  standard_field: treasury_term
+  source_field: volume
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: volume
   time_binding: null
   time_semantics: null
-  via_node: treasury_yield_real
+  via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 国债收益率交易日
-  field_role: macro_treasury_identity_field
+  description_zh: 成交额
+  field_role: raw_market_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Treasury yield trade date
-  path_domain: macro
-  path_group: treasury
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
-  source_field: trade_date
-  source_node: treasury_yield_real
-  source_table: null
-  standard_field: treasury_trade_date
-  time_binding: null
-  time_semantics: market_trade_date
-  via_node: treasury_yield_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 国债收益率数值
-  field_role: macro_treasury_value_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Treasury yield value
-  path_domain: macro
-  path_group: treasury
-  relation_type: null
-  resolver_type: direct
-  source_field: yield_value
-  source_node: treasury_yield_real
-  source_table: null
-  standard_field: treasury_yield
+  source_field: amount
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: amount
   time_binding: null
   time_semantics: null
-  via_node: treasury_yield_real
+  via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 基金IOPV日期
-  field_role: fund_iopv_identity_field
+  description_zh: ST标记
+  field_role: stock_status_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Fund IOPV price date
-  path_domain: fund
-  path_group: iopv
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
-  source_field: price_date
-  source_node: fund_iopv_real
-  source_table: null
-  standard_field: fund_iopv_date
+  source_field: is_st
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: is_st
   time_binding: null
-  time_semantics: market_trade_date
-  via_node: fund_iopv_real
+  time_semantics: null
+  via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 基金盘中参考净值
-  field_role: fund_iopv_field
+  description_zh: 停牌标记
+  field_role: stock_status_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Fund intraday indicative NAV
-  path_domain: fund
-  path_group: iopv
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
-  source_field: iopv_nav
-  source_node: fund_iopv_real
-  source_table: null
-  standard_field: fund_iopv
+  source_field: is_suspended
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: is_suspended
   time_binding: null
   time_semantics: null
-  via_node: fund_iopv_real
+  via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 基金份额
-  field_role: fund_share_balance_field
+  description_zh: 退市整理标记
+  field_role: stock_status_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Fund share amount
-  path_domain: fund
-  path_group: share
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
-  source_field: fund_share
-  source_node: fund_share_real
-  source_table: null
-  standard_field: fund_share
+  source_field: is_wd_sec
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: is_wd_sec
   time_binding: null
   time_semantics: null
-  via_node: fund_share_real
+  via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 基金总份额
-  field_role: fund_share_balance_field
+  description_zh: 除权标记
+  field_role: stock_status_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Fund total share
-  path_domain: fund
-  path_group: share
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
-  source_field: total_share
-  source_node: fund_share_real
-  source_table: null
-  standard_field: fund_total_share
+  source_field: is_xr_sec
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: is_xr_sec
   time_binding: null
   time_semantics: null
-  via_node: fund_share_real
+  via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 基金流通份额
-  field_role: fund_share_balance_field
+  description_zh: 科创板标记
+  field_role: stock_status_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Fund float share
-  path_domain: fund
-  path_group: share
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
-  source_field: float_share
-  source_node: fund_share_real
-  source_table: null
-  standard_field: fund_float_share
+  source_field: is_kcb
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: is_kcb
   time_binding: null
   time_semantics: null
-  via_node: fund_share_real
+  via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
+  base_node: stock_daily_real
+  binding_mode: source_table
   bridge_steps: []
   depends_on: []
-  description_zh: 基金份额公告日
-  field_role: fund_share_event_field
-  formula: null
-  join_keys: []
-  lookahead_category: published_event
-  notes:
-  - Fund share announcement date
-  path_domain: fund
-  path_group: share
-  relation_type: null
-  resolver_type: direct
-  source_field: ann_date
-  source_node: fund_share_real
-  source_table: null
-  standard_field: fund_share_ann_date
-  time_binding: null
-  time_semantics: fund_announce_date
-  via_node: fund_share_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 基金份额变动日
-  field_role: fund_share_event_field
-  formula: null
-  join_keys: []
-  lookahead_category: published_event
-  notes:
-  - Fund share change date
-  path_domain: fund
-  path_group: share
-  relation_type: null
-  resolver_type: direct
-  source_field: change_date
-  source_node: fund_share_real
-  source_table: null
-  standard_field: fund_share_change_date
-  time_binding: null
-  time_semantics: null
-  via_node: fund_share_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 基金份额变动原因
-  field_role: fund_share_event_field
+  description_zh: 创业板标记
+  field_role: stock_status_field
   formula: null
   join_keys: []
   lookahead_category: none
   notes:
-  - Fund share change reason
-  path_domain: fund
-  path_group: share
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
   relation_type: null
   resolver_type: direct
-  source_field: change_reason
-  source_node: fund_share_real
-  source_table: null
-  standard_field: fund_change_reason
+  source_field: is_cyb
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: is_cyb
   time_binding: null
   time_semantics: null
-  via_node: fund_share_real
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 北交所标记
+  field_role: stock_status_field
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
+  relation_type: null
+  resolver_type: direct
+  source_field: is_bjs
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: is_bjs
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 涨停标记
+  field_role: stock_limit_field
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
+  relation_type: null
+  resolver_type: direct
+  source_field: high_limited
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: high_limited
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 跌停标记
+  field_role: stock_limit_field
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
+  relation_type: null
+  resolver_type: direct
+  source_field: low_limited
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: low_limited
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 后复权因子
+  field_role: adjustment_factor_field
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
+  relation_type: null
+  resolver_type: direct
+  source_field: backward_adj_factor
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: backward_adj_factor
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 总市值
+  field_role: valuation_field
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
+  relation_type: null
+  resolver_type: direct
+  source_field: market_cap
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: market_cap
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 流通市值
+  field_role: valuation_field
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
+  relation_type: null
+  resolver_type: direct
+  source_field: float_market_cap
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: float_market_cap
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 换手率
+  field_role: valuation_field
+  formula: null
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - 股票日频宽表字段
+  path_domain: stock
+  path_group: daily
+  relation_type: null
+  resolver_type: direct
+  source_field: turnover_rate
+  source_node: null
+  source_table: starlight.stock_daily_real
+  standard_field: turnover_rate
+  time_binding: null
+  time_semantics: null
+  via_node: null
 - applies_to_grain: minute
-  base_node: null
+  base_node: stock_minute_real
   binding_mode: source_node
   bridge_steps: []
   depends_on: []
@@ -715,7 +529,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: minute
-  base_node: null
+  base_node: stock_minute_real
   binding_mode: source_node
   bridge_steps: []
   depends_on: []
@@ -738,7 +552,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: minute
-  base_node: null
+  base_node: stock_minute_real
   binding_mode: source_node
   bridge_steps: []
   depends_on: []
@@ -761,7 +575,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: minute
-  base_node: null
+  base_node: stock_minute_real
   binding_mode: source_node
   bridge_steps: []
   depends_on: []
@@ -784,7 +598,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: minute
-  base_node: null
+  base_node: stock_minute_real
   binding_mode: source_node
   bridge_steps: []
   depends_on: []
@@ -807,7 +621,7 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: minute
-  base_node: null
+  base_node: stock_minute_real
   binding_mode: source_node
   bridge_steps: []
   depends_on: []
@@ -830,2827 +644,15 @@ fields:
   time_semantics: null
   via_node: null
 - applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 北交所旧代码
-  field_role: reference_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 北交所旧代码
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: old_code
-  source_node: bj_code_mapping_real
-  source_table: null
-  standard_field: bj_old_code
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 北交所新代码
-  field_role: reference_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 北交所新代码
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: new_code
-  source_node: bj_code_mapping_real
-  source_table: null
-  standard_field: bj_new_code
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 北交所证券名称
-  field_role: reference_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 北交所证券名称
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: security_name
-  source_node: bj_code_mapping_real
-  source_table: null
-  standard_field: bj_security_name
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 北交所上市日期
-  field_role: reference_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 北交所上市日期
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: listing_date
-  source_node: bj_code_mapping_real
-  source_table: null
-  standard_field: bj_listing_date
-  time_binding: null
-  time_semantics: listing_start_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: ETF 代码
-  field_role: etf_constituent_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - ETF 代码
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: etf_code
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_etf_code
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: PCF 交易日
-  field_role: etf_constituent_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - PCF 交易日
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: trading_day
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_trading_day
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 成分证券代码
-  field_role: etf_constituent_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 成分证券代码
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: underlying_symbol
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_underlying_symbol
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 成分证券数量
-  field_role: etf_constituent_position_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 成分证券数量
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: component_share
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_component_share
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 替代标志
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 替代标志
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: substitute_flag
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_substitute_flag
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 申购溢价比例
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 申购溢价比例
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: premium_ratio
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_premium_ratio
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 赎回折价比例
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 赎回折价比例
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: discount_ratio
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_discount_ratio
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 申购现金替代金额
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 申购现金替代金额
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: creation_cash_substitute
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_creation_cash_substitute
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 赎回现金替代金额
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 赎回现金替代金额
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: redemption_cash_substitute
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_redemption_cash_substitute
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 现金替代补款金额
-  field_role: etf_constituent_cash_substitute_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 现金替代补款金额
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: substitution_cash_amount
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_substitution_cash_amount
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: etf_pcf_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 成分证券 ID
-  field_role: etf_constituent_position_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 成分证券 ID
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: underlying_security_id
-  source_node: etf_pcf_constituent_real
-  source_table: null
-  standard_field: etf_constituent_underlying_security_id
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: contract_full_name
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_contract_full_name
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: contract_type
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_contract_type
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: delivery_month
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_delivery_month
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: expiry_date
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_expiry_date
-  time_binding: null
-  time_semantics: expiry_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_pricing_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: exercise_price
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_exercise_price
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: exercise_end_date
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_exercise_end_date
-  time_binding: null
-  time_semantics: exercise_end_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: start_trade_date
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_start_trade_date
-  time_binding: null
-  time_semantics: listing_start_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_pricing_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: listing_ref_price
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_listing_ref_price
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: last_trade_date
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_last_trade_date
-  time_binding: null
-  time_semantics: last_trade_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: exchange_code
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_exchange_code
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: delivery_date
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_delivery_date
-  time_binding: null
-  time_semantics: delivery_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_pricing_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: contract_unit
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_contract_unit
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: is_trade
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_is_trade
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: exchange_short_name
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_exchange_short_name
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权基础信息字段
-  field_role: option_contract_pricing_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权基础信息字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: contract_adjust_flag
-  source_node: option_basic_info_real
-  source_table: null
-  standard_field: option_basic_contract_adjust_flag
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权合约变更字段
-  field_role: option_contract_adjustment_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权合约变更字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: code_old
-  source_node: option_mon_ctr_specs_real
-  source_table: null
-  standard_field: option_mon_code_old
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权合约变更字段
-  field_role: option_contract_adjustment_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权合约变更字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: change_date
-  source_node: option_mon_ctr_specs_real
-  source_table: null
-  standard_field: option_mon_change_date
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权合约变更字段
-  field_role: option_contract_adjustment_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权合约变更字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: name_new
-  source_node: option_mon_ctr_specs_real
-  source_table: null
-  standard_field: option_mon_name_new
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权合约变更字段
-  field_role: option_contract_adjustment_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权合约变更字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: exercise_price_new
-  source_node: option_mon_ctr_specs_real
-  source_table: null
-  standard_field: option_mon_exercise_price_new
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权合约变更字段
-  field_role: option_contract_adjustment_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权合约变更字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: name_old
-  source_node: option_mon_ctr_specs_real
-  source_table: null
-  standard_field: option_mon_name_old
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权合约变更字段
-  field_role: option_contract_adjustment_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权合约变更字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: code_new
-  source_node: option_mon_ctr_specs_real
-  source_table: null
-  standard_field: option_mon_code_new
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权合约变更字段
-  field_role: option_contract_adjustment_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权合约变更字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: exercise_price_old
-  source_node: option_mon_ctr_specs_real
-  source_table: null
-  standard_field: option_mon_exercise_price_old
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权合约变更字段
-  field_role: option_contract_adjustment_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权合约变更字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: unit_old
-  source_node: option_mon_ctr_specs_real
-  source_table: null
-  standard_field: option_mon_unit_old
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权合约变更字段
-  field_role: option_contract_adjustment_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权合约变更字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: unit_new
-  source_node: option_mon_ctr_specs_real
-  source_table: null
-  standard_field: option_mon_unit_new
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权合约变更字段
-  field_role: option_contract_adjustment_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权合约变更字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: change_reason
-  source_node: option_mon_ctr_specs_real
-  source_table: null
-  standard_field: option_mon_change_reason
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: exercise_date
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_exercise_date
-  time_binding: null
-  time_semantics: exercise_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: contract_unit
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_contract_unit
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: position_declare_min
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_position_declare_min
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: quote_currency_unit
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_quote_currency_unit
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: last_trading_date
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_last_trading_date
-  time_binding: null
-  time_semantics: last_trade_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: position_limit
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_position_limit
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: delist_date
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_delist_date
-  time_binding: null
-  time_semantics: listing_end_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: notional_value
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_notional_value
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: exercise_method
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_exercise_method
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: delivery_method
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_delivery_method
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: settlement_month
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_settlement_month
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: trading_fee
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_trading_fee
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: exchange_name
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_exchange_name
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: option_en_name
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_option_en_name
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: contract_value
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_contract_value
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: is_simulation
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_is_simulation
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: contract_unit_dimension
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_contract_unit_dimension
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: option_strike_price
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_option_strike_price
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: is_simulation_trade
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_is_simulation_trade
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: listed_date
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_listed_date
-  time_binding: null
-  time_semantics: listing_start_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: option_name
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_option_name
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: premium
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_premium
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: option_type
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_option_type
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: trading_hours_desc
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_trading_hours_desc
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_lifecycle_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: final_settlement_date
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_final_settlement_date
-  time_binding: null
-  time_semantics: settlement_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: final_settlement_price
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_final_settlement_price
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: min_price_unit
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_min_price_unit
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权标准合约字段
-  field_role: option_contract_spec_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 期权标准合约字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: contract_multiplier
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_contract_multiplier
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: sync_task_log_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步检查点字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步检查点字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: task_name
-  source_node: sync_checkpoint_real
-  source_table: null
-  standard_field: sync_checkpoint_task_name
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: sync_task_log_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步检查点字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步检查点字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: scope_key
-  source_node: sync_checkpoint_real
-  source_table: null
-  standard_field: sync_checkpoint_scope_key
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: sync_task_log_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步检查点字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步检查点字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: run_date
-  source_node: sync_checkpoint_real
-  source_table: null
-  standard_field: sync_checkpoint_run_date
-  time_binding: null
-  time_semantics: system_run_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: sync_task_log_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步检查点字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步检查点字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: status
-  source_node: sync_checkpoint_real
-  source_table: null
-  standard_field: sync_checkpoint_status
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: sync_task_log_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步检查点字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步检查点字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: target_table
-  source_node: sync_checkpoint_real
-  source_table: null
-  standard_field: sync_checkpoint_target_table
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: sync_task_log_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步检查点字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步检查点字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: checkpoint_date
-  source_node: sync_checkpoint_real
-  source_table: null
-  standard_field: sync_checkpoint_checkpoint_date
-  time_binding: null
-  time_semantics: system_checkpoint_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: sync_task_log_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步检查点字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步检查点字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: row_count
-  source_node: sync_checkpoint_real
-  source_table: null
-  standard_field: sync_checkpoint_row_count
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: sync_task_log_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步检查点字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步检查点字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: message
-  source_node: sync_checkpoint_real
-  source_table: null
-  standard_field: sync_checkpoint_message
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: sync_task_log_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步检查点字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步检查点字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: finished_at
-  source_node: sync_checkpoint_real
-  source_table: null
-  standard_field: sync_checkpoint_finished_at
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: task_name
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_task_name
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: scope_key
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_scope_key
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: run_date
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_run_date
-  time_binding: null
-  time_semantics: system_run_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: status
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_status
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: target_table
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_target_table
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: start_date
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_start_date
-  time_binding: null
-  time_semantics: system_start_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: end_date
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_end_date
-  time_binding: null
-  time_semantics: system_end_date
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: row_count
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_row_count
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: message
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_message
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: started_at
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_started_at
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 同步任务日志字段
-  field_role: system_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 同步任务日志字段
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: finished_at
-  source_node: sync_task_log_real
-  source_table: null
-  standard_field: sync_task_finished_at
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业代码
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Industry classification code
-  - Resolved through daily industry weight path
-  path_domain: industry
-  path_group: weight
-  relation_type: null
-  resolver_type: direct
-  source_field: industry_code
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_code
-  time_binding: null
-  time_semantics: null
-  via_node: industry_weight_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业一级名称
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Level 1 industry name
-  - Resolved through daily industry weight path
-  path_domain: industry
-  path_group: weight
-  relation_type: null
-  resolver_type: direct
-  source_field: level1_name
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_level1_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_weight_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业二级名称
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Level 2 industry name
-  - Resolved through daily industry weight path
-  path_domain: industry
-  path_group: weight
-  relation_type: null
-  resolver_type: direct
-  source_field: level2_name
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_level2_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_weight_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业三级名称
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Level 3 industry name
-  - Resolved through daily industry weight path
-  path_domain: industry
-  path_group: weight
-  relation_type: null
-  resolver_type: direct
-  source_field: level3_name
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_level3_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_weight_real
-- applies_to_grain: daily
-  base_node: null
+  base_node: long_hu_bang_real
   binding_mode: derived
   bridge_steps: []
   depends_on:
-  - industry_level3_name
-  - industry_level2_name
-  - industry_level1_name
-  description_zh: 行业名称
-  field_role: derived_field
-  formula: coalesce({industry_level3_name}, {industry_level2_name}, {industry_level1_name})
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Preferred industry display name
-  - Resolved through daily industry weight path
-  path_domain: industry
-  path_group: weight
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: industry_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_weight_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业代码
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Industry classification code
-  - Resolved through industry constituent effective-range path
-  path_domain: industry
-  path_group: constituent
-  relation_type: null
-  resolver_type: direct
-  source_field: industry_code
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_code
-  time_binding: null
-  time_semantics: null
-  via_node: industry_constituent_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业一级名称
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Level 1 industry name
-  - Resolved through industry constituent effective-range path
-  path_domain: industry
-  path_group: constituent
-  relation_type: null
-  resolver_type: direct
-  source_field: level1_name
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_level1_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_constituent_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业二级名称
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Level 2 industry name
-  - Resolved through industry constituent effective-range path
-  path_domain: industry
-  path_group: constituent
-  relation_type: null
-  resolver_type: direct
-  source_field: level2_name
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_level2_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_constituent_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业三级名称
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Level 3 industry name
-  - Resolved through industry constituent effective-range path
-  path_domain: industry
-  path_group: constituent
-  relation_type: null
-  resolver_type: direct
-  source_field: level3_name
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_level3_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_constituent_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - industry_level3_name
-  - industry_level2_name
-  - industry_level1_name
-  description_zh: 行业名称
-  field_role: derived_field
-  formula: coalesce({industry_level3_name}, {industry_level2_name}, {industry_level1_name})
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Preferred industry display name
-  - Resolved through industry constituent effective-range path
-  path_domain: industry
-  path_group: constituent
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: industry_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_constituent_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业代码
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Industry classification code
-  - Resolved through industry daily index path
-  path_domain: industry
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: industry_code
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_code
-  time_binding: null
-  time_semantics: null
-  via_node: industry_daily_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业一级名称
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Level 1 industry name
-  - Resolved through industry daily index path
-  path_domain: industry
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: level1_name
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_level1_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_daily_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业二级名称
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Level 2 industry name
-  - Resolved through industry daily index path
-  path_domain: industry
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: level2_name
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_level2_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_daily_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 行业三级名称
-  field_role: industry_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Level 3 industry name
-  - Resolved through industry daily index path
-  path_domain: industry
-  path_group: daily
-  relation_type: null
-  resolver_type: direct
-  source_field: level3_name
-  source_node: industry_base_info_real
-  source_table: null
-  standard_field: industry_level3_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_daily_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - industry_level3_name
-  - industry_level2_name
-  - industry_level1_name
-  description_zh: 行业名称
-  field_role: derived_field
-  formula: coalesce({industry_level3_name}, {industry_level2_name}, {industry_level1_name})
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Preferred industry display name
-  - Resolved through industry daily index path
-  path_domain: industry
-  path_group: daily
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: industry_name
-  time_binding: null
-  time_semantics: null
-  via_node: industry_daily_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - etf_cash_component
-  - etf_nav_per_cu
-  description_zh: ETF现金成分ratio
-  field_role: derived_field
-  formula: '{etf_cash_component} / nullIf({etf_nav_per_cu}, 0)'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - ETF cash component relative to unit NAV
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: etf_cash_component_ratio
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - etf_creation_limit
-  - etf_redemption_limit
-  description_zh: 字段 etf_limit_spread
-  field_role: derived_field
-  formula: '{etf_creation_limit} - {etf_redemption_limit}'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Creation limit minus redemption limit
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: etf_limit_spread
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - etf_net_creation_limit
-  - etf_net_redemption_limit
-  description_zh: 字段 etf_net_limit_spread
-  field_role: derived_field
-  formula: '{etf_net_creation_limit} - {etf_net_redemption_limit}'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Net creation limit minus net redemption limit
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: etf_net_limit_spread
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - etf_constituent_creation_cash_substitute
-  - etf_constituent_redemption_cash_substitute
-  description_zh: ETF成分现金替代diff
-  field_role: derived_field
-  formula: '{etf_constituent_creation_cash_substitute} - {etf_constituent_redemption_cash_substitute}'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Creation cash substitute minus redemption cash substitute
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: etf_constituent_cash_substitute_diff
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - etf_constituent_premium_ratio
-  - etf_constituent_discount_ratio
-  description_zh: ETF成分溢价折价spread
-  field_role: derived_field
-  formula: '{etf_constituent_premium_ratio} - {etf_constituent_discount_ratio}'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Premium ratio minus discount ratio
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: etf_constituent_premium_discount_spread
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - kzz_call_price
-  description_zh: 可转债赎回溢价率
-  field_role: derived_field
-  formula: ({kzz_call_price} / 100) - 1
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Call price premium relative to par 100
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: kzz_call_price_premium_rate
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - kzz_put_price
-  description_zh: 可转债回售溢价率
-  field_role: derived_field
-  formula: ({kzz_put_price} / 100) - 1
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Put price premium relative to par 100
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: kzz_put_price_premium_rate
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - kzz_conv_share
-  - kzz_bond_share
-  description_zh: 可转债转股比例
-  field_role: derived_field
-  formula: '{kzz_conv_share} / nullIf({kzz_bond_share}, 0)'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Converted share volume relative to bond balance
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: kzz_balance_conversion_ratio
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - kzz_coupon_rate
-  description_zh: 可转债票息小数值
-  field_role: derived_field
-  formula: '{kzz_coupon_rate} / 100'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Coupon rate converted to decimal form
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: kzz_coupon_rate_decimal
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - kzz_clause_ini_conv_premium_ratio
-  description_zh: 可转债初始转股溢价率小数值
-  field_role: derived_field
-  formula: '{kzz_clause_ini_conv_premium_ratio} / 100'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Initial conversion premium ratio converted to decimal form
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: kzz_clause_ini_conv_premium_ratio_decimal
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - option_basic_listing_ref_price
-  - option_basic_contract_unit
-  description_zh: 期权基础合约名义价值
-  field_role: derived_field
-  formula: '{option_basic_listing_ref_price} * {option_basic_contract_unit}'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Reference contract notional based on listing reference price and contract unit
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: option_basic_contract_notional
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - option_mon_exercise_price_new
-  - option_mon_exercise_price_old
-  description_zh: 期权月度行权价变动值
-  field_role: derived_field
-  formula: '{option_mon_exercise_price_new} - {option_mon_exercise_price_old}'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Adjusted exercise price delta
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: option_mon_exercise_price_change
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - option_mon_unit_new
-  - option_mon_unit_old
-  description_zh: 期权月度合约单位变动值
-  field_role: derived_field
-  formula: '{option_mon_unit_new} - {option_mon_unit_old}'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Adjusted contract unit delta
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: option_mon_unit_change
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - option_std_contract_value
-  - option_std_contract_multiplier
-  description_zh: 期权标准合约单位乘数价值
-  field_role: derived_field
-  formula: '{option_std_contract_value} / nullIf({option_std_contract_multiplier},
-    0)'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Contract value normalized by multiplier
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: option_std_contract_value_per_multiplier
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - option_std_option_strike_price
-  description_zh: 期权标准行权价数值
-  field_role: derived_field
-  formula: toFloat64OrNull({option_std_option_strike_price})
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Option strike price parsed to numeric form
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: option_std_option_strike_price_num
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: option_basic_info_real
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 期权STD市场代码
-  field_role: option_contract_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Option market code
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: direct
-  source_field: market_code
-  source_node: option_std_ctr_specs_real
-  source_table: null
-  standard_field: option_std_market_code
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - block_trade_amount
-  - block_trade_frequency
-  description_zh: 单次大宗交易平均金额
-  field_role: derived_field
-  formula: '{block_trade_amount} / nullIf({block_trade_frequency}, 0)'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - Derived average amount per frequency
-  path_domain: null
-  path_group: null
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: block_trade_avg_amount_per_freq
-  time_binding: null
-  time_semantics: null
-  via_node: null
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - long_hu_buy_amount
-  - long_hu_sell_amount
+  - buy_amount
+  - sell_amount
   description_zh: 龙虎榜净买入额
   field_role: long_hu_derived_field
-  formula: '{long_hu_buy_amount} - {long_hu_sell_amount}'
+  formula: '{buy_amount} - {sell_amount}'
   join_keys: []
   lookahead_category: none
   notes:
@@ -3666,214 +668,3 @@ fields:
   time_binding: null
   time_semantics: null
   via_node: long_hu_bang_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - margin_purch_with_borrow_money
-  - margin_repayment_of_borrow_money
-  description_zh: 融资净买入额
-  field_role: margin_detail_derived_field
-  formula: '{margin_purch_with_borrow_money} - {margin_repayment_of_borrow_money}'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 融资净买入额
-  path_domain: margin
-  path_group: detail
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: margin_net_borrow_money
-  time_binding: null
-  time_semantics: null
-  via_node: margin_detail_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 融资融券汇总交易日
-  field_role: margin_summary_identity_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 融资融券汇总交易日
-  path_domain: margin
-  path_group: summary
-  relation_type: null
-  resolver_type: direct
-  source_field: trade_date
-  source_node: margin_summary_real
-  source_table: null
-  standard_field: margin_summary_trade_date
-  time_binding: null
-  time_semantics: market_trade_date
-  via_node: margin_summary_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 市场融资余额
-  field_role: margin_summary_balance_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 市场融资余额
-  path_domain: margin
-  path_group: summary
-  relation_type: null
-  resolver_type: direct
-  source_field: sum_borrow_money_balance
-  source_node: margin_summary_real
-  source_table: null
-  standard_field: margin_summary_borrow_money_balance
-  time_binding: null
-  time_semantics: null
-  via_node: margin_summary_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 市场融资买入额
-  field_role: margin_summary_flow_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 市场融资买入额
-  path_domain: margin
-  path_group: summary
-  relation_type: null
-  resolver_type: direct
-  source_field: sum_purch_with_borrow_money
-  source_node: margin_summary_real
-  source_table: null
-  standard_field: margin_summary_purch_with_borrow_money
-  time_binding: null
-  time_semantics: null
-  via_node: margin_summary_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 市场融资偿还额
-  field_role: margin_summary_flow_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 市场融资偿还额
-  path_domain: margin
-  path_group: summary
-  relation_type: null
-  resolver_type: direct
-  source_field: sum_repayment_of_borrow_money
-  source_node: margin_summary_real
-  source_table: null
-  standard_field: margin_summary_repayment_of_borrow_money
-  time_binding: null
-  time_semantics: null
-  via_node: margin_summary_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 市场融券余额
-  field_role: margin_summary_balance_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 市场融券余额
-  path_domain: margin
-  path_group: summary
-  relation_type: null
-  resolver_type: direct
-  source_field: sum_sec_lending_balance
-  source_node: margin_summary_real
-  source_table: null
-  standard_field: margin_summary_sec_lending_balance
-  time_binding: null
-  time_semantics: null
-  via_node: margin_summary_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 市场融券卖出量
-  field_role: margin_summary_flow_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 市场融券卖出量
-  path_domain: margin
-  path_group: summary
-  relation_type: null
-  resolver_type: direct
-  source_field: sum_sales_of_borrowed_sec
-  source_node: margin_summary_real
-  source_table: null
-  standard_field: margin_summary_sales_of_borrowed_sec
-  time_binding: null
-  time_semantics: null
-  via_node: margin_summary_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: source_node
-  bridge_steps: []
-  depends_on: []
-  description_zh: 市场融资融券余额
-  field_role: margin_summary_balance_field
-  formula: null
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 市场融资融券余额
-  path_domain: margin
-  path_group: summary
-  relation_type: null
-  resolver_type: direct
-  source_field: sum_margin_trade_balance
-  source_node: margin_summary_real
-  source_table: null
-  standard_field: margin_summary_trade_balance
-  time_binding: null
-  time_semantics: null
-  via_node: margin_summary_real
-- applies_to_grain: daily
-  base_node: null
-  binding_mode: derived
-  bridge_steps: []
-  depends_on:
-  - margin_summary_purch_with_borrow_money
-  - margin_summary_repayment_of_borrow_money
-  description_zh: 市场融资净买入额
-  field_role: margin_summary_derived_field
-  formula: '{margin_summary_purch_with_borrow_money} - {margin_summary_repayment_of_borrow_money}'
-  join_keys: []
-  lookahead_category: none
-  notes:
-  - 市场融资净买入额
-  path_domain: margin
-  path_group: summary
-  relation_type: null
-  resolver_type: derived
-  source_field: null
-  source_node: null
-  source_table: null
-  standard_field: margin_summary_net_borrow_money
-  time_binding: null
-  time_semantics: null
-  via_node: margin_summary_real

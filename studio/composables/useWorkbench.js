@@ -563,6 +563,9 @@ export function useWorkbench() {
       throw new Error('请先为节点选择主表')
     }
 
+    const existingNode = graph.value.nodes.find((item, index) =>
+      String(index) === String(nodeForm.value.editIndex || '') || item.name === name
+    )
     const payload = {
       name,
       table: `${database}.${tableName}`,
@@ -576,6 +579,7 @@ export function useWorkbench() {
       asset_type: String(nodeForm.value.asset_type || '').trim() || null,
       query_freq: String(nodeForm.value.query_freq || '').trim() || null,
       base_filters: normalizeBaseFilters(nodeForm.value.base_filters),
+      ...(existingNode?.wide_table ? { wide_table: { ...existingNode.wide_table } } : {}),
     }
 
     const index = upsert(graph.value.nodes, nodeForm.value.editIndex, payload, (item) => item.name === payload.name)
@@ -899,6 +903,7 @@ export function useWorkbench() {
       entity_keys: Array.isArray(original.entity_keys) ? [...original.entity_keys] : [],
       base_filters: Array.isArray(original.base_filters) ? original.base_filters.map((item) => ({ ...item })) : [],
     }
+    delete clonedNode.wide_table
     graph.value.nodes.push(clonedNode)
 
     for (const supportNode of supportNodes) {
@@ -957,8 +962,7 @@ export function useWorkbench() {
     const referencedByLegacyTableFields = fields.value.filter(
       (field) =>
         !String(field.base_node || '').trim() &&
-        String(field.source_table || '') === targetTable &&
-        !hasDirectFieldRelation(field)
+        String(field.source_table || '') === targetTable
     )
     const referencedByEdges = graph.value.edges.filter((edge) => {
       const fromName = String(edge.from || edge.from_node || '')
@@ -971,14 +975,14 @@ export function useWorkbench() {
       referencedBySourceFields,
       referencedByLegacyTableFields,
       referencedByEdges,
-      canDelete:
-        referencedBySourceFields.length === 0 &&
-        referencedByLegacyTableFields.length === 0,
+      canDelete: true,
     }
   }
 
   function deleteNode(nodeName) {
     const supportPrefix = `${SUPPORT_NODE_PREFIX}${nodeName}__`
+    const targetNode = graph.value.nodes.find((node) => node.name === nodeName)
+    const targetTable = String(targetNode?.table || '')
     const impact = getNodeDeleteImpact(nodeName)
     if (!impact.canDelete) {
       const messages = []
@@ -996,10 +1000,7 @@ export function useWorkbench() {
       (edge) => edge.from !== nodeName && edge.to !== nodeName && !String(edge.to || '').startsWith(supportPrefix)
     )
     fields.value = fields.value.filter(
-      (field) =>
-        String(field.base_node || '') !== nodeName &&
-        field.source_node !== nodeName &&
-        !String(field.source_node || '').startsWith(supportPrefix)
+      (field) => !isFieldRemovedByNodeDeletion(field, nodeName, targetTable, supportPrefix)
     )
 
     if (selectedNodeName.value === nodeName) {
@@ -1523,6 +1524,19 @@ function upsertField(collection, payload) {
 
   collection.push(payload)
   return collection.length - 1
+}
+
+function isFieldRemovedByNodeDeletion(field, nodeName, targetTable, supportPrefix) {
+  const baseNode = String(field.base_node || '')
+  const sourceNode = String(field.source_node || '')
+  const sourceTable = String(field.source_table || '')
+
+  return (
+    baseNode === nodeName ||
+    sourceNode === nodeName ||
+    sourceNode.startsWith(supportPrefix) ||
+    (!baseNode && targetTable && sourceTable === targetTable)
+  )
 }
 
 function hasDirectFieldRelation(field) {

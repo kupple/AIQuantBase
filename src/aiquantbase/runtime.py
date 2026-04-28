@@ -19,7 +19,6 @@ from .models import Node
 from .planner import GraphRegistry, QueryPlanner
 from .runtime_config import DEFAULT_RUNTIME_CONFIG_PATH, load_runtime_config
 from .sql import SqlRenderer
-from .wide_table import DEFAULT_WIDE_TABLE_PATH, load_wide_table_workspace
 
 DEFAULT_GRAPH_PATH = Path('config/graph.yaml')
 DEFAULT_FIELDS_PATH = Path('config/fields.yaml')
@@ -145,22 +144,18 @@ class GraphRuntime:
         graph_path: str | Path = DEFAULT_GRAPH_PATH,
         fields_path: str | Path = DEFAULT_FIELDS_PATH,
         runtime_path: str | Path = DEFAULT_RUNTIME_CONFIG_PATH,
-        wide_table_path: str | Path = DEFAULT_WIDE_TABLE_PATH,
     ) -> None:
         self.graph_path = Path(graph_path)
         self.fields_path = Path(fields_path)
         self.runtime_path = Path(runtime_path)
-        self.wide_table_path = Path(wide_table_path)
 
         self.runtime_config = load_runtime_config(self.runtime_path)
-        raw_nodes, self.edges = load_nodes_and_edges(self.graph_path)
-        self.wide_table_workspace = load_wide_table_workspace(self.wide_table_path)
+        self.nodes, self.edges = load_nodes_and_edges(self.graph_path)
         self.wide_table_specs = {
-            str(item.get('name') or '').strip(): item
-            for item in self.wide_table_workspace.get('wide_tables', [])
-            if str(item.get('status') or 'enabled').strip() == 'enabled'
+            node.name: node.wide_table
+            for node in self.nodes
+            if isinstance(node.wide_table, dict) and str(node.wide_table.get('status') or 'enabled') == 'enabled'
         }
-        self.nodes = self._apply_wide_table_overlays(raw_nodes)
         self.field_catalog = load_field_catalog(self.fields_path)
         self.registry = GraphRegistry(self.nodes, self.edges, field_catalog=self.field_catalog)
         self.planner = QueryPlanner(self.registry)
@@ -175,7 +170,6 @@ class GraphRuntime:
             graph_path=DEFAULT_GRAPH_PATH,
             fields_path=DEFAULT_FIELDS_PATH,
             runtime_path=DEFAULT_RUNTIME_CONFIG_PATH,
-            wide_table_path=DEFAULT_WIDE_TABLE_PATH,
         )
 
     def render_intent(self, intent: dict[str, Any]) -> str:

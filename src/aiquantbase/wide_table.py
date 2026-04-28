@@ -4,7 +4,6 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from .config import dump_yaml, load_field_catalog, load_nodes_and_edges, load_yaml
 from .models import QueryIntent, SelectField, SafetyOptions
@@ -12,45 +11,53 @@ from .planner import GraphRegistry, QueryPlanner
 from .sql import SqlRenderer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_WIDE_TABLE_PATH = PROJECT_ROOT / 'config' / 'wide_tables.yaml'
 DEFAULT_GRAPH_PATH = PROJECT_ROOT / 'config' / 'graph.yaml'
 DEFAULT_FIELDS_PATH = PROJECT_ROOT / 'config' / 'fields.yaml'
 VALID_ENGINES = {'Memory', 'ReplacingMergeTree'}
 
 
-def resolve_wide_table_path(path: str | Path | None = None) -> Path:
-    target = Path(path or DEFAULT_WIDE_TABLE_PATH)
+def resolve_graph_path(path: str | Path | None = None) -> Path:
+    target = Path(path or DEFAULT_GRAPH_PATH)
     if not target.is_absolute():
         target = PROJECT_ROOT / target
     return target
 
 
-def load_wide_table_workspace(path: str | Path | None = None) -> dict[str, Any]:
-    resolved = resolve_wide_table_path(path)
+def resolve_fields_path(path: str | Path | None = None) -> Path:
+    target = Path(path or DEFAULT_FIELDS_PATH)
+    if not target.is_absolute():
+        target = PROJECT_ROOT / target
+    return target
+
+
+def load_wide_table_workspace(
+    path: str | Path | None = None,
+    *,
+    graph_path: str | Path | None = None,
+) -> dict[str, Any]:
+    resolved = resolve_graph_path(graph_path or path)
     if not resolved.exists():
         return _default_workspace(resolved)
     data = load_yaml(resolved)
-    return _normalize_workspace(data, resolved)
+    return _workspace_from_graph_data(data, resolved)
 
 
 def save_wide_table_workspace(data: dict[str, Any], path: str | Path | None = None) -> dict[str, Any]:
-    resolved = resolve_wide_table_path(path)
-    workspace = _normalize_workspace(data, resolved)
-    resolved.parent.mkdir(parents=True, exist_ok=True)
-    resolved.write_text(
-        dump_yaml(
-            {
-                'version': workspace['version'],
-                'wide_tables': workspace['wide_tables'],
-            }
-        ),
-        encoding='utf-8',
-    )
-    return workspace
+    """Compatibility shim: persist wide-table metadata into graph nodes."""
+    resolved = resolve_graph_path(path)
+    graph_data = load_yaml(resolved) if resolved.exists() else {'nodes': [], 'edges': []}
+    for item in list(data.get('wide_tables') or []):
+        upsert_wide_table(item, graph_path=resolved)
+    return _workspace_from_graph_data(graph_data if not resolved.exists() else load_yaml(resolved), resolved)
 
 
-def list_wide_tables(path: str | Path | None = None, *, source_node: str | None = None) -> list[dict[str, Any]]:
-    workspace = load_wide_table_workspace(path)
+def list_wide_tables(
+    path: str | Path | None = None,
+    *,
+    source_node: str | None = None,
+    graph_path: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    workspace = load_wide_table_workspace(path, graph_path=graph_path)
     items = []
     for item in workspace['wide_tables']:
         if source_node and item['source_node'] != source_node:
@@ -59,34 +66,55 @@ def list_wide_tables(path: str | Path | None = None, *, source_node: str | None 
     return items
 
 
-def upsert_wide_table(payload: dict[str, Any], path: str | Path | None = None) -> dict[str, Any]:
-    workspace = load_wide_table_workspace(path)
+def upsert_wide_table(
+    payload: dict[str, Any],
+    path: str | Path | None = None,
+    *,
+    graph_path: str | Path | None = None,
+) -> dict[str, Any]:
+    resolved = resolve_graph_path(graph_path or path)
+    graph_data = load_yaml(resolved) if resolved.exists() else {'nodes': [], 'edges': []}
+    nodes = list(graph_data.get('nodes') or [])
     design = _normalize_design(payload)
     design_id = str(payload.get('id') or '').strip()
-    if design_id:
-        index = next((i for i, item in enumerate(workspace['wide_tables']) if item['id'] == design_id), None)
-        if index is None:
+    index = _find_wide_table_node_index(nodes, design_id=design_id, name=design['name'], source_node=design['source_node'])
+    if index is None:
+        if design_id:
             raise ValueError(f'wide table id not found: {design_id}')
-        workspace['wide_tables'][index] = {**workspace['wide_tables'][index], **design}
-    else:
-        duplicate = next((item for item in workspace['wide_tables'] if item['name'] == design['name']), None)
+        duplicate = next((item for item in _workspace_from_graph_data(graph_data, resolved)['wide_tables'] if item['name'] == design['name']), None)
         if duplicate is not None:
             raise ValueError(f'wide table name already exists: {design["name"]}')
-        workspace['wide_tables'].append(design)
-    save_wide_table_workspace(workspace, path)
+        source_node = next((node for node in nodes if str(node.get('name') or '') == design['source_node']), None)
+        nodes.append(_create_node_from_design(design, source_node=source_node))
+    else:
+        nodes[index] = _apply_design_to_node(nodes[index], design)
+
+    graph_data['nodes'] = nodes
+    graph_data.setdefault('edges', [])
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    resolved.write_text(dump_yaml(graph_data), encoding='utf-8')
     return design
 
 
-def delete_wide_table(design_id: str, path: str | Path | None = None) -> dict[str, Any]:
-    workspace = load_wide_table_workspace(path)
+def delete_wide_table(
+    design_id: str,
+    path: str | Path | None = None,
+    *,
+    graph_path: str | Path | None = None,
+) -> dict[str, Any]:
+    resolved = resolve_graph_path(graph_path or path)
+    graph_data = load_yaml(resolved)
+    nodes = list(graph_data.get('nodes') or [])
     target_id = str(design_id or '').strip()
     if not target_id:
         raise ValueError('wide table id is required')
-    index = next((i for i, item in enumerate(workspace['wide_tables']) if item['id'] == target_id), None)
+    index = _find_wide_table_node_index(nodes, design_id=target_id)
     if index is None:
         raise ValueError(f'wide table id not found: {target_id}')
-    removed = workspace['wide_tables'].pop(index)
-    save_wide_table_workspace(workspace, path)
+    removed = _node_to_design(nodes[index])
+    nodes[index].pop('wide_table', None)
+    graph_data['nodes'] = nodes
+    resolved.write_text(dump_yaml(graph_data), encoding='utf-8')
     return removed
 
 
@@ -98,8 +126,7 @@ def export_wide_table_yaml(
 ) -> str:
     payload = build_wide_table_export_payload(
         design_id,
-        path=path,
-        graph_path=graph_path,
+        graph_path=graph_path or path,
         fields_path=fields_path,
     )
     return dump_yaml(payload)
@@ -111,18 +138,14 @@ def build_wide_table_export_payload(
     graph_path: str | Path | None = None,
     fields_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    workspace = load_wide_table_workspace(path)
+    resolved_graph_path = resolve_graph_path(graph_path or path)
+    workspace = load_wide_table_workspace(graph_path=resolved_graph_path)
     target_id = str(design_id or '').strip()
     design = next((item for item in workspace['wide_tables'] if item['id'] == target_id), None)
     if design is None:
         raise ValueError(f'wide table id not found: {target_id}')
 
-    resolved_graph_path = Path(graph_path or DEFAULT_GRAPH_PATH)
-    if not resolved_graph_path.is_absolute():
-        resolved_graph_path = PROJECT_ROOT / resolved_graph_path
-    resolved_fields_path = Path(fields_path or DEFAULT_FIELDS_PATH)
-    if not resolved_fields_path.is_absolute():
-        resolved_fields_path = PROJECT_ROOT / resolved_fields_path
+    resolved_fields_path = resolve_fields_path(fields_path)
 
     nodes, edges = load_nodes_and_edges(resolved_graph_path)
     field_catalog = load_field_catalog(resolved_fields_path)
@@ -174,8 +197,12 @@ def build_wide_table_export_payload(
     }
 
 
-def get_wide_table_summary(path: str | Path | None = None) -> dict[str, Any]:
-    workspace = load_wide_table_workspace(path)
+def get_wide_table_summary(
+    path: str | Path | None = None,
+    *,
+    graph_path: str | Path | None = None,
+) -> dict[str, Any]:
+    workspace = load_wide_table_workspace(path, graph_path=graph_path)
     return {
         'version': workspace['version'],
         'path': str(workspace['path']),
@@ -192,13 +219,14 @@ def _default_workspace(path: Path) -> dict[str, Any]:
     }
 
 
-def _normalize_workspace(data: dict[str, Any], path: Path) -> dict[str, Any]:
+def _workspace_from_graph_data(data: dict[str, Any], path: Path) -> dict[str, Any]:
     workspace = _default_workspace(path)
-    workspace['version'] = int(data.get('version') or 1)
     workspace['wide_tables'] = [
-        _normalize_design(item)
-        for item in list(data.get('wide_tables') or [])
-        if isinstance(item, dict)
+        design
+        for node in list(data.get('nodes') or [])
+        if isinstance(node, dict)
+        for design in [_node_to_design(node)]
+        if design is not None
     ]
     return workspace
 
@@ -244,7 +272,7 @@ def _normalize_design(payload: dict[str, Any]) -> dict[str, Any]:
         order_by = list(key_fields)
 
     return {
-        'id': str(payload.get('id') or f'wide::{name}::{uuid4().hex[:8]}'),
+        'id': str(payload.get('id') or f'wide::{name}'),
         'name': name,
         'description': str(payload.get('description') or '').strip(),
         'source_node': source_node,
@@ -260,6 +288,141 @@ def _normalize_design(payload: dict[str, Any]) -> dict[str, Any]:
         'created_at': str(payload.get('created_at') or _now_iso()),
         'updated_at': str(payload.get('updated_at') or _now_iso()),
     }
+
+
+def _find_wide_table_node_index(
+    nodes: list[dict[str, Any]],
+    *,
+    design_id: str | None = None,
+    name: str | None = None,
+    source_node: str | None = None,
+) -> int | None:
+    target_id = str(design_id or '').strip()
+    target_name = str(name or '').strip()
+    target_source = str(source_node or '').strip()
+    for index, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            continue
+        wide_table = node.get('wide_table') if isinstance(node.get('wide_table'), dict) else {}
+        if target_id and str(wide_table.get('id') or '') == target_id:
+            return index
+        node_name = str(node.get('name') or '').strip()
+        if not target_id and target_name and node_name == target_name:
+            return index
+        if not target_id and target_source and node_name == target_source:
+            return index
+    return None
+
+
+def _node_to_design(node: dict[str, Any]) -> dict[str, Any] | None:
+    wide_table = node.get('wide_table')
+    if not isinstance(wide_table, dict):
+        return None
+
+    node_name = str(node.get('name') or '').strip()
+    database, table = _split_table_ref(str(node.get('table') or ''))
+    payload = {
+        **wide_table,
+        'id': str(wide_table.get('id') or f'wide::{node_name}'),
+        'name': str(wide_table.get('name') or node_name),
+        'description': str(wide_table.get('description') or node.get('description') or ''),
+        'source_node': str(wide_table.get('source_node') or node_name),
+        'target_database': str(wide_table.get('target_database') or database),
+        'target_table': str(wide_table.get('target_table') or table),
+        'engine': str(wide_table.get('engine') or 'Memory'),
+        'fields': list(wide_table.get('fields') or node.get('fields') or []),
+        'key_fields': list(wide_table.get('key_fields') or _default_key_fields(node)),
+        'partition_by': list(wide_table.get('partition_by') or []),
+        'order_by': list(wide_table.get('order_by') or wide_table.get('key_fields') or _default_key_fields(node)),
+        'version_field': str(wide_table.get('version_field') or ''),
+        'status': str(wide_table.get('status') or node.get('status') or 'enabled'),
+        'created_at': str(wide_table.get('created_at') or _now_iso()),
+        'updated_at': str(wide_table.get('updated_at') or _now_iso()),
+    }
+    return _normalize_design(payload)
+
+
+def _create_node_from_design(design: dict[str, Any], *, source_node: dict[str, Any] | None = None) -> dict[str, Any]:
+    time_key = _infer_time_key(design, fallback=source_node.get('time_key') if source_node else None)
+    return {
+        'name': design['name'],
+        'table': f"{design['target_database']}.{design['target_table']}",
+        'entity_keys': _entity_keys_from_key_fields(design['key_fields'], time_key=time_key),
+        'time_key': time_key,
+        'grain': (source_node or {}).get('grain'),
+        'fields': list(design['fields']),
+        'description': design['description'] or None,
+        'description_zh': (source_node or {}).get('description_zh') or design['description'] or None,
+        'node_role': (source_node or {}).get('node_role') or 'query_entry',
+        'status': design['status'],
+        'asset_type': (source_node or {}).get('asset_type'),
+        'query_freq': (source_node or {}).get('query_freq'),
+        'base_filters': [],
+        'wide_table': _design_to_node_meta(design),
+    }
+
+
+def _apply_design_to_node(node: dict[str, Any], design: dict[str, Any]) -> dict[str, Any]:
+    next_node = dict(node)
+    time_key = _infer_time_key(design, fallback=next_node.get('time_key'))
+    next_node['name'] = design['name']
+    next_node['table'] = f"{design['target_database']}.{design['target_table']}"
+    next_node['fields'] = list(design['fields'])
+    next_node['entity_keys'] = _entity_keys_from_key_fields(design['key_fields'], time_key=time_key)
+    next_node['time_key'] = time_key
+    next_node['description'] = design['description'] or next_node.get('description')
+    next_node['status'] = design['status']
+    next_node['base_filters'] = []
+    next_node['wide_table'] = _design_to_node_meta(design)
+    return next_node
+
+
+def _design_to_node_meta(design: dict[str, Any]) -> dict[str, Any]:
+    return {
+        'id': design['id'],
+        'source_node': design['source_node'],
+        'engine': design['engine'],
+        'key_fields': list(design['key_fields']),
+        'partition_by': list(design['partition_by']),
+        'order_by': list(design['order_by']),
+        'version_field': design['version_field'],
+        'status': design['status'],
+        'created_at': design['created_at'],
+        'updated_at': _now_iso(),
+    }
+
+
+def _split_table_ref(table_ref: str) -> tuple[str, str]:
+    value = str(table_ref or '').strip()
+    if '.' not in value:
+        return '', value
+    database, table = value.split('.', 1)
+    return database, table
+
+
+def _default_key_fields(node: dict[str, Any]) -> list[str]:
+    items = [str(item or '').strip() for item in list(node.get('entity_keys') or []) if str(item or '').strip()]
+    time_key = str(node.get('time_key') or '').strip()
+    if time_key and time_key not in items:
+        items.append(time_key)
+    return items
+
+
+def _infer_time_key(design: dict[str, Any], *, fallback: str | None = None) -> str | None:
+    candidates = list(design.get('key_fields') or []) + list(design.get('fields') or [])
+    for field_name in candidates:
+        field_name = str(field_name or '').strip()
+        if field_name in {'trade_time', 'trade_date', 'date', 'ann_date', 'change_date', 'report_date', 'end_date'}:
+            return field_name
+    return fallback
+
+
+def _entity_keys_from_key_fields(key_fields: list[str], *, time_key: str | None) -> list[str]:
+    return [
+        str(item or '').strip()
+        for item in key_fields
+        if str(item or '').strip() and str(item or '').strip() != str(time_key or '')
+    ]
 
 
 def _build_graph_bundle_snapshot(

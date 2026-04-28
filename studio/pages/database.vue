@@ -20,7 +20,6 @@ const aiNotesLoading = ref(false)
 const wideTableFieldSearch = ref('')
 const selectedWorkbenchType = ref('node')
 const wideTableDialogVisible = ref(false)
-const wideTableDesigns = ref([])
 const wideTableSyncStates = ref([])
 const wideTableForm = ref(blankWideTable())
 const wideTableTargetTables = ref([])
@@ -31,6 +30,7 @@ const wideTableSyncStateDatabase = ref('default')
 
 const {
   workspace,
+  graph,
   fields,
   schema,
   attach,
@@ -71,6 +71,30 @@ const sourceNodeOptions = computed(() =>
   visibleNodes.value.filter((node) => node.name && node.name !== nodeForm.value.name)
 )
 
+const wideTableDesigns = computed(() =>
+  visibleNodes.value
+    .map((node) => buildWideTableDesignFromNode(node))
+    .filter(Boolean)
+)
+
+const wideTableByName = computed(() =>
+  new Map(wideTableDesigns.value.map((item) => [item.name, item]))
+)
+
+const currentNodeWideTable = computed(() =>
+  nodeForm.value.name ? (wideTableByName.value.get(nodeForm.value.name) || null) : null
+)
+
+const wideTableStateByName = computed(() =>
+  new Map((wideTableSyncStates.value || []).map((item) => [item.wide_table_name, item]))
+)
+
+const currentNodeWideTableSyncState = computed(() => {
+  const item = currentNodeWideTable.value
+  if (!item) return null
+  return wideTableStateByName.value.get(item.name) || null
+})
+
 const nodeListFilterOptions = computed(() => {
   const options = [
     { label: '全部', value: 'all' },
@@ -82,18 +106,32 @@ const nodeListFilterOptions = computed(() => {
   return options
 })
 
-const currentNodeSummary = computed(() => [
-  { label: '主表', value: currentTableProfile.value.table ? `${currentTableProfile.value.database}.${currentTableProfile.value.table}` : '-' },
-  { label: '粒度', value: nodeForm.value.grain || '-' },
-  { label: '主键', value: (nodeForm.value.entity_keys || []).join(', ') || '-' },
-  { label: '时间键', value: nodeForm.value.time_key || '-' },
-  { label: '状态', value: nodeForm.value.status === 'enabled' ? '启用' : '停用' },
-  { label: '资产类型', value: nodeForm.value.asset_type || '-' },
-  { label: '查询频率', value: nodeForm.value.query_freq || '-' },
-])
+const currentNodeSummary = computed(() => {
+  const wideTable = currentNodeWideTable.value
+  const syncState = currentNodeWideTableSyncState.value
+  return [
+    { label: '主表', value: currentTableProfile.value.table ? `${currentTableProfile.value.database}.${currentTableProfile.value.table}` : '-' },
+    { label: '粒度', value: nodeForm.value.grain || '-' },
+    { label: '主键', value: (nodeForm.value.entity_keys || []).join(', ') || '-' },
+    { label: '时间键', value: nodeForm.value.time_key || '-' },
+    { label: '状态', value: nodeForm.value.status === 'enabled' ? '启用' : '停用' },
+    { label: '资产类型', value: nodeForm.value.asset_type || '-' },
+    { label: '查询频率', value: nodeForm.value.query_freq || '-' },
+    ...(wideTable
+      ? [
+          { label: '宽表目标', value: `${wideTable.target_database}.${wideTable.target_table}` },
+          { label: '宽表状态', value: wideTable.status === 'enabled' ? '可用' : '不可用' },
+          { label: '上次同步时间', value: formatDateTime(syncState?.last_finished_at || syncState?.updated_at) },
+        ]
+      : []),
+  ]
+})
 
 const currentNodeBindingHint = computed(() => {
   if (!nodeForm.value.name) return ''
+  if (currentNodeWideTable.value) {
+    return '当前节点是宽表节点：按普通节点维护字段，同时保留宽表同步配置。'
+  }
   return '当前节点直接展示自身主表字段与字段绑定。'
 })
 
@@ -200,10 +238,6 @@ const selectedWideTable = computed(() =>
   || null
 )
 
-const wideTableStateByName = computed(() =>
-  new Map((wideTableSyncStates.value || []).map((item) => [item.wide_table_name, item]))
-)
-
 const selectedWideTableSyncState = computed(() => {
   const item = selectedWideTable.value
   if (!item) return null
@@ -212,9 +246,12 @@ const selectedWideTableSyncState = computed(() => {
 
 const workbenchRows = computed(() => {
   const keyword = nodeSearch.value.trim().toLowerCase()
+  const wideDesignByName = wideTableByName.value
+  const nodeNameSet = new Set(visibleNodes.value.map((node) => String(node.name || '')))
   const nodeRows = visibleNodes.value
     .filter((node) => {
       const bindingFields = getNodeFieldBindings(node.name)
+      const wideTable = wideDesignByName.get(node.name)
       const fieldHaystack = bindingFields
         .flatMap((item) => [
           item.standard_field,
@@ -240,6 +277,11 @@ const workbenchRows = computed(() => {
         node.asset_type,
         node.query_freq,
         ...(node.fields || []),
+        wideTable?.target_database,
+        wideTable?.target_table,
+        wideTable?.engine,
+        ...(Array.isArray(wideTable?.fields) ? wideTable.fields : []),
+        ...(Array.isArray(wideTable?.key_fields) ? wideTable.key_fields : []),
         fieldHaystack,
       ]
         .filter(Boolean)
@@ -251,11 +293,13 @@ const workbenchRows = computed(() => {
       ...node,
       __rowType: 'node',
       __rowKey: `node:${node.name}`,
+      __wideTable: wideDesignByName.get(node.name) || null,
       __summary: node.table || '-',
     }))
 
   const wideRows = wideTableDesigns.value
     .filter((item) => {
+      if (nodeNameSet.has(String(item.name || ''))) return false
       const sourceBindingFields = item.source_node
         ? getNodeFieldBindings(item.source_node)
             .flatMap((row) => [
@@ -635,6 +679,123 @@ function blankWideTable() {
   }
 }
 
+function buildWideTableDesignFromNode(node) {
+  const meta = node?.wide_table
+  if (!meta || typeof meta !== 'object') return null
+
+  const { database, tableName } = splitTableRef(node.table)
+  const keyFields = Array.isArray(meta.key_fields) && meta.key_fields.length
+    ? [...meta.key_fields]
+    : [...new Set([...(node.entity_keys || []), node.time_key || ''].filter(Boolean))]
+
+  return {
+    id: meta.id || `wide::${node.name}`,
+    name: node.name,
+    description: meta.description || node.description || node.description_zh || '',
+    source_node: meta.source_node || node.name,
+    target_database: meta.target_database || database,
+    target_table: meta.target_table || tableName,
+    engine: meta.engine || 'Memory',
+    status: meta.status || node.status || 'enabled',
+    fields: Array.isArray(meta.fields) && meta.fields.length ? [...meta.fields] : [...(node.fields || [])],
+    key_fields: keyFields,
+    partition_by: Array.isArray(meta.partition_by) ? [...meta.partition_by] : [],
+    order_by: Array.isArray(meta.order_by) && meta.order_by.length ? [...meta.order_by] : [...keyFields],
+    version_field: meta.version_field || '',
+    created_at: meta.created_at || '',
+    updated_at: meta.updated_at || '',
+  }
+}
+
+function syncSelectedWideTableId() {
+  const items = wideTableDesigns.value
+  if (!items.length) {
+    selectedWideTableId.value = ''
+    return items
+  }
+  if (!items.some((item) => item.id === selectedWideTableId.value)) {
+    selectedWideTableId.value = items[0].id
+  }
+  return items
+}
+
+function nowIsoSecond() {
+  return new Date().toISOString().replace(/\.\d{3}Z$/, '')
+}
+
+function inferWideTableTimeKey(payload, fallback = '') {
+  const candidates = [...(payload.key_fields || []), ...(payload.fields || [])]
+  return candidates.find((item) => ['trade_time', 'trade_date', 'date', 'ann_date', 'change_date', 'report_date', 'end_date'].includes(item)) || fallback || ''
+}
+
+function normalizeWideTablePayload(payload) {
+  const keyFields = [...new Set((payload.key_fields || []).map((item) => String(item || '').trim()).filter(Boolean))]
+  const fields = [...new Set((payload.fields || []).map((item) => String(item || '').trim()).filter(Boolean))]
+  const partitionBy = Array.isArray(payload.partition_by) ? payload.partition_by : normalizeCsvList(payload.partition_by_text)
+  const orderBy = Array.isArray(payload.order_by) ? payload.order_by : normalizeCsvList(payload.order_by_text)
+  const name = String(payload.name || payload.source_node || '').trim()
+  return {
+    ...payload,
+    id: String(payload.id || `wide::${name}`).trim(),
+    name,
+    source_node: String(payload.source_node || name).trim(),
+    target_database: String(payload.target_database || '').trim(),
+    target_table: String(payload.target_table || name).trim(),
+    engine: String(payload.engine || 'Memory').trim() || 'Memory',
+    status: String(payload.status || 'enabled').trim() || 'enabled',
+    fields,
+    key_fields: keyFields,
+    partition_by: partitionBy,
+    order_by: orderBy.length ? orderBy : keyFields,
+    version_field: String(payload.version_field || '').trim(),
+    created_at: payload.created_at || nowIsoSecond(),
+    updated_at: nowIsoSecond(),
+  }
+}
+
+function applyWideTableDesignToGraph(payload) {
+  const design = normalizeWideTablePayload(payload)
+  const index = graph.value.nodes.findIndex((node) => node.name === design.name || node.name === design.source_node)
+  if (index < 0) {
+    throw new Error(`找不到宽表节点：${design.name}`)
+  }
+
+  const node = graph.value.nodes[index]
+  const timeKey = inferWideTableTimeKey(design, node.time_key)
+  graph.value.nodes[index] = {
+    ...node,
+    name: design.name,
+    table: `${design.target_database}.${design.target_table}`,
+    fields: [...design.fields],
+    entity_keys: design.key_fields.filter((item) => item !== timeKey),
+    time_key: timeKey || null,
+    description: design.description || node.description || null,
+    status: design.status,
+    base_filters: [],
+    wide_table: {
+      id: design.id,
+      source_node: design.source_node,
+      engine: design.engine,
+      key_fields: [...design.key_fields],
+      partition_by: [...design.partition_by],
+      order_by: [...design.order_by],
+      version_field: design.version_field,
+      status: design.status,
+      created_at: design.created_at,
+      updated_at: design.updated_at,
+    },
+  }
+  return design
+}
+
+function removeWideTableDesignFromGraph(row) {
+  const index = graph.value.nodes.findIndex((node) => node.name === row.name || node.wide_table?.id === row.id)
+  if (index < 0) return
+  const nextNode = { ...graph.value.nodes[index] }
+  delete nextNode.wide_table
+  graph.value.nodes[index] = nextNode
+}
+
 function normalizeCsvList(value) {
   return String(value || '')
     .split(',')
@@ -642,17 +803,8 @@ function normalizeCsvList(value) {
     .filter(Boolean)
 }
 
-async function loadWideTables() {
-  const payload = await callJson('/api/wide-tables')
-  wideTableDesigns.value = payload.items || []
-  if (selectedWideTableId.value) {
-    const stillExists = wideTableDesigns.value.some((item) => item.id === selectedWideTableId.value)
-    if (!stillExists) {
-      selectedWideTableId.value = wideTableDesigns.value[0]?.id || ''
-    }
-  } else {
-    selectedWideTableId.value = wideTableDesigns.value[0]?.id || ''
-  }
+async function syncWideTableSelectionFromGraph() {
+  return syncSelectedWideTableId()
 }
 
 async function loadWideTableSyncStates() {
@@ -720,7 +872,6 @@ function handleConvertCurrentNodeToWideTable() {
 }
 
 async function openWideTableEditDialog(row) {
-  selectedWorkbenchType.value = 'wide_table'
   selectedWideTableId.value = row.id
   wideTableForm.value = {
     ...blankWideTable(),
@@ -752,13 +903,10 @@ async function handleSaveWideTable() {
     order_by: normalizeCsvList(wideTableForm.value.order_by_text),
   }
   await notifyAction('宽表节点已保存', async () => {
-    await callJson('/api/wide-tables', {
-      method: 'POST',
-      body: JSON.stringify({
-        wide_table: payload,
-      }),
-    })
-    await loadWideTables()
+    const saved = applyWideTableDesignToGraph(payload)
+    selectedWideTableId.value = saved.id
+    await saveWorkspace()
+    syncSelectedWideTableId()
     await loadWideTableSyncStates()
   })
   wideTableDialogVisible.value = false
@@ -771,10 +919,9 @@ async function handleDeleteWideTable(row) {
     cancelButtonText: '取消',
   })
   await notifyAction('宽表节点已删除', async () => {
-    await callJson(`/api/wide-tables?id=${encodeURIComponent(row.id)}`, {
-      method: 'DELETE',
-    })
-    await loadWideTables()
+    removeWideTableDesignFromGraph(row)
+    await saveWorkspace()
+    syncSelectedWideTableId()
     await loadWideTableSyncStates()
   })
 }
@@ -789,6 +936,8 @@ async function handleRunWideTableSync(row) {
       method: 'POST',
       body: JSON.stringify({
         id: row.id,
+        graph_path: workspace.value.graphPath,
+        fields_path: workspace.value.fieldsPath,
         state_database: wideTableSyncStateDatabase.value || 'default',
       }),
     })
@@ -824,20 +973,16 @@ async function handleRemoveWideTableField(row) {
   const nextVersionField = design.version_field === row.standard_field ? '' : design.version_field
 
   await notifyAction('宽表字段已移除', async () => {
-    await callJson('/api/wide-tables', {
-      method: 'POST',
-      body: JSON.stringify({
-        wide_table: {
-          ...design,
-          fields: nextFields,
-          key_fields: nextKeyFields,
-          partition_by: nextPartitionBy,
-          order_by: nextOrderBy,
-          version_field: nextVersionField,
-        },
-      }),
+    applyWideTableDesignToGraph({
+      ...design,
+      fields: nextFields,
+      key_fields: nextKeyFields,
+      partition_by: nextPartitionBy,
+      order_by: nextOrderBy,
+      version_field: nextVersionField,
     })
-    await loadWideTables()
+    await saveWorkspace()
+    syncSelectedWideTableId()
   })
 }
 
@@ -1081,7 +1226,7 @@ watch(
 
 onMounted(async () => {
   await ensureWorkspaceLoaded()
-  await loadWideTables()
+  await syncWideTableSelectionFromGraph()
   await loadWideTableSyncStates()
   await selectNodeFromRoute()
 })
@@ -1116,7 +1261,7 @@ watch(
   () => nodeForm.value.name,
   async (value, oldValue) => {
     if (value === oldValue) return
-    await loadWideTables()
+    await syncWideTableSelectionFromGraph()
   }
 )
 
@@ -1335,10 +1480,22 @@ async function handleDeleteNode() {
     return
   }
 
-  await ElMessageBox.confirm(`确定删除节点 ${nodeForm.value.name} 吗？`, '删除节点', {
+  const cleanupLines = []
+  if (impact.referencedBySourceFields.length) {
+    cleanupLines.push(`会同时删除 ${impact.referencedBySourceFields.length} 个 source_node 字段绑定：${impact.referencedBySourceFields.slice(0, 12).map((item) => item.standard_field).join('、')}${impact.referencedBySourceFields.length > 12 ? '...' : ''}`)
+  }
+  if (impact.referencedByLegacyTableFields.length) {
+    cleanupLines.push(`会同时删除 ${impact.referencedByLegacyTableFields.length} 个旧版 source_table 字段绑定：${impact.referencedByLegacyTableFields.slice(0, 12).map((item) => item.standard_field).join('、')}${impact.referencedByLegacyTableFields.length > 12 ? '...' : ''}`)
+  }
+  const confirmMessage = cleanupLines.length
+    ? `确定删除节点 ${nodeForm.value.name} 吗？<br/><br/>${cleanupLines.join('<br/>')}`
+    : `确定删除节点 ${nodeForm.value.name} 吗？`
+
+  await ElMessageBox.confirm(confirmMessage, '删除节点', {
     type: 'warning',
     confirmButtonText: '删除',
     cancelButtonText: '取消',
+    dangerouslyUseHTMLString: cleanupLines.length > 0,
   })
   await notifyAction('节点已删除', async () => {
     deleteNode(nodeForm.value.name)
@@ -1407,16 +1564,19 @@ function normalizeRouteQueryValue(value) {
                   <el-tag
                     size="small"
                     effect="plain"
-                    :type="row.__rowType === 'wide_table' ? 'warning' : 'primary'"
+                    :type="row.__rowType === 'wide_table' || row.__wideTable ? 'warning' : 'primary'"
                     disable-transitions
                   >
-                    {{ row.__rowType === 'wide_table' ? '宽表' : '普通' }}
+                    {{ row.__rowType === 'wide_table' || row.__wideTable ? '宽表' : '普通' }}
                   </el-tag>
                   <el-tag size="small" effect="plain" :type="row.status === 'enabled' ? 'success' : 'info'" disable-transitions>
-                    {{ row.status === 'enabled' ? (row.__rowType === 'wide_table' ? '可用' : '启用') : (row.__rowType === 'wide_table' ? '不可用' : '停用') }}
+                    {{ row.status === 'enabled' ? (row.__rowType === 'wide_table' || row.__wideTable ? '可用' : '启用') : (row.__rowType === 'wide_table' || row.__wideTable ? '不可用' : '停用') }}
                   </el-tag>
                   <el-tag v-if="row.__rowType === 'wide_table' && row.engine" size="small" effect="plain" type="success" disable-transitions>
                     {{ row.engine }}
+                  </el-tag>
+                  <el-tag v-if="row.__wideTable?.engine" size="small" effect="plain" type="success" disable-transitions>
+                    {{ row.__wideTable.engine }}
                   </el-tag>
                   <el-tag v-if="row.__rowType === 'node' && row.asset_type" size="small" effect="plain" type="success" disable-transitions>{{ row.asset_type }}</el-tag>
                   <el-tag v-if="row.__rowType === 'node' && row.query_freq" size="small" effect="plain" disable-transitions>{{ row.query_freq }}</el-tag>
@@ -1520,10 +1680,13 @@ function normalizeRouteQueryValue(value) {
             <template #header>
               <div class="panel-heading panel-heading-space">
                 <div>
-                  <span class="panel-title">当前节点</span>
+                  <span class="panel-title">{{ currentNodeWideTable ? '当前宽表节点' : '当前节点' }}</span>
                 </div>
                 <div class="panel-actions panel-actions-compact">
-                  <el-button type="primary" plain :disabled="!nodeForm.name" @click="handleConvertCurrentNodeToWideTable">转换宽表</el-button>
+                  <el-button v-if="currentNodeWideTable" :loading="wideTableStateLoading" :disabled="!nodeForm.name" @click="loadWideTableSyncStates">刷新同步状态</el-button>
+                  <el-button v-if="currentNodeWideTable" type="success" :loading="wideTableSyncLoading" :disabled="!nodeForm.name" @click="notifyAction('', () => handleRunWideTableSync(currentNodeWideTable))">同步宽表</el-button>
+                  <el-button v-if="currentNodeWideTable" :disabled="!nodeForm.name" @click="openWideTableEditDialog(currentNodeWideTable)">编辑宽表配置</el-button>
+                  <el-button v-else type="primary" plain :disabled="!nodeForm.name" @click="handleConvertCurrentNodeToWideTable">转换宽表</el-button>
                   <el-button plain :disabled="!nodeForm.name" @click="handleDuplicateNode">复制节点</el-button>
                   <el-button :disabled="!nodeForm.name" @click="openEditDialog">编辑节点</el-button>
                   <el-button type="danger" plain :disabled="!nodeForm.name" @click="handleDeleteNode">删除节点</el-button>
@@ -1538,7 +1701,12 @@ function normalizeRouteQueryValue(value) {
                   <p>{{ nodeForm.description || '当前节点暂无描述' }}</p>
                 </div>
                 <div class="panel-actions panel-actions-compact">
+                  <el-tag v-if="currentNodeWideTable" round effect="plain" type="warning">宽表</el-tag>
+                  <el-tag v-if="currentNodeWideTable?.engine" round effect="plain" type="success">{{ currentNodeWideTable.engine }}</el-tag>
                   <el-tag round effect="plain">绑定字段 {{ currentNodeFieldBindings.length }}</el-tag>
+                  <el-tag v-if="currentNodeWideTableSyncState?.last_status" round effect="plain" :type="currentNodeWideTableSyncState.last_status === 'success' ? 'success' : (currentNodeWideTableSyncState.last_status === 'failed' ? 'danger' : 'warning')">
+                    {{ currentNodeWideTableSyncState.last_status }}
+                  </el-tag>
                 </div>
               </div>
 

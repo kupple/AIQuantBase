@@ -53,7 +53,6 @@ from .sql import SqlRenderer
 from .sync.service import build_sync_service
 from .sync_integration import DEFAULT_SYNC_PROJECT_ROOT, register_sync_routes
 from .wide_table import (
-    DEFAULT_WIDE_TABLE_PATH,
     delete_wide_table,
     export_wide_table_yaml,
     get_wide_table_summary,
@@ -98,7 +97,6 @@ def create_app(
                     "fields_path": str(_default_fields_path()),
                     "runtime_path": str(DEFAULT_RUNTIME_CONFIG_PATH),
                     "membership_path": str(DEFAULT_MEMBERSHIP_PATH),
-                    "wide_table_path": str(DEFAULT_WIDE_TABLE_PATH),
                 },
                 "available_routes": [
                     "/api/health",
@@ -135,15 +133,15 @@ def create_app(
 
     @app.get("/api/wide-tables")
     def wide_tables():
-        wide_table_path = _resolve_workspace_path(request.args.get("wide_table_path") or DEFAULT_WIDE_TABLE_PATH)
+        graph_path = _resolve_workspace_path(request.args.get("graph_path") or _default_graph_path())
         return jsonify(
             {
                 "workspace": {
-                    "wide_table_path": str(wide_table_path),
+                    "graph_path": str(graph_path),
                 },
-                "summary": get_wide_table_summary(wide_table_path),
+                "summary": get_wide_table_summary(graph_path=graph_path),
                 "items": list_wide_tables(
-                    wide_table_path,
+                    graph_path=graph_path,
                     source_node=request.args.get("source_node") or None,
                 ),
             }
@@ -152,24 +150,22 @@ def create_app(
     @app.post("/api/wide-tables")
     def save_wide_table():
         payload = request.get_json(force=True)
-        wide_table_path = _resolve_workspace_path(payload.get("wide_table_path") or DEFAULT_WIDE_TABLE_PATH)
-        item = upsert_wide_table(payload.get("wide_table") or payload, wide_table_path)
-        return jsonify({"ok": True, "item": item, "summary": get_wide_table_summary(wide_table_path)})
+        graph_path = _resolve_workspace_path(payload.get("graph_path") or _default_graph_path())
+        item = upsert_wide_table(payload.get("wide_table") or payload, graph_path=graph_path)
+        return jsonify({"ok": True, "item": item, "summary": get_wide_table_summary(graph_path=graph_path)})
 
     @app.delete("/api/wide-tables")
     def remove_wide_table():
-        wide_table_path = _resolve_workspace_path(request.args.get("wide_table_path") or DEFAULT_WIDE_TABLE_PATH)
+        graph_path = _resolve_workspace_path(request.args.get("graph_path") or _default_graph_path())
         design_id = request.args.get("id") or ""
-        item = delete_wide_table(design_id, wide_table_path)
-        return jsonify({"ok": True, "item": item, "summary": get_wide_table_summary(wide_table_path)})
+        item = delete_wide_table(design_id, graph_path=graph_path)
+        return jsonify({"ok": True, "item": item, "summary": get_wide_table_summary(graph_path=graph_path)})
 
     @app.get("/api/wide-tables/export")
     def export_wide_table():
-        wide_table_path = _resolve_workspace_path(request.args.get("wide_table_path") or DEFAULT_WIDE_TABLE_PATH)
         design_id = request.args.get("id") or ""
         yaml_text = export_wide_table_yaml(
             design_id,
-            wide_table_path,
             graph_path=request.args.get("graph_path") or _default_graph_path(),
             fields_path=request.args.get("fields_path") or _default_fields_path(),
         )

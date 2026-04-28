@@ -86,10 +86,13 @@ class SyncIntegration:
         file_path.unlink()
         return {"ok": True, "name": file_path.name}
 
-    def list_exported_wide_tables(self, wide_table_path: str | Path | None = None) -> dict[str, Any]:
+    def list_exported_wide_tables(
+        self,
+        graph_path: str | Path | None = None,
+    ) -> dict[str, Any]:
         self.sync_spec_dir.mkdir(parents=True, exist_ok=True)
         items = []
-        for item in list_wide_tables(wide_table_path):
+        for item in list_wide_tables(graph_path=graph_path):
             file_path = self.sync_spec_dir / f"{item['name']}.yaml"
             exported = file_path.is_file()
             items.append(
@@ -110,7 +113,6 @@ class SyncIntegration:
         *,
         design_id: str,
         name: str,
-        wide_table_path: str | Path | None = None,
         graph_path: str | Path | None = None,
         fields_path: str | Path | None = None,
     ) -> dict[str, Any]:
@@ -118,7 +120,6 @@ class SyncIntegration:
         self.sync_spec_dir.mkdir(parents=True, exist_ok=True)
         yaml_text = export_wide_table_yaml(
             design_id,
-            path=wide_table_path,
             graph_path=graph_path,
             fields_path=fields_path,
         )
@@ -134,7 +135,6 @@ class SyncIntegration:
         self,
         *,
         design_id: str,
-        wide_table_path: str | Path | None = None,
         graph_path: str | Path | None = None,
         fields_path: str | Path | None = None,
         state_database: str | None = None,
@@ -145,7 +145,6 @@ class SyncIntegration:
 
         payload = build_wide_table_export_payload(
             design_id,
-            path=wide_table_path,
             graph_path=graph_path,
             fields_path=fields_path,
         )
@@ -589,7 +588,7 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
         try:
             return jsonify(
                 integration.list_exported_wide_tables(
-                    wide_table_path=request.args.get("wide_table_path") or None,
+                    graph_path=request.args.get("graph_path") or None,
                 )
             )
         except Exception as exc:
@@ -607,7 +606,6 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
                 integration.export_wide_table_spec(
                     design_id=design_id,
                     name=name,
-                    wide_table_path=payload.get("wide_table_path") or None,
                     graph_path=payload.get("graph_path") or None,
                     fields_path=payload.get("fields_path") or None,
                 )
@@ -720,7 +718,6 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
             return jsonify(
                 integration.run_wide_table_inline(
                     design_id=design_id,
-                    wide_table_path=payload.get("wide_table_path") or None,
                     graph_path=payload.get("graph_path") or None,
                     fields_path=payload.get("fields_path") or None,
                     state_database=payload.get("state_database") or None,

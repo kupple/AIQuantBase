@@ -33,6 +33,7 @@ class Node:
     asset_type: str | None = None
     query_freq: str | None = None
     base_filters: list[dict[str, Any]] = field(default_factory=list)
+    wide_table: dict[str, Any] | None = None
 
 
 @dataclass(slots=True)
