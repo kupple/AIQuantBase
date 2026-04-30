@@ -453,36 +453,51 @@ def test_membership_member_dimension_source_preview(tmp_path: Path):
     assert preview['relation_preview'] == []
 
 
-def test_runtime_query_daily_supports_memberships(tmp_path: Path):
+def test_runtime_panel_profile_supports_memberships(tmp_path: Path):
     path = _membership_path(tmp_path)
     runtime = GraphRuntime.from_defaults()
     runtime.executor = MembershipExecutor()
 
-    result = runtime.query_daily(
-        fields=['close'],
-        start='2024-01-01 00:00:00',
-        end='2024-01-02 23:59:59',
-        memberships={
-            'include': [{'domain': 'board', 'taxonomy': 'exchange_board', 'member_code': 'sme'}],
-        },
-        membership_path=path,
+    result = runtime.execute_query_profile(
+        {
+            'query_profile': 'panel_time_series',
+            'fields': ['close'],
+            'start': '2024-01-01 00:00:00',
+            'end': '2024-01-02 23:59:59',
+            'memberships': {
+                'include': [{'domain': 'board', 'taxonomy': 'exchange_board', 'member_code': 'sme'}],
+            },
+            'membership_path': path,
+        }
     )
 
     assert result['ok'] is True
     assert "b0.code = '000001.SZ'" in result['debug']['sql']
 
 
-def test_application_runtime_membership_helpers(tmp_path: Path):
+def test_application_runtime_membership_profile(tmp_path: Path):
     path = _membership_path(tmp_path)
     runtime = ApplicationRuntime.from_defaults()
 
-    query_result = runtime.query_membership('000001.SZ', as_of_date='2024-01-02', membership_path=path)
-    assert query_result['count'] == 1
+    query_result = runtime.execute_query_profile(
+        {
+            'query_profile': 'membership',
+            'operation': 'query_membership',
+            'security_code': '000001.SZ',
+            'as_of_date': '2024-01-02',
+            'membership_path': path,
+        }
+    )
+    assert len(query_result['items']) == 1
 
-    filter_result = runtime.filter_symbols_by_membership(
-        {'include': [{'domain': 'board', 'taxonomy': 'exchange_board', 'member_code': 'gem'}]},
-        as_of_date='2024-01-02',
-        membership_path=path,
-        security_type='stock',
+    filter_result = runtime.execute_query_profile(
+        {
+            'query_profile': 'membership',
+            'operation': 'filter_symbols',
+            'memberships': {'include': [{'domain': 'board', 'taxonomy': 'exchange_board', 'member_code': 'gem'}]},
+            'as_of_date': '2024-01-02',
+            'membership_path': path,
+            'security_type': 'stock',
+        }
     )
     assert filter_result['symbols'] == ['000002.SZ']

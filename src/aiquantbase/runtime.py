@@ -63,6 +63,18 @@ RAW_FIELD_DESCRIPTION_ZH = {
     'market_code': '市场代码',
     'index_code': '指数代码',
     'index_name': '指数名称',
+    'level1_name': '一级行业名称',
+    'level2_name': '二级行业名称',
+    'level3_name': '三级行业名称',
+    'industry_index_code': '行业指数代码',
+    'industry_index_name': '行业指数名称',
+    'industry_code': '行业代码',
+    'industry_level1_name': '一级行业名称',
+    'industry_level2_name': '二级行业名称',
+    'industry_level3_name': '三级行业名称',
+    'industry_name': '行业名称',
+    'in_date': '纳入日期',
+    'out_date': '剔除日期',
     'weight': '权重',
 }
 
@@ -74,12 +86,8 @@ LEGACY_ASSET_NODE_MAP = {
 
 IDENTITY_FIELDS = {
     'stock_daily_real': ['code', 'trade_time'],
+    'stock_industry_daily_real': ['index_code', 'trade_date'],
     'stock_minute_real': ['code', 'trade_time'],
-    'etf_daily_real': ['code', 'trade_time'],
-    'etf_minute_real': ['code', 'trade_time'],
-    'index_daily_real': ['code', 'trade_time'],
-    'index_minute_real': ['code', 'trade_time'],
-    'etf_pcf_real': ['etf_code', 'etf_trading_day'],
     'fund_share_real': ['market_code', 'fund_share_ann_date'],
     'treasury_yield_real': ['treasury_term', 'treasury_trade_date'],
     'kzz_conv_real': ['market_code', 'kzz_conv_rule_ann_date'],
@@ -90,31 +98,16 @@ ASSET_FIELD_ALLOWLIST = {
         'code', 'trade_time', 'open', 'high', 'low', 'close', 'volume', 'amount',
         'security_type', 'security_name', 'list_date', 'delist_date',
         'close_adj', 'open_adj', 'high_adj', 'low_adj',
+        'pre_close', 'backward_adj_factor',
         'high_limited', 'low_limited',
+        'is_st', 'is_suspended', 'is_wd_sec', 'is_xr_sec',
+        'is_kcb', 'is_cyb', 'is_bjs',
+        'market_cap', 'float_market_cap', 'turnover_rate',
+        'industry_index_code', 'industry_index_name', 'industry_code',
+        'industry_level1_name', 'industry_level2_name', 'industry_level3_name',
+        'industry_name', 'in_date', 'out_date',
     },
     ('stock', '1m'): {
-        'code', 'trade_time', 'open', 'high', 'low', 'close', 'volume', 'amount',
-        'minute_open', 'minute_high', 'minute_low', 'minute_close', 'minute_volume', 'minute_amount',
-        'security_type', 'security_name',
-    },
-    ('etf', '1d'): {
-        'code', 'trade_time', 'open', 'high', 'low', 'close', 'volume', 'amount',
-        'security_type', 'security_name', 'list_date', 'delist_date',
-        'close_adj', 'open_adj', 'high_adj', 'low_adj',
-        'etf_code', 'etf_trading_day', 'etf_nav', 'etf_nav_per_cu', 'etf_cash_component',
-        'etf_cash_component_ratio', 'etf_limit_spread', 'etf_net_limit_spread',
-        'etf_creation_flag', 'etf_redemption_flag', 'etf_symbol',
-    },
-    ('etf', '1m'): {
-        'code', 'trade_time', 'open', 'high', 'low', 'close', 'volume', 'amount',
-        'minute_open', 'minute_high', 'minute_low', 'minute_close', 'minute_volume', 'minute_amount',
-        'security_type', 'security_name',
-    },
-    ('index', '1d'): {
-        'code', 'trade_time', 'open', 'high', 'low', 'close', 'volume', 'amount',
-        'security_type', 'security_name', 'list_date', 'delist_date',
-    },
-    ('index', '1m'): {
         'code', 'trade_time', 'open', 'high', 'low', 'close', 'volume', 'amount',
         'minute_open', 'minute_high', 'minute_low', 'minute_close', 'minute_volume', 'minute_amount',
         'security_type', 'security_name',
@@ -269,6 +262,7 @@ class GraphRuntime:
         fields = list(request.get('fields') or [])
         freq = request.get('freq', '1d')
         requested_asset_type = request.get('asset_type', 'auto')
+        requested_node = str(request.get('provider_node') or request.get('node') or '').strip()
         issues = []
 
         supports_universe = universe == 'all_a' and freq == '1d'
@@ -331,6 +325,28 @@ class GraphRuntime:
 
         resolved_asset_type = requested_asset_type
         resolved_node = None
+        if requested_node:
+            node = self.registry.nodes.get(requested_node)
+            if node is None:
+                issues.append(
+                    self._issue(
+                        code='missing_query_node',
+                        message=f'provider_node={requested_node} is not registered',
+                        path='provider_node',
+                    )
+                )
+            else:
+                node_asset_type, node_freq = self._asset_freq_for_node(requested_node)
+                if requested_asset_type == 'auto' and node_asset_type:
+                    resolved_asset_type = node_asset_type
+                if node_freq and freq != node_freq:
+                    issues.append(
+                        self._issue(
+                            code='unsupported_freq',
+                            message=f'provider_node={requested_node} supports freq={node_freq}, got freq={freq}',
+                            path='freq',
+                        )
+                    )
         if requested_asset_type == 'auto' and supports_universe:
             resolved_asset_type = 'stock'
         elif requested_asset_type == 'auto' and symbols:
@@ -365,13 +381,23 @@ class GraphRuntime:
                 )
             )
 
-        resolved_best_node = self.resolve_best_node(
-            symbols=symbols,
-            universe=universe or None,
-            fields=fields,
-            freq=freq,
-            asset_type=resolved_asset_type,
-        )
+        if requested_node and self.registry.nodes.get(requested_node) is not None:
+            resolved_best_node = {
+                'ok': True,
+                'node': requested_node,
+                'asset_type': resolved_asset_type,
+                'freq': freq,
+                'candidates': [],
+                'issues': [],
+            }
+        else:
+            resolved_best_node = self.resolve_best_node(
+                symbols=symbols,
+                universe=universe or None,
+                fields=fields,
+                freq=freq,
+                asset_type=resolved_asset_type,
+            )
         resolved_node = resolved_best_node.get('node')
         if not resolved_node and resolved_asset_type and not any(issue['code'] == 'unsupported_asset_type' for issue in issues):
             issues.append(
@@ -382,9 +408,13 @@ class GraphRuntime:
                 )
             )
 
-        supported_names = {item['name'] for item in self.get_supported_fields(asset_type=resolved_asset_type, freq=freq)['fields']}
+        if requested_node and self.registry.nodes.get(requested_node) is not None:
+            supported_names = {item['field_name'] for item in self._fields_for_node(requested_node)}
+        else:
+            supported_names = {item['name'] for item in self.get_supported_fields(asset_type=resolved_asset_type, freq=freq)['fields']}
         for field in fields:
-            if field not in supported_names or not self._is_field_allowed_for_asset(field, resolved_asset_type, freq):
+            allowed = self._is_node_field_allowed(field, requested_node) if requested_node else self._is_field_allowed_for_asset(field, resolved_asset_type, freq)
+            if field not in supported_names or not allowed:
                 issues.append(
                     self._issue(
                         code='unsupported_field',
@@ -474,232 +504,52 @@ class GraphRuntime:
             'issues': issues,
         }
 
-    def query_daily(
-        self,
-        *,
-        symbols: list[str] | None = None,
-        universe: str | None = None,
-        fields: list[str],
-        start: str,
-        end: str,
-        asset_type: str = 'auto',
-        freq: str = '1d',
-        memberships: dict[str, Any] | None = None,
-        membership_path: str | Path | None = None,
-    ) -> dict[str, Any]:
-        request = {
-            'symbols': symbols or [],
-            'universe': universe,
-            'fields': fields,
-            'start': start,
-            'end': end,
-            'freq': freq,
-            'asset_type': asset_type,
-            'memberships': memberships or None,
-            'membership_path': membership_path,
-        }
-        return self._execute_query_request(request, page_size=None)
-
-    def query_minute(
-        self,
-        *,
-        symbols: list[str] | None = None,
-        universe: str | None = None,
-        fields: list[str],
-        start: str,
-        end: str,
-        asset_type: str = 'auto',
-        freq: str = '1m',
-    ) -> dict[str, Any]:
-        request = {
-            'symbols': symbols or [],
-            'universe': universe,
-            'fields': fields,
-            'start': start,
-            'end': end,
-            'freq': freq,
-            'asset_type': asset_type,
-        }
-        return self._execute_query_request(request, page_size=None)
-
-    def query_dividend_events(
-        self,
-        *,
-        symbols: list[str],
-        start: str,
-        end: str,
-        finalized_only: bool = True,
-    ) -> dict[str, Any]:
-        normalized_symbols = sorted({str(symbol).strip() for symbol in list(symbols or []) if str(symbol).strip()})
-        request = {
-            'symbols': normalized_symbols,
-            'start': start,
-            'end': end,
-            'finalized_only': bool(finalized_only),
-            'kind': 'dividend_events',
-        }
-        if not normalized_symbols:
-            return {
-                'ok': False,
-                'df': pd.DataFrame(),
-                'issues': [
-                    self._issue(
-                        code='missing_symbols',
-                        message='symbols is required for dividend event query',
-                        path='symbols',
-                    )
-                ],
-                'meta': {
-                    'kind': 'dividend_events',
-                    'row_count': 0,
-                    'symbol_count': 0,
-                    'empty': True,
-                    'empty_reason': 'validation_failed',
-                },
-                'debug': {'request': request, 'sql': ''},
-            }
-
-        node = self.registry.nodes.get('dividend_real')
-        table_name = node.table if node is not None else 'starlight.ad_dividend'
-        symbol_sql = ', '.join(self._quote_sql_string(symbol) for symbol in normalized_symbols)
-        start_sql = self._quote_sql_string(str(start).strip())
-        end_sql = self._quote_sql_string(str(end).strip())
-        finalized_filter = " AND toString(div_progress) = '3'" if finalized_only else ""
-        sql = (
-            "SELECT "
-            "market_code AS code, "
-            "ann_date AS dividend_ann_date, "
-            "report_period AS dividend_report_period, "
-            "div_progress AS dividend_progress, "
-            "dvd_per_share_pre_tax_cash AS dividend_cash_pre_tax, "
-            "dvd_per_share_after_tax_cash AS dividend_cash_after_tax, "
-            "dvd_per_share_stk AS dividend_stock_per_share, "
-            "div_bonusrate AS dividend_bonus_rate, "
-            "div_conversedrate AS dividend_conversed_rate, "
-            "date_eqy_record AS equity_record_date, "
-            "date_ex AS ex_dividend_date, "
-            "date_dvd_payout AS dividend_payout_date "
-            f"FROM {table_name} "
-            f"WHERE market_code IN ({symbol_sql}) "
-            "AND date_ex IS NOT NULL "
-            f"AND date_ex BETWEEN toDate({start_sql}) AND toDate({end_sql})"
-            f"{finalized_filter} "
-            "ORDER BY market_code, date_ex, ann_date"
-        )
-        result = self.execute_sql(sql)
-        if result.get('code') != SUCCESS_CODE:
-            return {
-                'ok': False,
-                'df': pd.DataFrame(),
-                'issues': [
-                    self._issue(
-                        code='query_failed',
-                        message=str(result.get('message') or 'dividend query failed'),
-                        path='query',
-                    )
-                ],
-                'meta': {
-                    'kind': 'dividend_events',
-                    'row_count': 0,
-                    'symbol_count': len(normalized_symbols),
-                    'empty': True,
-                    'empty_reason': 'query_failed',
-                },
-                'debug': {'request': request, 'sql': sql},
-            }
-        df = result.get('df')
-        if not isinstance(df, pd.DataFrame):
-            df = pd.DataFrame()
-        if not df.empty:
-            normalized = df.copy()
-            for date_field in ['dividend_ann_date', 'equity_record_date', 'ex_dividend_date', 'dividend_payout_date']:
-                if date_field in normalized.columns:
-                    series = pd.to_datetime(normalized[date_field], errors='coerce')
-                    normalized[date_field] = series.dt.date.astype('string')
-            df = normalized
-        issues: list[dict[str, Any]] = []
-        empty = df.empty
-        if empty:
-            issues.append(
-                self._issue(
-                    code='empty_result',
-                    message='dividend query succeeded but returned no rows',
-                    path='query',
-                )
+    def execute_query_profile(self, request: dict[str, Any]) -> dict[str, Any]:
+        profile = str(request.get('query_profile') or '').strip()
+        if not profile:
+            return self._profile_failure_result(
+                request=request,
+                code='unsupported_freq',
+                message='query_profile is required',
+                empty_reason='validation_failed',
             )
-        return {
-            'ok': not empty,
-            'df': df,
-            'issues': issues,
-            'meta': {
-                'kind': 'dividend_events',
-                'row_count': int(len(df.index)),
-                'symbol_count': len(normalized_symbols),
-                'empty': empty,
-                'empty_reason': 'no_rows' if empty else None,
-            },
-            'debug': {'request': request, 'sql': sql},
-        }
+        if profile == 'panel_time_series':
+            result = self._execute_panel_time_series_profile(request)
+        elif profile == 'event_stream':
+            result = self._execute_event_stream_profile(request)
+        elif profile == 'anchored_intraday_window':
+            result = self._execute_anchored_intraday_window_profile(
+                symbols=list(request.get('symbols') or []),
+                trading_days=list(request.get('trading_days') or []),
+                start_hhmm=str(request.get('start_hhmm') or ''),
+                end_hhmm=str(request.get('end_hhmm') or ''),
+                hhmm_list=list(request.get('hhmm_list') or []),
+                fields=list(request.get('fields') or []),
+                asset_type=str(request.get('asset_type') or 'stock'),
+            )
+        elif profile == 'next_trading_day_window':
+            result = self._execute_next_trading_day_window_profile(
+                anchors=list(request.get('anchors') or []),
+                start_hhmm=str(request.get('start_hhmm') or ''),
+                end_hhmm=str(request.get('end_hhmm') or ''),
+                hhmm_list=list(request.get('hhmm_list') or []),
+                fields=list(request.get('fields') or []),
+                asset_type=str(request.get('asset_type') or 'stock'),
+            )
+        elif profile == 'membership':
+            result = self._execute_membership_profile(request)
+        elif profile == 'runtime_rule':
+            result = self._execute_runtime_rule_profile(request)
+        else:
+            result = self._profile_failure_result(
+                request=request,
+                code='unsupported_freq',
+                message=f'unsupported query_profile: {profile}',
+                empty_reason='validation_failed',
+            )
+        return self._attach_query_profile_meta(result, request)
 
-    def query_membership(
-        self,
-        security_code: str,
-        *,
-        as_of_date: str,
-        security_type: str | None = None,
-        membership_path: str | Path | None = None,
-    ) -> dict[str, Any]:
-        items = membership_query_membership(
-            security_code,
-            as_of_date=as_of_date,
-            path=membership_path or DEFAULT_MEMBERSHIP_PATH,
-            security_type=security_type,
-            executor=self.executor,
-        )
-        return {
-            'ok': True,
-            'items': items,
-            'count': len(items),
-        }
-
-    def resolve_membership_target(
-        self,
-        *,
-        domain: str,
-        member_code: str,
-        taxonomy: str | None = None,
-        member_name: str | None = None,
-        membership_path: str | Path | None = None,
-    ) -> dict[str, Any]:
-        item = membership_resolve_target(
-            domain=domain,
-            member_code=member_code,
-            taxonomy=taxonomy,
-            member_name=member_name,
-            path=membership_path or DEFAULT_MEMBERSHIP_PATH,
-        )
-        return {
-            'ok': True,
-            'item': item,
-        }
-
-    def filter_symbols_by_membership(
-        self,
-        memberships: dict[str, Any],
-        *,
-        as_of_date: str,
-        security_type: str | None = None,
-        membership_path: str | Path | None = None,
-    ) -> dict[str, Any]:
-        return membership_filter_symbols(
-            memberships,
-            as_of_date=as_of_date,
-            path=membership_path or DEFAULT_MEMBERSHIP_PATH,
-            security_type=security_type,
-            executor=self.executor,
-        )
-
-    def query_minute_window_by_trading_day(
+    def _execute_anchored_intraday_window_profile(
         self,
         *,
         symbols: list[str],
@@ -766,13 +616,17 @@ class GraphRuntime:
             for trading_day in trading_days:
                 day_start = f'{trading_day} {resolved["start_hhmm"]}:00'
                 day_end = f'{trading_day} {resolved["end_hhmm"]}:00'
-                day_result = self.query_minute(
-                    symbols=symbols,
-                    fields=minute_fields,
-                    start=day_start,
-                    end=day_end,
-                    asset_type=resolved['asset_type'],
-                    freq='1m',
+                day_result = self._execute_query_request(
+                    {
+                        'symbols': symbols,
+                        'universe': None,
+                        'fields': minute_fields,
+                        'start': day_start,
+                        'end': day_end,
+                        'asset_type': resolved['asset_type'],
+                        'freq': '1m',
+                    },
+                    page_size=None,
                 )
                 day_debug = day_result.get('debug') or {}
                 sqls.append(str(day_debug.get('sql') or ''))
@@ -924,7 +778,7 @@ class GraphRuntime:
             },
         }
 
-    def query_next_trading_day_intraday_windows(
+    def _execute_next_trading_day_window_profile(
         self,
         *,
         anchors: list[dict[str, Any]],
@@ -968,7 +822,7 @@ class GraphRuntime:
             )
 
         resolved_anchors = list(anchor_bundle['anchors'])
-        base_result = self.query_minute_window_by_trading_day(
+        base_result = self._execute_anchored_intraday_window_profile(
             symbols=sorted({item['code'] for item in resolved_anchors}),
             trading_days=sorted({item['execution_date'] for item in resolved_anchors}),
             start_hhmm=start_hhmm,
@@ -1125,6 +979,255 @@ class GraphRuntime:
             f"AND {time_field} IN ({timestamp_sql}) "
             f"ORDER BY {symbol_field}, {time_field}"
         )
+
+    def _execute_panel_time_series_profile(self, request: dict[str, Any]) -> dict[str, Any]:
+        profile_request = {
+            'symbols': list(request.get('symbols') or []),
+            'universe': request.get('universe'),
+            'fields': list(request.get('fields') or []),
+            'start': request.get('start'),
+            'end': request.get('end'),
+            'freq': request.get('freq') or ('1m' if request.get('minute') else '1d'),
+            'asset_type': request.get('asset_type') or 'auto',
+            'memberships': request.get('memberships') or None,
+            'membership_path': request.get('membership_path'),
+            'provider_node': request.get('provider_node') or request.get('node'),
+            'query_profile': request.get('query_profile'),
+            'capability': request.get('capability'),
+        }
+        return self._execute_query_request(profile_request, page_size=request.get('page_size'))
+
+    def _execute_event_stream_profile(self, request: dict[str, Any]) -> dict[str, Any]:
+        started = perf_counter()
+        provider_node = str(request.get('provider_node') or request.get('node') or '').strip()
+        node = self.registry.nodes.get(provider_node)
+        if node is None:
+            return self._profile_failure_result(
+                request=request,
+                code='missing_query_node',
+                message=f'provider_node={provider_node or None} is not registered',
+                empty_reason='validation_failed',
+                elapsed_ms=int((perf_counter() - started) * 1000),
+            )
+
+        key_schema = dict(request.get('key_schema') or {})
+        symbol_key = str(key_schema.get('symbol') or (node.entity_keys[0] if node.entity_keys else 'code')).strip()
+        event_time_key = str(key_schema.get('event_time') or key_schema.get('time') or node.time_key or 'trade_time').strip()
+        publish_time_key = str(key_schema.get('publish_time') or '').strip()
+        symbols = sorted({str(item).strip() for item in list(request.get('symbols') or []) if str(item).strip()})
+        fields = [str(item).strip() for item in list(request.get('fields') or []) if str(item).strip()]
+        field_map = dict(request.get('requested_field_map') or request.get('field_map') or {})
+        if not fields:
+            fields = list(field_map.keys())
+        if not symbols:
+            return self._profile_failure_result(
+                request=request,
+                code='missing_symbols',
+                message='symbols is required for event_stream query',
+                empty_reason='validation_failed',
+                elapsed_ms=int((perf_counter() - started) * 1000),
+            )
+        if not request.get('start') or not request.get('end'):
+            return self._profile_failure_result(
+                request=request,
+                code='missing_execution_date',
+                message='start/end is required for event_stream query',
+                empty_reason='validation_failed',
+                elapsed_ms=int((perf_counter() - started) * 1000),
+            )
+
+        select_parts = [f'{symbol_key} AS code']
+        selected_aliases = {'code'}
+        for field in fields:
+            source = field_map.get(field, field)
+            if isinstance(source, dict):
+                source = source.get('source_field') or source.get('field') or field
+            source = str(source or field).strip()
+            if field in selected_aliases:
+                continue
+            select_parts.append(f'{source} AS {field}' if source != field else source)
+            selected_aliases.add(field)
+
+        symbol_sql = ', '.join(self._quote_sql_string(symbol) for symbol in symbols)
+        start_sql = self._quote_sql_string(str(request.get('start')).strip())
+        end_sql = self._quote_sql_string(str(request.get('end')).strip())
+        where_parts = [
+            f'{symbol_key} IN ({symbol_sql})',
+            f'{event_time_key} IS NOT NULL',
+            f'{event_time_key} BETWEEN toDate({start_sql}) AND toDate({end_sql})',
+        ]
+        filters = dict(request.get('filters') or {})
+        finalized_filter = filters.get('finalized') if isinstance(filters.get('finalized'), dict) else None
+        if bool(request.get('finalized_only', True)) and finalized_filter:
+            field = str(finalized_filter.get('field') or '').strip()
+            value = finalized_filter.get('value')
+            if field:
+                where_parts.append(f'{field} = {self._sql_literal(value)}')
+
+        order_parts = [symbol_key, event_time_key]
+        if publish_time_key:
+            order_parts.append(publish_time_key)
+        sql = (
+            'SELECT '
+            + ', '.join(select_parts)
+            + f' FROM {node.table} WHERE '
+            + ' AND '.join(where_parts)
+            + ' ORDER BY '
+            + ', '.join(order_parts)
+        )
+        execute_started = perf_counter()
+        result = self.execute_sql(sql)
+        execute_finished = perf_counter()
+        df = result.get('df')
+        if not isinstance(df, pd.DataFrame):
+            df = pd.DataFrame()
+        if not df.empty:
+            normalized = df.copy()
+            for column in normalized.columns:
+                if column.endswith('_date') or column in {'event_time', 'publish_time', 'payout_time'}:
+                    series = pd.to_datetime(normalized[column], errors='coerce')
+                    normalized[column] = series.dt.date.astype('string')
+            df = normalized
+        issues: list[dict[str, Any]] = []
+        empty = False
+        empty_reason = None
+        if result.get('code') != SUCCESS_CODE:
+            issues.append(self._issue(code='query_failed', message=str(result.get('message') or 'event_stream query failed'), path='query'))
+            empty = True
+            empty_reason = 'query_failed'
+        elif df.empty:
+            issues.append(self._issue(code='empty_result', message='event_stream query succeeded but returned no rows', path='query'))
+            empty = True
+            empty_reason = 'no_rows'
+        elapsed_ms = int((perf_counter() - started) * 1000)
+        query_timings = {
+            'execute_seconds': round(execute_finished - execute_started, 6),
+            'total_seconds': round(perf_counter() - started, 6),
+        }
+        executor_stats = result.get('statistics') or {}
+        if executor_stats:
+            query_timings['executor'] = executor_stats
+        meta = {
+            'query_profile': request.get('query_profile'),
+            'capability': request.get('capability'),
+            'provider_node': provider_node,
+            'node': provider_node,
+            'fields': fields,
+            'row_count': int(len(df.index)),
+            'symbol_count': len(symbols),
+            'empty': empty,
+            'empty_reason': empty_reason,
+            'elapsed_ms': elapsed_ms,
+            'timings': query_timings,
+        }
+        return {
+            'ok': result.get('code') == SUCCESS_CODE and not issues,
+            'df': df,
+            'issues': issues,
+            'meta': meta,
+            'debug': {
+                'request': request,
+                'resolved': {
+                    'provider_node': provider_node,
+                    'symbol_key': symbol_key,
+                    'event_time_key': event_time_key,
+                    'field_map': field_map,
+                },
+                'intent': {
+                    'query_profile': request.get('query_profile'),
+                    'provider_node': provider_node,
+                    'fields': fields,
+                },
+                'sql': sql,
+                'timings': query_timings,
+            },
+        }
+
+    def _execute_membership_profile(self, request: dict[str, Any]) -> dict[str, Any]:
+        operation = str(request.get('operation') or 'filter_symbols').strip()
+        if operation == 'resolve_target':
+            item = membership_resolve_target(
+                domain=str(request.get('domain') or ''),
+                member_code=str(request.get('member_code') or ''),
+                taxonomy=request.get('taxonomy'),
+                member_name=request.get('member_name'),
+                path=request.get('membership_path') or DEFAULT_MEMBERSHIP_PATH,
+            )
+            return {'ok': True, 'df': pd.DataFrame(), 'issues': [], 'meta': {'query_profile': 'membership', 'row_count': 0, 'empty': False}, 'debug': {'request': request, 'item': item}, 'item': item}
+        if operation == 'query_membership':
+            items = membership_query_membership(
+                str(request.get('security_code') or ''),
+                as_of_date=str(request.get('as_of_date') or ''),
+                security_type=request.get('security_type'),
+                path=request.get('membership_path') or DEFAULT_MEMBERSHIP_PATH,
+                executor=self.executor,
+            )
+            return {'ok': True, 'df': pd.DataFrame(items), 'issues': [], 'meta': {'query_profile': 'membership', 'row_count': len(items), 'empty': not bool(items)}, 'debug': {'request': request}, 'items': items}
+        result = membership_filter_symbols(
+            dict(request.get('memberships') or {}),
+            as_of_date=str(request.get('as_of_date') or ''),
+            path=request.get('membership_path') or DEFAULT_MEMBERSHIP_PATH,
+            security_type=request.get('security_type'),
+            executor=self.executor,
+        )
+        frame = pd.DataFrame({'code': list(result.get('symbols') or [])})
+        return {'ok': True, 'df': frame, 'issues': [], 'meta': {'query_profile': 'membership', 'row_count': len(frame), 'empty': frame.empty}, 'debug': {'request': request}, **result}
+
+    def _execute_runtime_rule_profile(self, request: dict[str, Any]) -> dict[str, Any]:
+        rules = dict(request.get('rules') or request.get('fields') or {})
+        return {
+            'ok': True,
+            'df': pd.DataFrame(),
+            'issues': [],
+            'meta': {
+                'query_profile': 'runtime_rule',
+                'capability': request.get('capability'),
+                'row_count': 0,
+                'empty': False,
+            },
+            'debug': {'request': request},
+            'rules': rules,
+        }
+
+    def _attach_query_profile_meta(self, result: dict[str, Any], request: dict[str, Any]) -> dict[str, Any]:
+        meta = dict(result.get('meta') or {})
+        meta.setdefault('query_profile', request.get('query_profile'))
+        if request.get('capability') is not None:
+            meta.setdefault('capability', request.get('capability'))
+        provider_node = request.get('provider_node') or request.get('node') or meta.get('node')
+        if provider_node is not None:
+            meta.setdefault('provider_node', provider_node)
+        result['meta'] = meta
+        debug = dict(result.get('debug') or {})
+        debug.setdefault('request', request)
+        result['debug'] = debug
+        return result
+
+    def _profile_failure_result(
+        self,
+        *,
+        request: dict[str, Any],
+        code: str,
+        message: str,
+        empty_reason: str,
+        elapsed_ms: int = 0,
+    ) -> dict[str, Any]:
+        return {
+            'ok': False,
+            'df': pd.DataFrame(),
+            'issues': [self._issue(code=code, message=message, path='query_profile')],
+            'meta': {
+                'query_profile': request.get('query_profile'),
+                'capability': request.get('capability'),
+                'provider_node': request.get('provider_node') or request.get('node'),
+                'row_count': 0,
+                'symbol_count': len(list(request.get('symbols') or [])),
+                'empty': True,
+                'empty_reason': empty_reason,
+                'elapsed_ms': elapsed_ms,
+            },
+            'debug': {'request': request, 'sql': ''},
+        }
 
     def _execute_query_request(self, request: dict[str, Any], *, page_size: int | None) -> dict[str, Any]:
         started = perf_counter()
@@ -1497,11 +1600,12 @@ class GraphRuntime:
 
         asset_type = str(request.get('asset_type') or '').strip()
         resolved_asset_type = None if asset_type in {'', 'auto'} else asset_type
-        membership_result = self.filter_symbols_by_membership(
+        membership_result = membership_filter_symbols(
             memberships,
             as_of_date=membership_date,
+            path=request.get('membership_path') or DEFAULT_MEMBERSHIP_PATH,
             security_type=resolved_asset_type or 'stock',
-            membership_path=request.get('membership_path'),
+            executor=self.executor,
         )
         membership_symbols = list(membership_result.get('symbols') or [])
         original_symbols = list(request.get('symbols') or [])
@@ -1805,14 +1909,14 @@ class GraphRuntime:
                 'anchors': normalized,
             }
 
-        trading_calendar_table = str(self.runtime_config.discovery.trading_calendar_table or '').strip()
+        trading_calendar_table = self._get_trading_calendar_table()
         if not trading_calendar_table:
             return {
                 'ok': False,
                 'issues': [
                     self._issue(
                         code='trading_calendar_unavailable',
-                        message='runtime config discovery.trading_calendar_table is required when anchors omit execution_date',
+                        message='trade_calendar_real node is required when anchors omit execution_date',
                         path='anchors',
                     )
                 ],
@@ -1862,15 +1966,15 @@ class GraphRuntime:
                 'issues': [],
                 'mapping': {},
             }
-        trading_calendar_table = str(self.runtime_config.discovery.trading_calendar_table or '').strip()
+        trading_calendar_table = self._get_trading_calendar_table()
         if not trading_calendar_table:
             return {
                 'ok': False,
                 'issues': [
                     self._issue(
                         code='trading_calendar_unavailable',
-                        message='runtime config discovery.trading_calendar_table is not configured',
-                        path='runtime.discovery.trading_calendar_table',
+                        message='trade_calendar_real node is not configured',
+                        path='graph.nodes.trade_calendar_real',
                     )
                 ],
                 'mapping': {},
@@ -1929,6 +2033,15 @@ class GraphRuntime:
             'mapping': mapping,
         }
 
+    def _get_trading_calendar_table(self) -> str:
+        configured = str(self.runtime_config.discovery.trading_calendar_table or '').strip()
+        if configured:
+            return configured
+        node = next((item for item in self.nodes if item.name == 'trade_calendar_real' and item.status == 'enabled'), None)
+        if node is None:
+            return ''
+        return str(node.table or '').strip()
+
     def _fetch_intraday_limit_frame(
         self,
         *,
@@ -1943,13 +2056,16 @@ class GraphRuntime:
                 'issues': [],
                 'sqls': [],
             }
-        daily_result = self.query_daily(
-            symbols=symbols,
-            fields=daily_fields,
-            start=f'{min(trading_days)} 00:00:00',
-            end=f'{max(trading_days)} 23:59:59',
-            asset_type='stock',
-            freq='1d',
+        daily_result = self.execute_query_profile(
+            {
+                'query_profile': 'panel_time_series',
+                'symbols': symbols,
+                'fields': daily_fields,
+                'start': f'{min(trading_days)} 00:00:00',
+                'end': f'{max(trading_days)} 23:59:59',
+                'asset_type': 'stock',
+                'freq': '1d',
+            }
         )
         debug = dict(daily_result.get('debug') or {})
         if daily_result.get('ok'):
@@ -2032,6 +2148,15 @@ class GraphRuntime:
     def _quote_sql_string(self, value: str) -> str:
         escaped = value.replace("\\", "\\\\").replace("'", "\\'")
         return f"'{escaped}'"
+
+    def _sql_literal(self, value: Any) -> str:
+        if value is None:
+            return 'NULL'
+        if isinstance(value, bool):
+            return '1' if value else '0'
+        if isinstance(value, (int, float)):
+            return str(value)
+        return self._quote_sql_string(str(value))
 
     def get_metadata_catalog(self) -> dict[str, Any]:
         return {
@@ -2603,10 +2728,6 @@ class GraphRuntime:
         direct_targets = {
             ('stock', '1d'): 'stock_daily_real',
             ('stock', '1m'): 'stock_minute_real',
-            ('index', '1d'): 'index_daily_real',
-            ('index', '1m'): 'index_minute_real',
-            ('etf', '1d'): 'etf_daily_real',
-            ('etf', '1m'): 'etf_minute_real',
         }
         preferred = direct_targets.get((asset_type, freq))
         if preferred and normalized == preferred:
@@ -2650,6 +2771,9 @@ class GraphRuntime:
         return list(IDENTITY_FIELDS.get(node_name or '', []))
 
     def _is_node_field_allowed(self, field_name: str, node_name: str) -> bool:
+        node = self.registry.nodes.get(node_name)
+        if node and field_name in set(node.fields):
+            return True
         asset_type, freq = self._asset_freq_for_node(node_name)
         if not asset_type or not freq:
             return True
@@ -2697,8 +2821,25 @@ class GraphRuntime:
         return payload
 
     def _candidate_nodes_for_asset_type(self, asset_type: str | None, freq: str) -> list[str]:
-        node = self.application_query_node_map.get(asset_type or '', {}).get(freq)
-        return [node] if node else []
+        if not asset_type:
+            return []
+        nodes = []
+        for node in self.nodes:
+            if self._effective_node_status(node) != 'enabled':
+                continue
+            if self._effective_node_asset_type(node) != asset_type:
+                continue
+            if self._freq_from_node(node) != freq:
+                continue
+            nodes.append(node.name)
+        if not nodes:
+            node = self.application_query_node_map.get(asset_type or '', {}).get(freq)
+            return [node] if node else []
+        return sorted(
+            nodes,
+            key=lambda name: self._query_entry_priority(name, asset_type=asset_type, freq=freq),
+            reverse=True,
+        )
 
     def _resolve_best_node(self, *, asset_type: str | None, fields: list[str], freq: str) -> str | None:
         candidates = self._candidate_nodes_for_asset_type(asset_type, freq)

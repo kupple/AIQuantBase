@@ -8,12 +8,8 @@ const route = useRoute()
 
 const planningItems = [
   { path: '/database', label: '节点工作台' },
-  { path: '/membership', label: '归属管理' },
-  { path: '/query', label: '查询测试' },
-]
-
-const capabilityItems = [
   { path: '/capabilities', label: '模式工作台' },
+  { path: '/query', label: '查询测试' },
 ]
 
 const syncItems = [
@@ -30,7 +26,6 @@ const otherItems = [
 
 const activeTopMenu = computed(() => {
   if (planningItems.some((item) => item.path === route.path)) return '/planning'
-  if (route.path === '/capabilities') return '/capabilities-root'
   if (route.path === '/sync' || route.path.startsWith('/sync/')) return '/sync-root'
   if (otherItems.some((item) => item.path === route.path)) return '/other'
   return route.path
@@ -58,7 +53,7 @@ onMounted(() => {
           duration: 2400,
           grouping: true,
         })
-        if (!['/settings', '/guide', '/membership'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities')) {
+        if (!['/settings', '/guide'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities')) {
           navigateTo('/settings')
         }
         return
@@ -73,7 +68,7 @@ onMounted(() => {
         message: error instanceof Error ? error.message : '工作区载入失败',
         duration: 3200,
       })
-      if (!['/settings', '/guide', '/membership'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities')) {
+      if (!['/settings', '/guide'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities')) {
         navigateTo('/settings')
       }
     })
@@ -96,15 +91,8 @@ onMounted(() => {
           @select="handleMenuSelect"
         >
           <el-sub-menu index="/planning">
-            <template #title>表格规划</template>
+            <template #title>菜单能力接入</template>
             <el-menu-item v-for="item in planningItems" :key="item.path" :index="item.path">
-              {{ item.label }}
-            </el-menu-item>
-          </el-sub-menu>
-
-          <el-sub-menu index="/capabilities-root">
-            <template #title>能力接入</template>
-            <el-menu-item v-for="item in capabilityItems" :key="item.path" :index="item.path">
               {{ item.label }}
             </el-menu-item>
           </el-sub-menu>

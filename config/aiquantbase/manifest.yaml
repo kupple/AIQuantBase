@@ -1,40 +1,65 @@
 version: 1
 provider: aiquantbase
-
 capability_registry:
   valuation_snapshot:
     name: 估值快照
     description: 用于读取总市值、流通市值、换手率等日频估值字段
+    output_scope:
+      scope_type: daily_panel
+      entity_type: stock
+      keys:
+        entity: code
+        time: trade_time
     default_slots:
-      - ranking_fields
-      - filter_fields
-      - report_fields
+    - ranking_fields
+    - filter_fields
+    - weighting_fields
+    - report_fields
   custom_factor_daily:
     name: 自定义日频因子
     description: 用于接入用户自定义日频因子，供排序、过滤、风控或输出使用
+    output_scope:
+      scope_type: daily_panel
+      entity_type: stock
+      keys:
+        entity: code
+        time: trade_time
     default_slots:
-      - factor_inputs
-      - ranking_fields
-      - filter_fields
-      - risk_fields
-      - report_fields
+    - factor_inputs
+    - ranking_fields
+    - filter_fields
+    - risk_fields
+    - report_fields
   industry_classification:
     name: 行业分类
     description: 用于接入行业、主题、板块等日频归属字段，供过滤、分组或中性化使用
+    output_scope:
+      scope_type: linked_daily_panel
+      base_entity_type: stock
+      linked_entity_type: industry
+      output_entity_type: stock
+      keys:
+        entity: code
+        time: trade_time
     default_slots:
-      - filter_fields
-      - groupby_fields
-      - neutralization_fields
-      - report_fields
+    - filter_fields
+    - groupby_fields
+    - neutralization_fields
+    - report_fields
   dragon_tiger_daily:
     name: 龙虎榜日频
     description: 用于接入龙虎榜事件字段，供过滤、排序或输出使用
+    output_scope:
+      scope_type: daily_panel
+      entity_type: stock
+      keys:
+        entity: code
+        time: trade_time
     default_slots:
-      - filter_fields
-      - ranking_fields
-      - report_fields
-
-access_patterns:
+    - filter_fields
+    - ranking_fields
+    - report_fields
+query_profiles:
   panel_time_series:
     description: symbols + start/end + fields 的时间序列面板查询
   event_stream:
@@ -43,18 +68,15 @@ access_patterns:
     description: 基于交易锚点和分钟时间列表的盘中执行窗口查询
   virtual_runtime_rule:
     description: 不查表，由回测运行时直接提供的市场规则能力
-
 nodes:
   stock_daily_real:
     description: A 股/指数/ETF 日线行情与基础状态宽表
     asset_types:
-      - stock
-      - index
-      - etf
-    access_patterns:
-      - panel_time_series
-    methods:
-      - query_daily
+    - stock
+    - index
+    - etf
+    query_profiles:
+    - panel_time_series
     keys:
       symbol: code
       time: trade_time
@@ -71,25 +93,25 @@ nodes:
           money: amount
           backward_adj_factor: backward_adj_factor
           close_adj:
-            derive: "{close} * {backward_adj_factor}"
+            derive: '{close} * {backward_adj_factor}'
             depends_on:
-              - close
-              - backward_adj_factor
+            - close
+            - backward_adj_factor
           open_adj:
-            derive: "{open} * {backward_adj_factor}"
+            derive: '{open} * {backward_adj_factor}'
             depends_on:
-              - open
-              - backward_adj_factor
+            - open
+            - backward_adj_factor
           high_adj:
-            derive: "{high} * {backward_adj_factor}"
+            derive: '{high} * {backward_adj_factor}'
             depends_on:
-              - high
-              - backward_adj_factor
+            - high
+            - backward_adj_factor
           low_adj:
-            derive: "{low} * {backward_adj_factor}"
+            derive: '{low} * {backward_adj_factor}'
             depends_on:
-              - low
-              - backward_adj_factor
+            - low
+            - backward_adj_factor
       benchmark.daily:
         fields:
           open: open
@@ -104,9 +126,9 @@ nodes:
           is_suspended: is_suspended
           is_wd_sec: is_wd_sec
           listed_days:
-            derive: "trade_date - list_date"
+            derive: trade_date - list_date
             depends_on:
-              - list_date
+            - list_date
       universe.board_flags:
         fields:
           is_kcb: is_kcb
@@ -119,22 +141,18 @@ nodes:
           market_cap: market_cap
           float_market_cap: float_market_cap
           turnover_rate: turnover_rate
+        description: 用于读取总市值、流通市值、换手率等日频估值字段
       custom_factor_daily:
         description: 自定义日频因子字段，字段映射由 AIQuantBase 能力接入页面维护
+        allow_dynamic_fields: true
         fields: {}
-      industry_classification:
-        description: 行业、主题、板块等日频归属字段，字段映射由 AIQuantBase 能力接入页面维护
-        fields: {}
-
   stock_minute_real:
     description: A 股/ETF 分钟行情表
     asset_types:
-      - stock
-      - etf
-    access_patterns:
-      - anchored_intraday_window
-    methods:
-      - query_minute_window_by_trading_day
+    - stock
+    - etf
+    query_profiles:
+    - anchored_intraday_window
     keys:
       symbol: code
       datetime: trade_time
@@ -148,15 +166,12 @@ nodes:
           volume: volume
           amount: amount
           money: amount
-
   dragon_tiger_daily_real:
     description: 龙虎榜日频扩展宽表
     asset_types:
-      - stock
-    access_patterns:
-      - panel_time_series
-    methods:
-      - query_daily
+    - stock
+    query_profiles:
+    - panel_time_series
     keys:
       symbol: code
       time: trade_time
@@ -164,15 +179,32 @@ nodes:
       dragon_tiger_daily:
         description: 龙虎榜日频扩展字段，具体字段由能力接入页面维护
         fields: {}
-
+  stock_industry_daily_real:
+    description: 行业日线行情节点表
+    asset_types:
+    - stock
+    query_profiles:
+    - panel_time_series
+    keys:
+      symbol: index_code
+      time: trade_date
+    semantics:
+      industry_classification:
+        description: 行业日线主表字段，行业名称和行业代码通过行业基础信息表关联取得
+        fields:
+          industry_index_code: index_code
+          industry_index_name: industry_index_name
+          industry_code: industry_code
+          industry_level1_name: industry_level1_name
+          industry_level2_name: industry_level2_name
+          industry_level3_name: industry_level3_name
+          industry_name: industry_name
   dividend_real:
     description: 股票现金分红、送股和转增事件表
     asset_types:
-      - stock
-    access_patterns:
-      - event_stream
-    methods:
-      - query_dividend_events
+    - stock
+    query_profiles:
+    - event_stream
     keys:
       symbol: market_code
       event_time: date_ex
@@ -181,7 +213,7 @@ nodes:
     filters:
       finalized:
         field: div_progress
-        value: "3"
+        value: '3'
     semantics:
       corporate_action.dividend:
         fields:
@@ -192,15 +224,13 @@ nodes:
           dividend_conversed_rate: div_conversedrate
           ex_dividend_date: date_ex
           dividend_payout_date: date_dvd_payout
-          equity_record_date: record_date
-
+          equity_record_date: date_eqy_record
   cn_stock_order_rules:
     description: A 股订单运行时规则，不对应物理查询节点
     asset_types:
-      - stock
-    access_patterns:
-      - virtual_runtime_rule
-    methods: []
+    - stock
+    query_profiles:
+    - virtual_runtime_rule
     keys: {}
     semantics:
       order_constraints.cn_stock:

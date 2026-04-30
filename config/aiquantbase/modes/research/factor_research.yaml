@@ -15,27 +15,27 @@ aiquantbase:
     - slot: factor_inputs
       name: 因子输入
       description: 用于因子计算和分析的输入字段
-      access_pattern: panel_time_series
+      query_profile: panel_time_series
       freq: 1d
     - slot: filter_fields
       name: 过滤字段
       description: 用于研究样本过滤
-      access_pattern: panel_time_series
+      query_profile: panel_time_series
       freq: 1d
     - slot: groupby_fields
       name: 分组字段
       description: 用于行业、主题等分组分析
-      access_pattern: panel_time_series
+      query_profile: panel_time_series
       freq: 1d
     - slot: neutralization_fields
       name: 中性化字段
       description: 用于因子中性化处理
-      access_pattern: panel_time_series
+      query_profile: panel_time_series
       freq: 1d
     - slot: report_fields
       name: 报告字段
       description: 仅用于研究结果展示
-      access_pattern: panel_time_series
+      query_profile: panel_time_series
       freq: 1d
   extension_capability_bindings: []
 

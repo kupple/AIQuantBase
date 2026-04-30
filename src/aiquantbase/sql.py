@@ -172,7 +172,7 @@ class SqlRenderer:
             end = self._render_time_ref(to_alias, binding.source_end_field, binding.source_time_cast)
             return [
                 f"{left} > {start}" if lookahead_safe_for_event else f"{left} >= {start}",
-                f"{left} < {end}",
+                f"({end} IS NULL OR {left} < {end})",
             ]
         raise ValueError(f"Unsupported bind mode: {mode}")
 
@@ -246,22 +246,39 @@ class SqlRenderer:
         return ref
 
     def _render_join_source(self, table: str, binding, plan: QueryPlan) -> str:
-        if not binding or not plan.time_range:
-            return table
-        if binding.mode not in {"same_date", "same_timestamp"}:
-            return table
         stripped = table.strip()
         if stripped.startswith("("):
             return table
-        source_time_field = binding.source_time_field
-        if not source_time_field:
+
+        clauses = self._base_filter_clauses_for_table(stripped)
+        if binding and plan.time_range and binding.mode in {"same_date", "same_timestamp"}:
+            source_time_field = binding.source_time_field
+            if source_time_field:
+                cast_name = binding.source_time_cast or binding.base_time_cast
+                start_literal = self._render_time_literal(plan.time_range.start, cast_name)
+                end_literal = self._render_time_literal(plan.time_range.end, cast_name)
+                clauses.append(f"{source_time_field} BETWEEN {start_literal} AND {end_literal}")
+
+        if not clauses:
             return table
-        cast_name = binding.source_time_cast or binding.base_time_cast
-        start_literal = self._render_time_literal(plan.time_range.start, cast_name)
-        end_literal = self._render_time_literal(plan.time_range.end, cast_name)
-        return (
-            f"(SELECT * FROM {table} WHERE {source_time_field} BETWEEN {start_literal} AND {end_literal})"
-        )
+        return f"(SELECT * FROM {table} WHERE {' AND '.join(clauses)})"
+
+    def _base_filter_clauses_for_table(self, table: str) -> list[str]:
+        matches = [
+            node
+            for node in self.registry.nodes.values()
+            if node.table == table and node.base_filters
+        ]
+        if len(matches) != 1:
+            return []
+        clauses = []
+        for item in matches[0].base_filters:
+            field = str(item.get("field") or "").strip()
+            operator = str(item.get("op") or "").strip()
+            if not field or not operator:
+                continue
+            clauses.append(self._render_operator(field, operator, item.get("value")))
+        return clauses
 
     def _render_base_source(self, table: str, plan: QueryPlan) -> str:
         if not plan.time_range:
@@ -331,10 +348,17 @@ class SqlRenderer:
 
         for step in plan.steps:
             if step.from_node == plan.base_node:
-                for pair in step.join_keys:
-                    required.add(pair["base"])
-                if step.time_binding and step.time_binding.base_time_field:
-                    required.add(step.time_binding.base_time_field)
+                if step.bridge_steps:
+                    first_bridge = step.bridge_steps[0]
+                    for pair in first_bridge.join_keys:
+                        required.add(pair["base"])
+                    if first_bridge.time_binding and first_bridge.time_binding.base_time_field:
+                        required.add(first_bridge.time_binding.base_time_field)
+                else:
+                    for pair in step.join_keys:
+                        required.add(pair["base"])
+                    if step.time_binding and step.time_binding.base_time_field:
+                        required.add(step.time_binding.base_time_field)
         return required
 
     def _render_time_literal(self, value: str, cast_name: str | None) -> str:

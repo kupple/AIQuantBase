@@ -106,14 +106,14 @@ def upsert_provider_node_semantic(
     capability_name = str(payload.get("capability_name") or payload.get("name") or "").strip()
     capability_description = str(payload.get("capability_description") or "").strip()
     default_slots = _string_list(payload.get("default_slots") or payload.get("allowed_slots") or payload.get("slots"))
+    output_scope = _normalize_output_scope(payload.get("output_scope"))
 
     node = nodes.setdefault(node_name, {})
     if not isinstance(node, dict):
         raise ValueError(f"provider node must be a mapping: {node_name}")
     node.setdefault("description", payload.get("description") or f"{node_name} provider node")
     node.setdefault("asset_types", _string_list(payload.get("asset_types")) or ["stock"])
-    node.setdefault("access_patterns", _string_list(payload.get("access_patterns")) or ["panel_time_series"])
-    node.setdefault("methods", _string_list(payload.get("methods")) or ["query_daily"])
+    node.setdefault("query_profiles", _string_list(payload.get("query_profiles")) or ["panel_time_series"])
     node.setdefault("keys", payload.get("keys") or {"symbol": "code", "time": "trade_time"})
     semantics = node.setdefault("semantics", {})
     if not isinstance(semantics, dict):
@@ -132,6 +132,7 @@ def upsert_provider_node_semantic(
         name=capability_name,
         description=capability_description,
         default_slots=default_slots,
+        output_scope=output_scope,
     )
 
     _write_yaml(manifest_path, manifest)
@@ -143,6 +144,7 @@ def upsert_provider_node_semantic(
         "capability_name": capability_name,
         "capability_description": capability_description,
         "default_slots": default_slots,
+        "output_scope": output_scope,
         "fields": fields,
     }
 
@@ -200,7 +202,7 @@ def upsert_mode_capability(
     }
     if slots:
         next_item["slots"] = slots
-    for key in ("access_pattern", "method", "query_template", "description"):
+    for key in ("query_profile", "query_template", "description"):
         value = payload.get(key)
         if value not in (None, ""):
             next_item[key] = value
@@ -223,6 +225,89 @@ def upsert_mode_capability(
         "capability": capability,
         "fields": fields,
         "slots": slots,
+    }
+
+
+def delete_mode_capability(
+    payload: dict[str, Any],
+    *,
+    mode_file_path: str | Path | None = None,
+) -> dict[str, Any]:
+    root = _resolve_capability_root(
+        capability_root=payload.get("capability_root"),
+        alphablocks_root=payload.get("alphablocks_root"),
+    )
+    registry_path = _resolve_capability_path(
+        payload.get("mode_registry_path") or "mode_capabilities.yaml",
+        root=root,
+    )
+    registry = _safe_load_yaml(registry_path, diagnostics=[], label="mode_registry")
+    config_path = _resolve_mode_config_path(
+        root=root,
+        mode_registry=registry,
+        mode_file_path=mode_file_path or payload.get("mode_file_path"),
+        mode_id=payload.get("mode_id"),
+        mode_kind=payload.get("mode_kind"),
+        mode_name=payload.get("mode_name"),
+    )
+    mode_config = load_yaml(config_path)
+    aiqb = mode_config.setdefault("aiquantbase", {})
+    if not isinstance(aiqb, dict):
+        raise ValueError("mode aiquantbase section must be a mapping")
+
+    capability = _required_text(payload, "capability")
+    section = str(payload.get("section") or "extension_capability_bindings").strip()
+    if section == "extension_capabilities":
+        section = "extension_capability_bindings"
+    if section not in {
+        "required_capabilities",
+        "conditional_capabilities",
+        "optional_capabilities",
+        "extension_capability_bindings",
+    }:
+        raise ValueError(
+            "section must be required_capabilities, conditional_capabilities, "
+            "optional_capabilities or extension_capability_bindings"
+        )
+    purge_provider_registration = _boolish(
+        payload.get("delete_provider_registration")
+        or payload.get("purge_provider_registration")
+        or payload.get("deleteProviderRegistration")
+    )
+    if purge_provider_registration and section != "extension_capability_bindings":
+        raise ValueError("delete_provider_registration is only supported for extension_capability_bindings")
+
+    if purge_provider_registration:
+        mode_results = _delete_capability_from_all_mode_configs(
+            root=root,
+            mode_registry=registry,
+            capability=capability,
+            section=section,
+        )
+        provider_result = _delete_provider_capability_registration(
+            payload,
+            root=root,
+            capability=capability,
+        )
+    else:
+        mode_results = [
+            _delete_capability_from_mode_config(
+                config_path,
+                capability=capability,
+                section=section,
+            )
+        ]
+        provider_result = None
+
+    removed_count = sum(int(item.get("removed_count") or 0) for item in mode_results)
+    return {
+        "ok": True,
+        "mode_file_path": str(config_path),
+        "section": section,
+        "capability": capability,
+        "removed_count": removed_count,
+        "mode_results": mode_results,
+        "provider_registration": provider_result,
     }
 
 
@@ -275,8 +360,7 @@ def build_capability_preview(payload: dict[str, Any]) -> dict[str, Any]:
         binding = _find_provider_binding(
             manifest=manifest,
             capability=str(template.get("capability") or ""),
-            method=str(template.get("method") or ""),
-            access_pattern=str(template.get("access_pattern") or ""),
+            query_profile=str(template.get("query_profile") or ""),
             asset_type=str(params.get("asset_type") or "stock"),
         )
         if binding is None:
@@ -293,6 +377,7 @@ def build_capability_preview(payload: dict[str, Any]) -> dict[str, Any]:
         requested_field_map, unmapped_fields = _select_requested_field_map(
             binding.get("node_field_map") or binding.get("field_map") or {},
             params.get("fields") or [],
+            allow_dynamic_fields=bool(binding.get("allow_dynamic_fields")),
         )
         resolved_queries.append(
             {
@@ -300,11 +385,12 @@ def build_capability_preview(payload: dict[str, Any]) -> dict[str, Any]:
                 "use": use_name,
                 "required": bool(query_need.get("required")),
                 "capability": template.get("capability"),
-                "access_pattern": template.get("access_pattern"),
-                "method": template.get("method"),
+                "query_profile": template.get("query_profile"),
                 "provider_node": binding.get("node"),
                 "params": params,
                 "key_schema": binding.get("key_schema") or {},
+                "filters": binding.get("filters") or {},
+                "output_scope": binding.get("output_scope") or {},
                 "requested_field_map": requested_field_map,
                 "unmapped_fields": unmapped_fields,
             }
@@ -364,6 +450,11 @@ def _load_mode_profiles(
                 "required_capabilities": list(aiqb.get("required_capabilities") or []),
                 "conditional_capabilities": list(aiqb.get("conditional_capabilities") or []),
                 "optional_capabilities": list(aiqb.get("optional_capabilities") or []),
+                "accepted_output_scopes": [
+                    _normalize_output_scope(item)
+                    for item in list(aiqb.get("accepted_output_scopes") or [])
+                    if _normalize_output_scope(item)
+                ],
                 "extension_slots": _extension_slot_rows(aiqb),
                 "extension_capability_bindings": list(aiqb.get("extension_capability_bindings") or []),
                 "query_needs": list(payload.get("query_needs") or []),
@@ -461,8 +552,7 @@ def _provider_node_rows(manifest: dict[str, Any], *, graph_catalog: dict[str, di
                 "name": name,
                 "description": graph_node.get("description") or node.get("description"),
                 "asset_types": list(node.get("asset_types") or []),
-                "access_patterns": list(node.get("access_patterns") or []),
-                "methods": list(node.get("methods") or []),
+                "query_profiles": list(node.get("query_profiles") or []),
                 "keys": deepcopy(node.get("keys") or {}),
                 "table": graph_node.get("table"),
                 "database": graph_node.get("database"),
@@ -476,15 +566,13 @@ def _provider_node_rows(manifest: dict[str, Any], *, graph_catalog: dict[str, di
         if name in nodes:
             continue
         grain = str(graph_node.get("grain") or "").strip()
-        access_pattern = "anchored_intraday_window" if grain == "minute" else "panel_time_series"
-        method = "query_minute_window_by_trading_day" if grain == "minute" else "query_daily"
+        query_profile = "anchored_intraday_window" if grain == "minute" else "panel_time_series"
         rows.append(
             {
                 "name": name,
                 "description": graph_node.get("description"),
                 "asset_types": [graph_node.get("asset_type") or "stock"],
-                "access_patterns": [access_pattern],
-                "methods": [method],
+                "query_profiles": [query_profile],
                 "keys": _keys_from_graph_node(graph_node),
                 "table": graph_node.get("table"),
                 "database": graph_node.get("database"),
@@ -522,6 +610,7 @@ def _capability_registry_map(manifest: dict[str, Any]) -> dict[str, dict[str, An
             "name": str(item.get("name") or item.get("display_name") or capability_id).strip(),
             "description": str(item.get("description") or "").strip(),
             "default_slots": _string_list(item.get("default_slots") or item.get("allowed_slots") or item.get("slots")),
+            "output_scope": _normalize_output_scope(item.get("output_scope")),
         }
     return rows
 
@@ -537,8 +626,9 @@ def _upsert_capability_registry_entry(
     name: str = "",
     description: str = "",
     default_slots: list[str] | None = None,
+    output_scope: dict[str, Any] | None = None,
 ) -> None:
-    if not name and not description and not default_slots:
+    if not name and not description and not default_slots and not output_scope:
         return
     registry = manifest.setdefault("capability_registry", {})
     if not isinstance(registry, dict):
@@ -554,6 +644,108 @@ def _upsert_capability_registry_entry(
     slots = _string_list(default_slots)
     if slots:
         row["default_slots"] = slots
+    if output_scope:
+        row["output_scope"] = output_scope
+
+
+def _delete_capability_from_mode_config(
+    path: Path,
+    *,
+    capability: str,
+    section: str,
+) -> dict[str, Any]:
+    mode_config = load_yaml(path)
+    aiqb = mode_config.setdefault("aiquantbase", {})
+    if not isinstance(aiqb, dict):
+        raise ValueError(f"mode aiquantbase section must be a mapping: {path}")
+    rows = aiqb.setdefault(section, [])
+    if not isinstance(rows, list):
+        raise ValueError(f"mode aiquantbase.{section} must be a list: {path}")
+
+    next_rows = [
+        item
+        for item in rows
+        if not (isinstance(item, dict) and str(item.get("capability") or "").strip() == capability)
+    ]
+    removed_count = len(rows) - len(next_rows)
+    if removed_count:
+        aiqb[section] = next_rows
+        _write_yaml(path, mode_config)
+    return {
+        "mode_file_path": str(path),
+        "mode_id": _mode_id(mode_config),
+        "removed_count": removed_count,
+    }
+
+
+def _delete_capability_from_all_mode_configs(
+    *,
+    root: Path,
+    mode_registry: dict[str, Any],
+    capability: str,
+    section: str,
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    seen: set[Path] = set()
+    for path in _mode_config_paths(mode_registry, root=root):
+        resolved = path.resolve()
+        if resolved in seen or not path.exists():
+            continue
+        seen.add(resolved)
+        results.append(
+            _delete_capability_from_mode_config(
+                path,
+                capability=capability,
+                section=section,
+            )
+        )
+    return results
+
+
+def _delete_provider_capability_registration(
+    payload: dict[str, Any],
+    *,
+    root: Path,
+    capability: str,
+) -> dict[str, Any]:
+    manifest_path = _resolve_capability_path(
+        payload.get("provider_manifest_path") or "manifest.yaml",
+        root=root,
+    )
+    manifest = load_yaml(manifest_path)
+    registry = manifest.get("capability_registry") or {}
+    if not isinstance(registry, dict):
+        raise ValueError("provider manifest capability_registry must be a mapping")
+    removed_registry = registry.pop(capability, None) is not None
+
+    nodes = manifest.get("nodes") or {}
+    if not isinstance(nodes, dict):
+        raise ValueError("provider manifest nodes must be a mapping")
+
+    removed_semantics_from: list[str] = []
+    removed_provider_nodes: list[str] = []
+    for node_name, node in list(nodes.items()):
+        if not isinstance(node, dict):
+            continue
+        semantics = node.get("semantics") or {}
+        if not isinstance(semantics, dict) or capability not in semantics:
+            continue
+        semantics.pop(capability, None)
+        removed_semantics_from.append(str(node_name))
+        if not semantics:
+            nodes.pop(node_name, None)
+            removed_provider_nodes.append(str(node_name))
+
+    _write_yaml(manifest_path, manifest)
+    return {
+        "ok": True,
+        "provider_manifest_path": str(manifest_path),
+        "capability": capability,
+        "removed_registry": removed_registry,
+        "removed_semantics_from": removed_semantics_from,
+        "removed_provider_nodes": removed_provider_nodes,
+        "removed": removed_registry or bool(removed_semantics_from) or bool(removed_provider_nodes),
+    }
 
 
 def _capability_rows(manifest: dict[str, Any]) -> list[dict[str, Any]]:
@@ -580,9 +772,9 @@ def _capability_rows(manifest: dict[str, Any]) -> list[dict[str, Any]]:
                     or registry_item.get("description")
                     or node.get("description"),
                     "default_slots": list(registry_item.get("default_slots") or []),
+                    "output_scope": deepcopy(registry_item.get("output_scope") or {}),
                     "asset_types": list(node.get("asset_types") or []),
-                    "access_patterns": list(node.get("access_patterns") or []),
-                    "methods": list(node.get("methods") or []),
+                    "query_profiles": list(node.get("query_profiles") or []),
                     "field_count": len(fields) if isinstance(fields, dict) else 0,
                     "fields": deepcopy(fields) if isinstance(fields, dict) else {},
                 }
@@ -630,8 +822,7 @@ def _query_template_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "name": name,
                 "capability": item.get("capability"),
-                "access_pattern": item.get("access_pattern"),
-                "method": item.get("method"),
+                "query_profile": item.get("query_profile"),
                 "description": item.get("description"),
                 "params_template": deepcopy(item.get("params_template") or {}),
             }
@@ -680,7 +871,7 @@ def _normalize_optional_data(value: Any) -> list[dict[str, Any]]:
             "fields": fields,
             "slots": _string_list(item.get("slots")),
         }
-        for key in ("access_pattern", "method", "query_template", "description"):
+        for key in ("query_profile", "query_template", "description"):
             value_text = str(item.get(key) or "").strip()
             if value_text:
                 row[key] = value_text
@@ -769,8 +960,7 @@ def _build_extension_queries(
         binding = _find_provider_binding(
             manifest=manifest,
             capability=capability,
-            method=str(item.get("method") or binding_config.get("method") or "").strip(),
-            access_pattern=str(item.get("access_pattern") or binding_config.get("access_pattern") or "").strip(),
+            query_profile=str(item.get("query_profile") or binding_config.get("query_profile") or "").strip(),
             asset_type="stock",
         )
         if binding is None:
@@ -783,9 +973,28 @@ def _build_extension_queries(
                 )
             )
             continue
+        output_scope = deepcopy(binding.get("output_scope") or {})
+        accepted_scopes = [
+            _normalize_output_scope(scope)
+            for scope in list((aiqb.get("accepted_output_scopes") or []))
+            if _normalize_output_scope(scope)
+        ]
+        if output_scope and accepted_scopes and not _output_scope_compatible(output_scope, accepted_scopes):
+            diagnostics.append(
+                _diagnostic(
+                    "error",
+                    "extension_output_scope_not_accepted",
+                    f"extension capability {capability} output_scope is not accepted by current mode",
+                    capability=capability,
+                    output_scope=output_scope,
+                    accepted_output_scopes=accepted_scopes,
+                )
+            )
+            continue
         requested_field_map, unmapped_fields = _select_requested_field_map(
             binding.get("node_field_map") or binding.get("field_map") or {},
             fields,
+            allow_dynamic_fields=bool(binding.get("allow_dynamic_fields")),
         )
         rows.append(
             {
@@ -793,12 +1002,7 @@ def _build_extension_queries(
                 "use": capability,
                 "required": False,
                 "capability": capability,
-                "access_pattern": (
-                    item.get("access_pattern")
-                    or binding_config.get("access_pattern")
-                    or binding.get("access_pattern")
-                ),
-                "method": item.get("method") or binding_config.get("method") or binding.get("method"),
+                "query_profile": item.get("query_profile") or binding_config.get("query_profile") or binding.get("query_profile"),
                 "provider_node": binding.get("node"),
                 "params": {
                     "asset_type": "stock",
@@ -809,6 +1013,8 @@ def _build_extension_queries(
                     "end": scope.get("end"),
                 },
                 "key_schema": binding.get("key_schema") or {},
+                "filters": binding.get("filters") or {},
+                "output_scope": output_scope,
                 "requested_field_map": requested_field_map,
                 "unmapped_fields": unmapped_fields,
                 "slots": sorted(requested_slots),
@@ -841,7 +1047,7 @@ def _extension_binding_map(aiqb: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 + _string_list(item.get("slots") or item.get("allowed_slots"))
             )
         )
-        for key in ("access_pattern", "method", "query_template", "description"):
+        for key in ("query_profile", "query_template", "description"):
             value = str(item.get(key) or "").strip()
             if value and not current.get(key):
                 current[key] = value
@@ -939,13 +1145,13 @@ def _find_provider_binding(
     *,
     manifest: dict[str, Any],
     capability: str,
-    method: str,
-    access_pattern: str,
+    query_profile: str,
     asset_type: str = "stock",
 ) -> dict[str, Any] | None:
     nodes = manifest.get("nodes") or {}
     if not isinstance(nodes, dict):
         return None
+    registry = _capability_registry_map(manifest)
     for node_name, node in nodes.items():
         if not isinstance(node, dict):
             continue
@@ -954,21 +1160,21 @@ def _find_provider_binding(
             continue
         if asset_type and node.get("asset_types") and asset_type not in node.get("asset_types"):
             continue
-        if method and node.get("methods") and method not in node.get("methods"):
-            continue
-        if access_pattern and node.get("access_patterns") and access_pattern not in node.get("access_patterns"):
+        if query_profile and node.get("query_profiles") and query_profile not in node.get("query_profiles"):
             continue
         semantic = semantics.get(capability) or {}
-        access_patterns = list(node.get("access_patterns") or [])
-        methods = list(node.get("methods") or [])
+        query_profiles = list(node.get("query_profiles") or [])
+        allow_dynamic_fields = bool(semantic.get("allow_dynamic_fields")) if isinstance(semantic, dict) else False
         return {
             "node": node_name,
             "provider": manifest.get("provider") or "aiquantbase",
-            "access_pattern": access_pattern or (access_patterns[0] if access_patterns else None),
-            "method": method or (methods[0] if methods else None),
+            "query_profile": query_profile or (query_profiles[0] if query_profiles else None),
             "key_schema": deepcopy(node.get("keys") or {}),
+            "filters": deepcopy(node.get("filters") or {}),
+            "output_scope": deepcopy((registry.get(capability) or {}).get("output_scope") or {}),
             "field_map": deepcopy((semantic.get("fields") if isinstance(semantic, dict) else {}) or {}),
             "node_field_map": _collect_node_field_map(node),
+            "allow_dynamic_fields": allow_dynamic_fields,
         }
     return None
 
@@ -989,7 +1195,12 @@ def _collect_node_field_map(node: dict[str, Any]) -> dict[str, Any]:
     return fields
 
 
-def _select_requested_field_map(field_map: dict[str, Any], fields: list[Any]) -> tuple[dict[str, Any], list[str]]:
+def _select_requested_field_map(
+    field_map: dict[str, Any],
+    fields: list[Any],
+    *,
+    allow_dynamic_fields: bool = False,
+) -> tuple[dict[str, Any], list[str]]:
     selected: dict[str, Any] = {}
     unmapped: list[str] = []
     for field in fields:
@@ -998,6 +1209,8 @@ def _select_requested_field_map(field_map: dict[str, Any], fields: list[Any]) ->
             continue
         if key in field_map:
             selected[key] = deepcopy(field_map[key])
+        elif allow_dynamic_fields:
+            selected[key] = key
         else:
             unmapped.append(key)
     return selected, unmapped
@@ -1095,6 +1308,16 @@ def _required_text(payload: dict[str, Any], key: str) -> str:
     return value
 
 
+def _boolish(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value in (None, ""):
+        return False
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
 def _string_list(value: Any) -> list[str]:
     if isinstance(value, str):
         raw_items = value.replace("\n", ",").split(",")
@@ -1108,6 +1331,53 @@ def _string_list(value: Any) -> list[str]:
         if text and text not in items:
             items.append(text)
     return items
+
+
+def _normalize_output_scope(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    scope_type = str(value.get("scope_type") or "").strip()
+    if not scope_type:
+        return {}
+    allowed_scope_types = {"daily_panel", "intraday_panel", "event_stream", "linked_daily_panel"}
+    if scope_type not in allowed_scope_types:
+        raise ValueError(f"unsupported output_scope.scope_type: {scope_type}")
+
+    normalized: dict[str, Any] = {"scope_type": scope_type}
+    for key in ("entity_type", "base_entity_type", "linked_entity_type", "output_entity_type"):
+        text = str(value.get(key) or "").strip()
+        if text:
+            normalized[key] = text
+
+    raw_keys = value.get("keys") or {}
+    if isinstance(raw_keys, dict):
+        keys = {
+            str(key).strip(): str(field).strip()
+            for key, field in raw_keys.items()
+            if str(key).strip() and str(field).strip()
+        }
+        if keys:
+            normalized["keys"] = keys
+    return normalized
+
+
+def _output_scope_compatible(output_scope: dict[str, Any], accepted_scopes: list[dict[str, Any]]) -> bool:
+    if not output_scope:
+        return True
+    for accepted in accepted_scopes:
+        if not accepted:
+            continue
+        if output_scope.get("scope_type") != accepted.get("scope_type"):
+            continue
+        matched = True
+        for key in ("entity_type", "output_entity_type", "base_entity_type", "linked_entity_type"):
+            expected = accepted.get(key)
+            if expected and output_scope.get(key) != expected:
+                matched = False
+                break
+        if matched:
+            return True
+    return False
 
 
 def _normalize_field_mapping(value: Any) -> dict[str, Any]:

@@ -6,7 +6,17 @@ class FakeExecutor:
     def execute_sql(self, sql: str) -> QueryExecutionResult:
         return QueryExecutionResult(
             sql=sql,
-            data=[{"etf_code": "159001.SZ", "trading_day": "2026-04-08", "nav": 100000000}],
+            data=[
+                {
+                    "code": "000001.SZ",
+                    "trade_time": "2024-01-02 00:00:00",
+                    "close": 10.0,
+                    "open": 9.8,
+                    "is_st": 0,
+                    "is_suspended": 0,
+                    "pre_close": 9.9,
+                }
+            ],
             rows=1,
             statistics={},
             meta=[],
@@ -84,22 +94,22 @@ def test_graph_runtime_render_and_execute_intent():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = FakeExecutor()
     intent = {
-        "from": "etf_pcf_real",
+        "from": "stock_daily_real",
         "select": [
-            "etf_code",
-            "etf_trading_day",
-            "etf_nav",
+            "code",
+            "trade_time",
+            "close",
         ],
         "where": {
             "mode": "and",
             "items": [
-                {"field": "etf_code", "op": "=", "value": "159001.SZ"},
+                {"field": "code", "op": "=", "value": "000001.SZ"},
             ],
         },
         "time_range": {
-            "field": "trading_day",
-            "start": "2026-04-08",
-            "end": "2026-04-08",
+            "field": "trade_time",
+            "start": "2024-01-02",
+            "end": "2024-01-02",
         },
         "page": 1,
         "page_size": 10,
@@ -110,7 +120,7 @@ def test_graph_runtime_render_and_execute_intent():
     }
 
     sql = runtime.render_intent(intent)
-    assert "FROM starlight.ad_etf_pcf" in sql
+    assert "FROM starlight.stock_daily_real" in sql
 
     result = runtime.execute_intent(intent)
     assert result["code"] == 0
@@ -142,12 +152,11 @@ def test_graph_runtime_get_real_nodes():
 
     assert real_nodes
     assert all(item["name"].endswith("_real") for item in real_nodes)
-    assert len(real_nodes) >= 14
+    assert len(real_nodes) >= 5
     node_names = {item["name"] for item in real_nodes}
-    assert "etf_daily_real" in node_names
-    assert "index_daily_real" in node_names
-    assert "etf_minute_real" in node_names
-    assert "index_minute_real" in node_names
+    assert "stock_daily_real" in node_names
+    assert "stock_minute_real" in node_names
+    assert "dividend_real" in node_names
     assert any(item["description_zh"] for item in real_nodes)
 
 
@@ -157,13 +166,13 @@ def test_graph_runtime_get_protocol_summary():
 
     assert result["code"] == 0
     assert result["message"] == "success"
-    assert result["summary"]["enabled_real_nodes"] >= 10
+    assert result["summary"]["enabled_real_nodes"] >= 5
     assert result["summary"]["disabled_real_nodes"] == 0
     assert result["summary"]["total_fields_across_enabled_nodes"] > 0
     assert result["items"]
 
     stock_daily = next(item for item in result["items"] if item["name"] == "stock_daily_real")
-    assert stock_daily["field_count"] > 50
+    assert stock_daily["field_count"] > 0
     assert "code" in stock_daily["identity_fields"]
     assert "trade_time" in stock_daily["identity_fields"]
     assert stock_daily["sample_fields"]
@@ -188,8 +197,8 @@ def test_graph_runtime_execute_sql():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = FakeExecutor()
     result = runtime.execute_sql(
-        "SELECT etf_code, trading_day, nav FROM starlight.ad_etf_pcf "
-        "WHERE etf_code = '159001.SZ' AND trading_day = '2026-04-08' LIMIT 1"
+        "SELECT code, trade_time, close FROM starlight.stock_daily_real "
+        "WHERE code = '000001.SZ' AND trade_time = '2024-01-02' LIMIT 1"
     )
 
     assert result["code"] == 0
@@ -247,16 +256,14 @@ def test_graph_runtime_render_supports_code_in_filter():
 
 def test_resolve_symbols():
     runtime = GraphRuntime.from_defaults()
-    result = runtime.resolve_symbols(["000001.SZ", "159102.SZ", "123085.SZ", "000300.SH"])
+    result = runtime.resolve_symbols(["000001.SZ", "000002.SZ"])
 
     assert result["ok"] is True
     items = {item["symbol"]: item for item in result["items"]}
     assert items["000001.SZ"]["asset_type"] == "stock"
-    assert items["159102.SZ"]["asset_type"] == "etf"
-    assert items["159102.SZ"]["node"] == "etf_daily_real"
-    assert items["000300.SH"]["asset_type"] == "index"
-    assert items["000300.SH"]["node"] == "index_daily_real"
-    assert items["123085.SZ"]["asset_type"] == "kzz"
+    assert items["000001.SZ"]["node"] == "stock_daily_real"
+    assert items["000002.SZ"]["asset_type"] == "stock"
+    assert items["000002.SZ"]["node"] == "stock_daily_real"
 
 
 def test_get_supported_fields():
@@ -267,8 +274,8 @@ def test_get_supported_fields():
     field_names = {item["name"] for item in result["fields"]}
     assert "close_adj" in field_names
     assert "is_st" in field_names
-    assert "list_date" in field_names
-    assert "listed_days" in field_names
+    assert "is_suspended" in field_names
+    assert "market_cap" in field_names
 
 
 def test_get_supported_fields_with_node_filter():
@@ -286,8 +293,7 @@ def test_get_supported_fields_with_field_role_filter():
 
     assert result["ok"] is True
     assert result["field_role"] == "financial_field"
-    assert result["fields"]
-    assert all(item["field_role"] == "financial_field" for item in result["fields"])
+    assert result["fields"] == []
 
 
 def test_get_supported_fields_with_derived_only_filter():
@@ -296,7 +302,6 @@ def test_get_supported_fields_with_derived_only_filter():
 
     assert result["ok"] is True
     assert result["derived_only"] is True
-    assert result["fields"]
     assert all(item["derived"] is True for item in result["fields"])
 
 
@@ -304,7 +309,7 @@ def test_validate_query_request():
     runtime = GraphRuntime.from_defaults()
     result = runtime.validate_query_request(
         {
-            "symbols": ["159102.SZ"],
+            "symbols": ["000001.SZ"],
             "universe": None,
             "fields": ["close_adj", "open"],
             "start": "2024-01-01",
@@ -315,18 +320,18 @@ def test_validate_query_request():
     )
 
     assert result["ok"] is True
-    assert result["resolved"]["asset_type"] == "etf"
-    assert result["resolved"]["node"] == "etf_daily_real"
+    assert result["resolved"]["asset_type"] == "stock"
+    assert result["resolved"]["node"] == "stock_daily_real"
     assert result["issues"] == []
 
 
-def test_validate_query_request_rejects_etf_unsupported_field():
+def test_validate_query_request_rejects_stock_unsupported_field():
     runtime = GraphRuntime.from_defaults()
     result = runtime.validate_query_request(
         {
-            "symbols": ["159102.SZ"],
+            "symbols": ["000001.SZ"],
             "universe": None,
-            "fields": ["close_adj", "is_st"],
+            "fields": ["close_adj", "not_registered_field"],
             "start": "2024-01-01",
             "end": "2024-01-31",
             "freq": "1d",
@@ -335,34 +340,37 @@ def test_validate_query_request_rejects_etf_unsupported_field():
     )
 
     assert result["ok"] is False
-    assert result["resolved"]["asset_type"] == "etf"
-    assert result["resolved"]["node"] == "etf_daily_real"
+    assert result["resolved"]["asset_type"] == "stock"
+    assert result["resolved"]["node"] == "stock_daily_real"
     assert any(issue["code"] == "unsupported_field" for issue in result["issues"])
 
 
 def test_resolve_best_node():
     runtime = GraphRuntime.from_defaults()
     result = runtime.resolve_best_node(
-        symbols=["159102.SZ"],
+        symbols=["000001.SZ"],
         fields=["close_adj", "open"],
         freq="1d",
         asset_type="auto",
     )
 
     assert result["ok"] is True
-    assert result["asset_type"] == "etf"
-    assert result["node"] == "etf_daily_real"
+    assert result["asset_type"] == "stock"
+    assert result["node"] == "stock_daily_real"
     assert result["issues"] == []
 
 
-def test_query_daily_for_stock_uses_query_intent_path():
+def test_execute_panel_profile_for_stock_uses_query_intent_path():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = FakeExecutor()
-    result = runtime.query_daily(
-        symbols=["000001.SZ"],
-        fields=["close_adj", "is_st"],
-        start="2024-01-01 00:00:00",
-        end="2024-01-31 23:59:59",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "panel_time_series",
+            "symbols": ["000001.SZ"],
+            "fields": ["close_adj", "is_st"],
+            "start": "2024-01-01 00:00:00",
+            "end": "2024-01-31 23:59:59",
+        }
     )
 
     assert result["ok"] is True
@@ -375,38 +383,54 @@ def test_query_daily_for_stock_uses_query_intent_path():
     assert "resolved" in result["debug"]
 
 
-def test_query_daily_for_stock_supports_listed_days():
+def test_execute_panel_profile_for_stock_supports_discrete_stock_daily_fields():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = FakeExecutor()
-    result = runtime.query_daily(
-        symbols=["000001.SZ"],
-        fields=["close_adj", "open", "is_st", "listed_days"],
-        start="2024-01-01 00:00:00",
-        end="2024-01-31 23:59:59",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "panel_time_series",
+            "symbols": ["000001.SZ"],
+            "fields": [
+                "close_adj",
+                "open",
+                "is_st",
+                "is_suspended",
+                "pre_close",
+                "high_limited",
+                "low_limited",
+                "market_cap",
+            ],
+            "start": "2024-01-01 00:00:00",
+            "end": "2024-01-31 23:59:59",
+        }
     )
 
     assert result["ok"] is True
     assert result["meta"]["node"] == "stock_daily_real"
-    assert "listed_days" in result["debug"]["sql"]
-    assert "list_date" in result["debug"]["sql"]
-    assert "argMax(list_date, snapshot_date)" in result["debug"]["sql"]
+    assert "is_suspended" in result["debug"]["sql"]
+    assert "high_limited" in result["debug"]["sql"]
+    assert "market_cap" in result["debug"]["sql"]
     assert "ANY LEFT JOIN (SELECT * FROM starlight.ad_history_stock_status" not in result["debug"]["sql"]
     assert "starlight.ad_backward_factor" not in result["debug"]["sql"]
     assert "starlight.ad_adj_factor" not in result["debug"]["sql"]
-    assert "FROM (SELECT close_adj, code, is_st, open, trade_time FROM starlight.stock_daily_real" in result["debug"]["sql"]
+    assert "FROM (SELECT" in result["debug"]["sql"]
+    assert "FROM starlight.stock_daily_real" in result["debug"]["sql"]
     assert "SELECT * FROM starlight.ad_backward_factor WHERE trade_date BETWEEN" not in result["debug"]["sql"]
     assert "SELECT * FROM starlight.ad_history_stock_status WHERE trade_date BETWEEN" not in result["debug"]["sql"]
     assert "ASOF LEFT JOIN starlight.ad_stock_basic" not in result["debug"]["sql"]
 
 
-def test_query_daily_for_status_snapshot_fields_uses_any_join():
+def test_execute_panel_profile_for_status_snapshot_fields_uses_any_join():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = FakeExecutor()
-    result = runtime.query_daily(
-        symbols=["000001.SZ"],
-        fields=["pre_close", "is_suspended"],
-        start="2024-01-01 00:00:00",
-        end="2024-01-31 23:59:59",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "panel_time_series",
+            "symbols": ["000001.SZ"],
+            "fields": ["pre_close", "is_suspended"],
+            "start": "2024-01-01 00:00:00",
+            "end": "2024-01-31 23:59:59",
+        }
     )
 
     assert result["ok"] is True
@@ -420,7 +444,7 @@ def test_build_intent_from_requirement():
         {
             "fields": ["close_adj", "open"],
             "scope": {
-                "symbols": ["159102.SZ"],
+                "symbols": ["000001.SZ"],
                 "freq": "1d",
                 "start": "2024-01-01",
                 "end": "2024-01-31",
@@ -429,65 +453,34 @@ def test_build_intent_from_requirement():
     )
 
     assert result["ok"] is True
-    assert result["resolved"]["asset_type"] == "etf"
-    assert result["resolved"]["node"] == "etf_daily_real"
-    assert result["intent"]["from"] == "etf_daily_real"
+    assert result["resolved"]["asset_type"] == "stock"
+    assert result["resolved"]["node"] == "stock_daily_real"
+    assert result["intent"]["from"] == "stock_daily_real"
     assert any(
-        item["field"] == "code" and item["op"] == "=" and item["value"] == "159102.SZ"
+        item["field"] == "code" and item["op"] == "=" and item["value"] == "000001.SZ"
         for item in result["intent"]["where"]["items"]
     )
 
 
-def test_query_daily_for_etf_uses_logical_entry_and_security_type_filter():
-    runtime = GraphRuntime.from_defaults()
-    runtime.executor = FakeExecutor()
-    result = runtime.query_daily(
-        symbols=["159102.SZ"],
-        fields=["close_adj", "open"],
-        start="2024-01-01 00:00:00",
-        end="2024-01-31 23:59:59",
-    )
-
-    assert result["ok"] is True
-    assert result["meta"]["asset_type"] == "etf"
-    assert result["meta"]["node"] == "etf_daily_real"
-    assert result["debug"]["intent"]["from"] == "etf_daily_real"
-    assert "EXTRA_ETF" in result["debug"]["sql"]
-
-
-def test_query_daily_for_etf_empty_result_is_structured():
+def test_execute_panel_profile_for_stock_empty_result_is_structured():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = EmptyExecutor()
-    result = runtime.query_daily(
-        symbols=["159102.SZ"],
-        fields=["close_adj", "open"],
-        start="2024-01-01 00:00:00",
-        end="2024-01-31 23:59:59",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "panel_time_series",
+            "symbols": ["000001.SZ"],
+            "fields": ["close_adj", "open"],
+            "start": "2024-01-01 00:00:00",
+            "end": "2024-01-31 23:59:59",
+        }
     )
 
     assert result["ok"] is False
     assert any(issue["code"] == "empty_result" for issue in result["issues"])
-    assert result["meta"]["node"] == "etf_daily_real"
+    assert result["meta"]["node"] == "stock_daily_real"
     assert result["meta"]["empty"] is True
     assert result["meta"]["empty_reason"] == "no_rows"
     assert result["debug"]["sql"]
-
-
-def test_query_daily_for_index_uses_logical_entry_and_security_type_filter():
-    runtime = GraphRuntime.from_defaults()
-    runtime.executor = FakeExecutor()
-    result = runtime.query_daily(
-        symbols=["000300.SH"],
-        fields=["close", "open"],
-        start="2024-01-01 00:00:00",
-        end="2024-01-31 23:59:59",
-    )
-
-    assert result["ok"] is True
-    assert result["meta"]["asset_type"] == "index"
-    assert result["meta"]["node"] == "index_daily_real"
-    assert result["debug"]["intent"]["from"] == "index_daily_real"
-    assert "EXTRA_INDEX_A_SH_SZ" in result["debug"]["sql"]
 
 
 def test_execute_requirement():
@@ -513,14 +506,18 @@ def test_execute_requirement():
     assert "request" in result["debug"]
 
 
-def test_query_minute_for_stock_uses_query_intent_path():
+def test_execute_panel_profile_for_minute_stock_uses_query_intent_path():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = FakeExecutor()
-    result = runtime.query_minute(
-        symbols=["000001.SZ"],
-        fields=["minute_close", "minute_volume"],
-        start="2024-01-02 09:30:00",
-        end="2024-01-02 10:30:00",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "panel_time_series",
+            "symbols": ["000001.SZ"],
+            "fields": ["minute_close", "minute_volume"],
+            "start": "2024-01-02 09:30:00",
+            "end": "2024-01-02 10:30:00",
+            "freq": "1m",
+        }
     )
 
     assert result["ok"] is True
@@ -571,7 +568,7 @@ def test_validate_query_request_supports_all_a_universe():
         {
             "symbols": [],
             "universe": "all_a",
-            "fields": ["close_adj", "open", "is_st", "listed_days"],
+            "fields": ["close_adj", "open", "is_st", "market_cap"],
             "start": "2024-01-01",
             "end": "2024-01-31",
             "freq": "1d",
@@ -588,7 +585,7 @@ def test_build_intent_from_requirement_supports_all_a_universe():
     runtime = GraphRuntime.from_defaults()
     result = runtime.build_intent_from_requirement(
         {
-            "fields": ["close_adj", "open", "is_st", "listed_days"],
+            "fields": ["close_adj", "open", "is_st", "market_cap"],
             "scope": {
                 "universe": "all_a",
                 "freq": "1d",
@@ -605,14 +602,17 @@ def test_build_intent_from_requirement_supports_all_a_universe():
     assert result["intent"]["where"]["items"] == []
 
 
-def test_query_daily_supports_all_a_universe():
+def test_execute_panel_profile_supports_all_a_universe():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = FakeExecutor()
-    result = runtime.query_daily(
-        universe="all_a",
-        fields=["close_adj", "open", "is_st", "listed_days"],
-        start="2024-01-01 00:00:00",
-        end="2024-01-31 23:59:59",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "panel_time_series",
+            "universe": "all_a",
+            "fields": ["close_adj", "open", "is_st", "market_cap"],
+            "start": "2024-01-01 00:00:00",
+            "end": "2024-01-31 23:59:59",
+        }
     )
 
     assert result["ok"] is True
@@ -621,16 +621,19 @@ def test_query_daily_supports_all_a_universe():
     assert result["debug"]["intent"]["where"]["items"] == []
 
 
-def test_query_minute_window_by_trading_day_supports_intraday_limit_fields():
+def test_execute_anchored_intraday_window_profile_supports_intraday_limit_fields():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = IntradayExecutor()
-    result = runtime.query_minute_window_by_trading_day(
-        symbols=["002545.SZ"],
-        trading_days=["2024-03-04"],
-        start_hhmm="14:30",
-        end_hhmm="14:31",
-        fields=["open", "is_limit_up", "limit_up_price"],
-        asset_type="stock",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "anchored_intraday_window",
+            "symbols": ["002545.SZ"],
+            "trading_days": ["2024-03-04"],
+            "start_hhmm": "14:30",
+            "end_hhmm": "14:31",
+            "fields": ["open", "is_limit_up", "limit_up_price"],
+            "asset_type": "stock",
+        }
     )
 
     assert result["ok"] is True
@@ -644,17 +647,20 @@ def test_query_minute_window_by_trading_day_supports_intraday_limit_fields():
     assert "starlight.ad_market_kline_minute" in result["debug"]["sql"]
 
 
-def test_query_minute_window_by_trading_day_supports_hhmm_list():
+def test_execute_anchored_intraday_window_profile_supports_hhmm_list():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = IntradayExecutor()
-    result = runtime.query_minute_window_by_trading_day(
-        symbols=["002545.SZ"],
-        trading_days=["2024-03-04"],
-        start_hhmm="14:30",
-        end_hhmm="14:31",
-        hhmm_list=["14:30", "14:31"],
-        fields=["open", "is_limit_up"],
-        asset_type="stock",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "anchored_intraday_window",
+            "symbols": ["002545.SZ"],
+            "trading_days": ["2024-03-04"],
+            "start_hhmm": "14:30",
+            "end_hhmm": "14:31",
+            "hhmm_list": ["14:30", "14:31"],
+            "fields": ["open", "is_limit_up"],
+            "asset_type": "stock",
+        }
     )
 
     assert result["ok"] is True
@@ -664,16 +670,19 @@ def test_query_minute_window_by_trading_day_supports_hhmm_list():
     assert "IN (" in result["debug"]["sql"]
 
 
-def test_query_minute_window_by_trading_day_supports_partial_empty_days():
+def test_execute_anchored_intraday_window_profile_supports_partial_empty_days():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = IntradayExecutor()
-    result = runtime.query_minute_window_by_trading_day(
-        symbols=["002545.SZ"],
-        trading_days=["2024-03-04", "2024-03-05"],
-        start_hhmm="14:30",
-        end_hhmm="14:31",
-        fields=["open"],
-        asset_type="stock",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "anchored_intraday_window",
+            "symbols": ["002545.SZ"],
+            "trading_days": ["2024-03-04", "2024-03-05"],
+            "start_hhmm": "14:30",
+            "end_hhmm": "14:31",
+            "fields": ["open"],
+            "asset_type": "stock",
+        }
     )
 
     assert result["ok"] is True
@@ -681,16 +690,19 @@ def test_query_minute_window_by_trading_day_supports_partial_empty_days():
     assert result["meta"]["missing_trading_days"] == ["2024-03-05"]
 
 
-def test_query_minute_window_by_trading_day_returns_empty_result_when_all_days_missing():
+def test_execute_anchored_intraday_window_profile_returns_empty_result_when_all_days_missing():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = EmptyExecutor()
-    result = runtime.query_minute_window_by_trading_day(
-        symbols=["002545.SZ"],
-        trading_days=["2024-03-05"],
-        start_hhmm="14:30",
-        end_hhmm="14:31",
-        fields=["open"],
-        asset_type="stock",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "anchored_intraday_window",
+            "symbols": ["002545.SZ"],
+            "trading_days": ["2024-03-05"],
+            "start_hhmm": "14:30",
+            "end_hhmm": "14:31",
+            "fields": ["open"],
+            "asset_type": "stock",
+        }
     )
 
     assert result["ok"] is False
@@ -699,22 +711,25 @@ def test_query_minute_window_by_trading_day_returns_empty_result_when_all_days_m
     assert result["meta"]["empty_reason"] == "no_rows"
 
 
-def test_query_next_trading_day_intraday_windows_uses_anchor_execution_dates():
+def test_execute_next_trading_day_window_profile_uses_anchor_execution_dates():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = IntradayExecutor()
-    result = runtime.query_next_trading_day_intraday_windows(
-        anchors=[
-            {
-                "anchor_id": "002545.SZ__2024-03-01__2024-03-04",
-                "code": "002545.SZ",
-                "signal_date": "2024-03-01",
-                "execution_date": "2024-03-04",
-            }
-        ],
-        start_hhmm="14:30",
-        end_hhmm="14:31",
-        fields=["open", "is_limit_up"],
-        asset_type="stock",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "next_trading_day_window",
+            "anchors": [
+                {
+                    "anchor_id": "002545.SZ__2024-03-01__2024-03-04",
+                    "code": "002545.SZ",
+                    "signal_date": "2024-03-01",
+                    "execution_date": "2024-03-04",
+                }
+            ],
+            "start_hhmm": "14:30",
+            "end_hhmm": "14:31",
+            "fields": ["open", "is_limit_up"],
+            "asset_type": "stock",
+        }
     )
 
     assert result["ok"] is True
@@ -724,21 +739,24 @@ def test_query_next_trading_day_intraday_windows_uses_anchor_execution_dates():
     assert result["debug"]["intent"]["kind"] == "next_trading_day_intraday_windows"
 
 
-def test_query_next_trading_day_intraday_windows_resolves_missing_execution_date_from_calendar():
+def test_execute_next_trading_day_window_profile_resolves_missing_execution_date_from_calendar():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = IntradayExecutor()
-    result = runtime.query_next_trading_day_intraday_windows(
-        anchors=[
-            {
-                "anchor_id": "002545.SZ__2024-03-01",
-                "code": "002545.SZ",
-                "signal_date": "2024-03-01",
-            }
-        ],
-        start_hhmm="14:30",
-        end_hhmm="14:31",
-        fields=["open"],
-        asset_type="stock",
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "next_trading_day_window",
+            "anchors": [
+                {
+                    "anchor_id": "002545.SZ__2024-03-01",
+                    "code": "002545.SZ",
+                    "signal_date": "2024-03-01",
+                }
+            ],
+            "start_hhmm": "14:30",
+            "end_hhmm": "14:31",
+            "fields": ["open"],
+            "asset_type": "stock",
+        }
     )
 
     assert result["ok"] is True

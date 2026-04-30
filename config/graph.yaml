@@ -162,4 +162,121 @@ nodes:
   table: starlight.ad_long_hu_bang
   time_key: trade_date
   wide_table: null
-edges: []
+- asset_type: stock
+  base_filters: []
+  description: null
+  description_zh: 行业日线行情节点表
+  entity_keys:
+  - index_code
+  fields:
+  - index_code
+  - trade_date
+  - open
+  - high
+  - close
+  - low
+  - amount
+  - volume
+  - pb
+  - pe
+  - total_cap
+  - a_float_cap
+  - pre_close
+  grain: daily
+  name: stock_industry_daily_real
+  node_role: query_entry
+  query_freq: 1d
+  status: enabled
+  table: starlight.ad_industry_daily
+  time_key: trade_date
+  wide_table: null
+- asset_type: null
+  base_filters: []
+  description: null
+  description_zh: 行业成分关系表
+  entity_keys:
+  - con_code
+  fields:
+  - index_code
+  - con_code
+  - in_date
+  - out_date
+  - index_name
+  grain: daily
+  name: industry_constituent_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_industry_constituent
+  time_key: in_date
+  wide_table: null
+- asset_type: null
+  base_filters:
+  - field: level_type
+    op: '='
+    value: 3
+  - field: is_pub
+    op: '='
+    value: 1
+  description: null
+  description_zh: 申万三级行业基础信息表
+  entity_keys:
+  - index_code
+  fields:
+  - index_code
+  - industry_code
+  - level_type
+  - level1_name
+  - level2_name
+  - level3_name
+  - is_pub
+  - change_reason
+  grain: daily
+  name: industry_level3_base_info_real
+  node_role: relation_support
+  query_freq: null
+  status: enabled
+  table: starlight.ad_industry_base_info
+  time_key: null
+  wide_table: null
+edges:
+- bridge_steps: []
+  description: null
+  description_zh: stock_daily_real 到 industry_constituent_real，按行业成分生效区间关联
+  from_node: stock_daily_real
+  join_keys:
+  - base: code
+    source: con_code
+  name: stock_daily_real_to_industry_constituent_real
+  priority: 100
+  relation_type: direct
+  source_table: null
+  time_binding:
+    allow_equal: true
+    available_time_field: null
+    base_time_cast: date
+    base_time_field: trade_time
+    lookahead_safe: true
+    mode: effective_range
+    source_end_field: out_date
+    source_start_field: in_date
+    source_time_cast: null
+    source_time_field: null
+  to_node: industry_constituent_real
+  from: stock_daily_real
+  to: industry_constituent_real
+- bridge_steps: []
+  description: null
+  description_zh: industry_constituent_real 到三级行业基础信息，按行业指数代码关联
+  from_node: industry_constituent_real
+  join_keys:
+  - base: index_code
+    source: index_code
+  name: industry_constituent_real_to_industry_level3_base_info_real
+  priority: 100
+  relation_type: any
+  source_table: null
+  time_binding: null
+  to_node: industry_level3_base_info_real
+  from: industry_constituent_real
+  to: industry_level3_base_info_real

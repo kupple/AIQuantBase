@@ -4,7 +4,6 @@ status: managed_by_aiquantbase
 mode_config_files:
   - modes/research/factor_research.yaml
   - modes/strategy/discrete_stock.yaml
-  - modes/strategy/weight_based.yaml
 
 provider_manifest: manifest.yaml
 query_templates: query_templates.yaml

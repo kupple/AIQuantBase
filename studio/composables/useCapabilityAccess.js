@@ -68,9 +68,9 @@ export function useCapabilityAccess() {
           capability_name: form.capabilityName,
           capability_description: form.capabilityDescription,
           default_slots: form.defaultSlots || form.allowedSlots || [],
+          output_scope: form.outputScope || undefined,
           asset_types: splitList(form.assetTypes),
-          access_patterns: splitList(form.accessPatterns),
-          methods: splitList(form.methods),
+          query_profiles: splitList(form.queryProfiles || form.accessPatterns),
           keys: form.keys || undefined,
           fields,
         }),
@@ -103,6 +103,34 @@ export function useCapabilityAccess() {
           fields: splitList(form.fieldsText),
           slots: form.slots || form.allowedSlots,
           allowed_slots: form.allowedSlots || form.slots,
+        }),
+      })
+      workspacePayload.value = payload.workspace
+      return payload
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function deleteModeCapability(form) {
+    saving.value = true
+    try {
+      if (!form.modeId || !form.capability) {
+        throw new Error('请先选择模式配置和要删除的 capability')
+      }
+      const sectionMap = {
+        required: 'required_capabilities',
+        conditional: 'conditional_capabilities',
+        optional: 'optional_capabilities',
+        extension: 'extension_capability_bindings',
+      }
+      const payload = await api('/api/capabilities/mode-capability/delete', {
+        method: 'POST',
+        body: JSON.stringify({
+          mode_id: form.modeId,
+          section: sectionMap[form.section] || form.section,
+          capability: form.capability,
+          delete_provider_registration: Boolean(form.deleteProviderRegistration),
         }),
       })
       workspacePayload.value = payload.workspace
@@ -155,6 +183,7 @@ export function useCapabilityAccess() {
     loadWorkspace,
     saveProviderMapping,
     saveModeCapability,
+    deleteModeCapability,
     splitList,
     formatJson,
   }

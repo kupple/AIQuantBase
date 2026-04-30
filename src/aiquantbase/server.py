@@ -18,6 +18,7 @@ from .capabilities import (
     load_capability_workspace,
     upsert_mode_capability,
     upsert_provider_node_semantic,
+    delete_mode_capability,
 )
 from .config import dump_yaml, load_field_catalog, load_nodes_and_edges, load_yaml
 from .discovery import SchemaDiscoveryService
@@ -110,6 +111,7 @@ def create_app(
                     "/api/capabilities/workspace",
                     "/api/capabilities/provider-node",
                     "/api/capabilities/mode-capability",
+                    "/api/capabilities/mode-capability/delete",
                     "/api/capabilities/preview",
                     "/api/membership/workspace",
                     "/api/membership/domains",
@@ -606,6 +608,23 @@ def create_app(
         payload = request.get_json(force=True)
         try:
             result = upsert_mode_capability(payload)
+            workspace = load_capability_workspace(
+                capability_root=payload.get("capability_root") or None,
+                alphablocks_root=payload.get("alphablocks_root") or None,
+                provider_manifest_path=payload.get("provider_manifest_path") or None,
+                mode_registry_path=payload.get("mode_registry_path") or None,
+                query_templates_path=payload.get("query_templates_path") or None,
+                graph_path=payload.get("graph_path") or None,
+            )
+            return jsonify({"ok": True, "result": result, "workspace": workspace})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+    @app.post("/api/capabilities/mode-capability/delete")
+    def capabilities_delete_mode_capability():
+        payload = request.get_json(force=True)
+        try:
+            result = delete_mode_capability(payload)
             workspace = load_capability_workspace(
                 capability_root=payload.get("capability_root") or None,
                 alphablocks_root=payload.get("alphablocks_root") or None,

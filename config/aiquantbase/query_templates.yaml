@@ -3,8 +3,7 @@ version: 1
 query_templates:
   stock_daily_panel:
     capability: price.daily
-    access_pattern: panel_time_series
-    method: query_daily
+    query_profile: panel_time_series
     description: 股票日线面板查询
     params_template:
       asset_type: stock
@@ -17,8 +16,7 @@ query_templates:
 
   benchmark_daily_series:
     capability: benchmark.daily
-    access_pattern: panel_time_series
-    method: query_daily
+    query_profile: panel_time_series
     description: 基准日线序列查询
     params_template:
       asset_type: stock
@@ -31,8 +29,7 @@ query_templates:
 
   stock_intraday_execution:
     capability: price.intraday
-    access_pattern: anchored_intraday_window
-    method: query_minute_window_by_trading_day
+    query_profile: anchored_intraday_window
     description: 股票分钟执行窗口查询
     params_template:
       asset_type: stock
@@ -45,8 +42,7 @@ query_templates:
 
   stock_dividend_events:
     capability: corporate_action.dividend
-    access_pattern: event_stream
-    method: query_dividend_events
+    query_profile: event_stream
     description: 股票分红事件查询
     params_template:
       symbols: []
