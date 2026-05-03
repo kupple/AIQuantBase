@@ -1120,23 +1120,28 @@ materialization_bundle:
     time_key: date
     grain: daily
     base_filters: []
-  preview_sql: "SELECT\n  b0.code AS code,\n  b0.open AS open,\n  b0.high AS high,\n\
-    \  b0.low AS low,\n  b0.close AS close,\n  b0.volume AS volume,\n  b0.amount AS\
-    \ amount,\n  b0.date AS trade_time,\n  b0.preclose AS pre_close,\n  b0.turn AS\
-    \ turnover_rate,\n  b0.is_st AS is_st,\n  (b0.tradestatus = '0') AS is_suspended,\n\
-    \  (b0.open * t1.factor_value) AS open_adj,\n  t1.factor_value AS backward_adj_factor,\n\
-    \  (b0.high * t1.factor_value) AS high_adj,\n  (b0.low * t1.factor_value) AS low_adj,\n\
-    \  (b0.close * t1.factor_value) AS close_adj,\n  t2.is_wd_sec AS is_wd_sec,\n\
-    \  t2.is_xr_sec AS is_xr_sec,\n  (startsWith(b0.code, '688')) AS is_kcb,\n  (startsWith(b0.code,\
+  preview_sql: "SELECT\n  b0.code AS code,\n  toFloat64OrNull(nullIf(b0.open, ''))\
+    \ AS open,\n  toFloat64OrNull(nullIf(b0.high, '')) AS high,\n  toFloat64OrNull(nullIf(b0.low,\
+    \ '')) AS low,\n  toFloat64OrNull(nullIf(b0.close, '')) AS close,\n  toFloat64OrNull(nullIf(b0.volume,\
+    \ '')) AS volume,\n  toFloat64OrNull(nullIf(b0.amount, '')) AS amount,\n  toDate(b0.date)\
+    \ AS trade_time,\n  toFloat64OrNull(nullIf(b0.preclose, '')) AS pre_close,\n \
+    \ toFloat64OrNull(nullIf(b0.turn, '')) AS turnover_rate,\n  toUInt8OrZero(b0.is_st)\
+    \ AS is_st,\n  (b0.tradestatus = '0') AS is_suspended,\n  (toFloat64OrNull(nullIf(b0.open,\
+    \ '')) * t1.factor_value) AS open_adj,\n  t1.factor_value AS backward_adj_factor,\n\
+    \  (toFloat64OrNull(nullIf(b0.high, '')) * t1.factor_value) AS high_adj,\n  (toFloat64OrNull(nullIf(b0.low,\
+    \ '')) * t1.factor_value) AS low_adj,\n  (toFloat64OrNull(nullIf(b0.close, ''))\
+    \ * t1.factor_value) AS close_adj,\n  t2.is_wd_sec AS is_wd_sec,\n  t2.is_xr_sec\
+    \ AS is_xr_sec,\n  (startsWith(b0.code, '688')) AS is_kcb,\n  (startsWith(b0.code,\
     \ '30')) AS is_cyb,\n  (endsWith(b0.code, '.BJ')) AS is_bjs,\n  t2.high_limited\
-    \ AS high_limited,\n  t2.low_limited AS low_limited,\n  (b0.close * (t3.tot_share\
-    \ * 10000)) AS market_cap,\n  t3.tot_share AS tot_share,\n  (b0.close * (t3.float_share\
-    \ * 10000)) AS float_market_cap,\n  t3.float_share AS float_share\nFROM baostock.bs_daily_kline\
-    \ b0\nANY LEFT JOIN starlight.ad_backward_factor t1 ON b0.code = t1.code AND toDate(b0.date)\
-    \ = t1.trade_date\nLEFT JOIN starlight.ad_history_stock_status t2 ON b0.code =\
-    \ t2.market_code AND toDate(b0.date) = t2.trade_date\nASOF LEFT JOIN starlight.ad_equity_structure\
+    \ AS high_limited,\n  t2.low_limited AS low_limited,\n  (toFloat64OrNull(nullIf(b0.close,\
+    \ '')) * (t3.tot_share * 10000)) AS market_cap,\n  t3.tot_share AS tot_share,\n\
+    \  (toFloat64OrNull(nullIf(b0.close, '')) * (t3.float_share * 10000)) AS float_market_cap,\n\
+    \  t3.float_share AS float_share\nFROM baostock.bs_daily_kline b0\nANY LEFT JOIN\
+    \ starlight.ad_backward_factor t1 ON b0.code = t1.code AND toDate(b0.date) = t1.trade_date\n\
+    LEFT JOIN starlight.ad_history_stock_status t2 ON b0.code = t2.market_code AND\
+    \ toDate(b0.date) = t2.trade_date\nASOF LEFT JOIN starlight.ad_equity_structure\
     \ t3 ON b0.code = t3.market_code AND toDate(b0.date) >= t3.change_date"
 export_meta:
-  exported_at: '2026-05-03T09:11:35'
+  exported_at: '2026-05-03T09:24:16'
   exported_by: aiquantbase
   format_version: 1

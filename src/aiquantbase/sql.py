@@ -4,6 +4,18 @@ from .models import FilterCondition, FilterGroup, OrderBy, QueryPlan
 from .planner import GraphRegistry
 
 
+BAOSTOCK_DAILY_NUMERIC_FIELDS = {
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "amount",
+    "preclose",
+    "turn",
+}
+
+
 class SqlRenderer:
     def __init__(self, registry: GraphRegistry) -> None:
         self.registry = registry
@@ -385,7 +397,20 @@ class SqlRenderer:
         node_name = plan.field_bindings[field_name]
         physical_field = plan.resolved_fields[field_name]
         alias = aliases.setdefault(node_name, f"t{len(aliases)}")
-        return f"{alias}.{physical_field}"
+        return self._expression_for_physical_field(node_name, physical_field, alias)
+
+    def _expression_for_physical_field(self, node_name: str, physical_field: str, alias: str) -> str:
+        expression = f"{alias}.{physical_field}"
+        node = self.registry.nodes.get(node_name)
+        if not node or node.table != "baostock.bs_daily_kline":
+            return expression
+        if physical_field in BAOSTOCK_DAILY_NUMERIC_FIELDS:
+            return f"toFloat64OrNull(nullIf({expression}, ''))"
+        if physical_field == "date":
+            return f"toDate({expression})"
+        if physical_field == "is_st":
+            return f"toUInt8OrZero({expression})"
+        return expression
 
     def _render_operator(self, left: str, operator: str, value) -> str:
         op = operator.lower()
