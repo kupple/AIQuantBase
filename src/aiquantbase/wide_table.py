@@ -541,11 +541,21 @@ def _build_materialization_bundle(
             'base_table': base_node.table,
             'entity_keys': list(base_node.entity_keys),
             'time_key': base_node.time_key,
+            'time_key_expression': _source_time_key_expression(base_node),
             'grain': base_node.grain,
             'base_filters': list(base_node.base_filters),
         },
         'preview_sql': sql,
     }
+
+
+def _source_time_key_expression(base_node: Any) -> str | None:
+    time_key = str(base_node.time_key or '').strip()
+    if not time_key:
+        return None
+    if base_node.table == 'baostock.bs_daily_kline' and time_key == 'date':
+        return 'toDate(date)'
+    return time_key
 
 
 def _now_iso() -> str:

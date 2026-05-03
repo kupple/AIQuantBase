@@ -837,13 +837,14 @@ def _insert_select_by_month(
 ) -> None:
     base_table = str(base_context.get("base_table") or "").strip()
     time_key = str(base_context.get("time_key") or "").strip()
+    time_key_expression = str(base_context.get("time_key_expression") or time_key).strip()
     if not time_key:
         client.command(f"INSERT INTO {target_ref} {select_sql}")
         return
 
     month_rows = client.query_rows(
         f"""
-        SELECT DISTINCT toYYYYMM({time_key}) AS ym
+        SELECT DISTINCT toYYYYMM({time_key_expression}) AS ym
         FROM {base_table}
         ORDER BY ym
         """
@@ -857,7 +858,7 @@ def _insert_select_by_month(
             continue
         ym = int(row[0])
         month_start, month_end = _month_window(ym)
-        filtered_sql = _apply_month_window_to_preview_sql(select_sql, month_start, month_end)
+        filtered_sql = _apply_month_window_to_preview_sql(select_sql, month_start, month_end, base_context)
         client.command(
             f"""
             INSERT INTO {target_ref}
@@ -907,8 +908,25 @@ def _month_window(yyyymm: int) -> tuple[str, str]:
     return month_start.strftime("%Y-%m-%d %H:%M:%S"), next_month.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _apply_month_window_to_preview_sql(select_sql: str, month_start: str, month_end: str) -> str:
+def _apply_month_window_to_preview_sql(
+    select_sql: str,
+    month_start: str,
+    month_end: str,
+    base_context: dict[str, Any] | None = None,
+) -> str:
+    base_context = base_context or {}
+    base_table = str(base_context.get("base_table") or "").strip()
+    time_key_expression = str(base_context.get("time_key_expression") or base_context.get("time_key") or "").strip()
+    generic_replacements: dict[str, str] = {}
+    if base_table and time_key_expression:
+        escaped_table = re.escape(base_table)
+        generic_replacements[rf"FROM\s+{escaped_table}\s+b0"] = (
+            f"FROM (SELECT * FROM {base_table} "
+            f"WHERE {time_key_expression} >= toDate('{month_start[:10]}') "
+            f"AND {time_key_expression} < toDate('{month_end[:10]}')) b0"
+        )
     replacements = {
+        **generic_replacements,
         r"FROM\s+starlight\.ad_market_kline_daily\s+b0": (
             "FROM (SELECT * FROM starlight.ad_market_kline_daily "
             f"WHERE trade_time >= '{month_start}' AND trade_time < '{month_end}') b0"
@@ -937,6 +955,32 @@ def _apply_month_window_to_preview_sql(select_sql: str, month_start: str, month_
     rewritten = select_sql
     for pattern, replacement in replacements.items():
         rewritten = re.sub(pattern, replacement, rewritten)
+    rewritten = re.sub(
+        r"ANY LEFT JOIN\s+starlight\.ad_backward_factor\s+(t\d+)",
+        lambda match: (
+            "ANY LEFT JOIN (SELECT * FROM starlight.ad_backward_factor "
+            f"WHERE trade_date >= toDate('{month_start[:10]}') "
+            f"AND trade_date < toDate('{month_end[:10]}')) {match.group(1)}"
+        ),
+        rewritten,
+    )
+    rewritten = re.sub(
+        r"LEFT JOIN\s+starlight\.ad_history_stock_status\s+(t\d+)",
+        lambda match: (
+            "LEFT JOIN (SELECT * FROM starlight.ad_history_stock_status "
+            f"WHERE trade_date >= toDate('{month_start[:10]}') "
+            f"AND trade_date < toDate('{month_end[:10]}')) {match.group(1)}"
+        ),
+        rewritten,
+    )
+    rewritten = re.sub(
+        r"ASOF LEFT JOIN\s+starlight\.ad_equity_structure\s+(t\d+)",
+        lambda match: (
+            "ASOF LEFT JOIN (SELECT * FROM starlight.ad_equity_structure "
+            f"WHERE change_date < toDate('{month_end[:10]}')) {match.group(1)}"
+        ),
+        rewritten,
+    )
     return rewritten
 
 

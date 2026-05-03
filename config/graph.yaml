@@ -1,12 +1,10 @@
 nodes:
-- name: stock_daily_real
-  table: baostock.bs_daily_kline
+- asset_type: stock
+  base_filters: []
+  description: 由普通节点 stock_daily_real 转换生成
+  description_zh: null
   entity_keys:
   - code
-  time_key: date
-  time_key_mode: single
-  interval_keys: null
-  grain: daily
   fields:
   - date
   - code
@@ -17,12 +15,15 @@ nodes:
   - volume
   - amount
   - tradestatus
-  description: 由普通节点 stock_daily_real 转换生成
+  grain: daily
+  interval_keys: {}
+  name: stock_daily_real
   node_role: query_entry
-  status: enabled
-  asset_type: stock
   query_freq: 1d
-  base_filters: []
+  status: enabled
+  table: baostock.bs_daily_kline
+  time_key: date
+  time_key_mode: single
   wide_table:
     created_at: '2026-05-03T00:53:12'
     description: 由普通节点 stock_daily_real 转换生成

@@ -18,6 +18,7 @@ from sync_data_system.wide_table_sync import (
     validate_wide_table_payload,
     WideTableSyncStateRepository,
 )
+from sync_data_system import wide_table_sync
 
 
 class WideTableSyncTest(unittest.TestCase):
@@ -60,6 +61,7 @@ class WideTableSyncTest(unittest.TestCase):
 class _FakeClickHouseClient:
     def __init__(self) -> None:
         self.commands: list[str] = []
+        self.queries: list[str] = []
         self.insert_calls: list[tuple[str, list[str], list[tuple]]] = []
         self.rows_for_query: list[tuple] = []
 
@@ -68,6 +70,7 @@ class _FakeClickHouseClient:
         return None
 
     def query_rows(self, sql: str, parameters=None):
+        self.queries.append(sql)
         return list(self.rows_for_query)
 
     def query_value(self, sql: str, parameters=None):
@@ -181,6 +184,35 @@ class WideTableStateRepositoryTest(unittest.TestCase):
         self.assertEqual(results[0].status, "success")
         self.assertTrue(any("CREATE TABLE IF NOT EXISTS research.demo_wide" in sql for sql in client.commands))
         self.assertTrue(any("INSERT INTO research.demo_wide" in sql for sql in client.commands))
+
+    def test_month_partition_insert_casts_baostock_string_date(self) -> None:
+        client = _FakeClickHouseClient()
+        client.rows_for_query = [(202401,)]
+        select_sql = (
+            "SELECT b0.code AS code, toDate(b0.date) AS trade_time "
+            "FROM baostock.bs_daily_kline b0 "
+            "ANY LEFT JOIN starlight.ad_backward_factor t1 "
+            "ON b0.code = t1.code AND toDate(b0.date) = t1.trade_date"
+        )
+
+        wide_table_sync._insert_select_by_month(
+            client,
+            "starlight.stock_daily_real",
+            select_sql,
+            {
+                "base_table": "baostock.bs_daily_kline",
+                "time_key": "date",
+                "time_key_expression": "toDate(date)",
+            },
+        )
+
+        self.assertTrue(any("toYYYYMM(toDate(date))" in sql for sql in client.queries))
+        self.assertEqual(len(client.commands), 1)
+        self.assertIn("INSERT INTO starlight.stock_daily_real", client.commands[0])
+        self.assertIn("FROM (SELECT * FROM baostock.bs_daily_kline WHERE toDate(date) >=", client.commands[0])
+        self.assertIn("ANY LEFT JOIN (SELECT * FROM starlight.ad_backward_factor", client.commands[0])
+        self.assertIn("2024-01-01", client.commands[0])
+        self.assertIn("2024-02-01", client.commands[0])
 
     def test_run_wide_table_sync_drops_existing_target_before_recreate(self) -> None:
         client = _FakeClickHouseClient()

@@ -1118,6 +1118,7 @@ materialization_bundle:
     entity_keys:
     - code
     time_key: date
+    time_key_expression: toDate(date)
     grain: daily
     base_filters: []
   preview_sql: "SELECT\n  b0.code AS code,\n  toFloat64OrNull(nullIf(b0.open, ''))\
@@ -1142,6 +1143,6 @@ materialization_bundle:
     \ toDate(b0.date) = t2.trade_date\nASOF LEFT JOIN starlight.ad_equity_structure\
     \ t3 ON b0.code = t3.market_code AND toDate(b0.date) >= t3.change_date"
 export_meta:
-  exported_at: '2026-05-03T09:24:16'
+  exported_at: '2026-05-03T14:30:01'
   exported_by: aiquantbase
   format_version: 1
