@@ -10,11 +10,6 @@ capability_registry:
       keys:
         entity: code
         time: trade_time
-    default_slots:
-    - ranking_fields
-    - filter_fields
-    - weighting_fields
-    - report_fields
   custom_factor_daily:
     name: 自定义日频因子
     description: 用于接入用户自定义日频因子，供排序、过滤、风控或输出使用
@@ -24,12 +19,7 @@ capability_registry:
       keys:
         entity: code
         time: trade_time
-    default_slots:
-    - factor_inputs
-    - ranking_fields
-    - filter_fields
-    - risk_fields
-    - report_fields
+    enabled: false
   industry_classification:
     name: 行业分类
     description: 用于接入行业、主题、板块等日频归属字段，供过滤、分组或中性化使用
@@ -41,11 +31,15 @@ capability_registry:
       keys:
         entity: code
         time: trade_time
-    default_slots:
-    - filter_fields
-    - groupby_fields
-    - neutralization_fields
-    - report_fields
+  stock_pool_membership:
+    name: 股票池成分
+    description: 用于接入指数、板块、主题或自定义股票池成分归属字段，供候选池过滤和报告使用
+    output_scope:
+      scope_type: daily_panel
+      entity_type: stock
+      keys:
+        entity: code
+        time: trade_time
   dragon_tiger_daily:
     name: 龙虎榜日频
     description: 用于接入龙虎榜事件字段，供过滤、排序或输出使用
@@ -53,15 +47,23 @@ capability_registry:
       scope_type: daily_panel
       entity_type: stock
       keys:
+        entity: market_code
+        time: trade_date
+    enabled: true
+  price.daily:
+    name: 日线行情
+    description: A 股/指数/ETF 日线行情与基础状态宽表
+    output_scope:
+      scope_type: daily_panel
+      entity_type: stock
+      keys:
         entity: code
         time: trade_time
-    default_slots:
-    - filter_fields
-    - ranking_fields
-    - report_fields
 query_profiles:
   panel_time_series:
     description: symbols + start/end + fields 的时间序列面板查询
+  interval_membership:
+    description: 成分/归属区间查询，按实体字段、生效日期和失效日期返回关系区间
   event_stream:
     description: symbols + date range 的事件流查询
   anchored_intraday_window:
@@ -90,28 +92,9 @@ nodes:
           pre_close: pre_close
           volume: volume
           amount: amount
-          money: amount
           backward_adj_factor: backward_adj_factor
-          close_adj:
-            derive: '{close} * {backward_adj_factor}'
-            depends_on:
-            - close
-            - backward_adj_factor
-          open_adj:
-            derive: '{open} * {backward_adj_factor}'
-            depends_on:
-            - open
-            - backward_adj_factor
-          high_adj:
-            derive: '{high} * {backward_adj_factor}'
-            depends_on:
-            - high
-            - backward_adj_factor
-          low_adj:
-            derive: '{low} * {backward_adj_factor}'
-            depends_on:
-            - low
-            - backward_adj_factor
+          close_adj: close_adj
+        description: A 股/指数/ETF 日线行情与基础状态宽表
       benchmark.daily:
         fields:
           open: open
@@ -142,10 +125,23 @@ nodes:
           float_market_cap: float_market_cap
           turnover_rate: turnover_rate
         description: 用于读取总市值、流通市值、换手率等日频估值字段
-      custom_factor_daily:
-        description: 自定义日频因子字段，字段映射由 AIQuantBase 能力接入页面维护
-        allow_dynamic_fields: true
-        fields: {}
+  index_constituent_real:
+    description: 指数、板块、主题或自定义股票池成分关系表
+    asset_types:
+    - stock
+    query_profiles:
+    - interval_membership
+    keys:
+      symbol: con_code
+      start: in_date
+      end: out_date
+    semantics:
+      stock_pool_membership:
+        description: 指数、板块、主题或自定义股票池成分归属字段
+        fields:
+          index_constituent_code: index_code
+          index_constituent_name: index_name
+          index_name: index_name
   stock_minute_real:
     description: A 股/ETF 分钟行情表
     asset_types:
@@ -166,19 +162,6 @@ nodes:
           volume: volume
           amount: amount
           money: amount
-  dragon_tiger_daily_real:
-    description: 龙虎榜日频扩展宽表
-    asset_types:
-    - stock
-    query_profiles:
-    - panel_time_series
-    keys:
-      symbol: code
-      time: trade_time
-    semantics:
-      dragon_tiger_daily:
-        description: 龙虎榜日频扩展字段，具体字段由能力接入页面维护
-        fields: {}
   stock_industry_daily_real:
     description: 行业日线行情节点表
     asset_types:
@@ -238,3 +221,28 @@ nodes:
           lot_size: 100
           supports_min_commission: true
           supports_order_volume_ratio: true
+  long_hu_bang_real:
+    description: long_hu_bang_real provider node
+    asset_types:
+    - stock
+    query_profiles:
+    - panel_time_series
+    keys:
+      symbol: market_code
+      time: trade_date
+    semantics:
+      dragon_tiger_daily:
+        description: 用于接入龙虎榜事件字段，供过滤、排序或输出使用
+        fields:
+          market_code: market_code
+          trade_date: trade_date
+          security_name: security_name
+          reason_type: reason_type
+          reason_type_name: reason_type_name
+          change_range: change_range
+          trader_name: trader_name
+          buy_amount: buy_amount
+          sell_amount: sell_amount
+          flow_mark: flow_mark
+          total_amount: total_amount
+          total_volume: total_volume

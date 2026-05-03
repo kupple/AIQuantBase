@@ -1,49 +1,50 @@
 nodes:
-- asset_type: stock
-  base_filters:
-  - field: security_type
-    op: '='
-    value: EXTRA_STOCK_A
-  description: null
-  description_zh: 股票日线行情主表
+- name: stock_daily_real
+  table: baostock.bs_daily_kline
   entity_keys:
   - code
+  time_key: date
+  time_key_mode: single
+  interval_keys: null
+  grain: daily
   fields:
+  - date
   - code
-  - trade_time
   - open
   - high
   - low
   - close
   - volume
   - amount
-  grain: daily
-  name: stock_daily_real
+  - tradestatus
+  description: 由普通节点 stock_daily_real 转换生成
   node_role: query_entry
-  query_freq: 1d
   status: enabled
-  table: starlight.ad_market_kline_daily
-  time_key: trade_time
+  asset_type: stock
+  query_freq: 1d
+  base_filters: []
   wide_table:
-    created_at: '2026-04-21T21:43:50'
+    created_at: '2026-05-03T00:53:12'
     description: 由普通节点 stock_daily_real 转换生成
     engine: Memory
     fields:
     - code
-    - trade_time
     - open
     - high
     - low
     - close
-    - pre_close
     - volume
     - amount
+    - trade_time
+    - pre_close
+    - turnover_rate
+    - is_st
+    - is_suspended
     - open_adj
+    - backward_adj_factor
     - high_adj
     - low_adj
     - close_adj
-    - is_st
-    - is_suspended
     - is_wd_sec
     - is_xr_sec
     - is_kcb
@@ -51,11 +52,11 @@ nodes:
     - is_bjs
     - high_limited
     - low_limited
-    - backward_adj_factor
     - market_cap
+    - tot_share
     - float_market_cap
-    - turnover_rate
-    id: wide::stock_daily_real::c83034b0
+    - float_share
+    id: wide::stock_daily_real
     key_fields:
     - code
     - trade_time
@@ -67,7 +68,7 @@ nodes:
     status: enabled
     target_database: starlight
     target_table: stock_daily_real
-    updated_at: '2026-04-21T21:43:50'
+    updated_at: '2026-05-03T00:53:12'
     version_field: ''
 - asset_type: null
   base_filters: []
@@ -85,12 +86,14 @@ nodes:
   - volume
   - amount
   grain: minute
+  interval_keys: {}
   name: stock_minute_real
   node_role: query_entry
   query_freq: null
   status: enabled
   table: starlight.ad_market_kline_minute
   time_key: trade_time
+  time_key_mode: null
   wide_table: null
 - asset_type: null
   base_filters: []
@@ -113,12 +116,14 @@ nodes:
   - remark
   - div_target
   grain: daily
+  interval_keys: {}
   name: dividend_real
   node_role: relation_support
   query_freq: null
   status: enabled
   table: starlight.ad_dividend
   time_key: ann_date
+  time_key_mode: null
   wide_table: null
 - asset_type: null
   base_filters: []
@@ -128,12 +133,14 @@ nodes:
   fields:
   - trade_date
   grain: daily
+  interval_keys: {}
   name: trade_calendar_real
   node_role: reference
   query_freq: null
   status: enabled
   table: starlight.ad_trade_calendar
   time_key: trade_date
+  time_key_mode: null
   wide_table: null
 - asset_type: null
   base_filters: []
@@ -155,12 +162,14 @@ nodes:
   - total_amount
   - total_volume
   grain: daily
+  interval_keys: {}
   name: long_hu_bang_real
   node_role: query_entry
   query_freq: null
   status: enabled
   table: starlight.ad_long_hu_bang
   time_key: trade_date
+  time_key_mode: null
   wide_table: null
 - asset_type: stock
   base_filters: []
@@ -183,12 +192,38 @@ nodes:
   - a_float_cap
   - pre_close
   grain: daily
+  interval_keys: {}
   name: stock_industry_daily_real
   node_role: query_entry
   query_freq: 1d
   status: enabled
   table: starlight.ad_industry_daily
   time_key: trade_date
+  time_key_mode: null
+  wide_table: null
+- asset_type: stock
+  base_filters: []
+  description: 成分股关系表
+  description_zh: null
+  entity_keys:
+  - con_code
+  fields:
+  - index_code
+  - con_code
+  - in_date
+  - out_date
+  - index_name
+  grain: daily
+  interval_keys:
+    end: out_date
+    start: in_date
+  name: index_constituent_real
+  node_role: relation_support
+  query_freq: 1d
+  status: enabled
+  table: starlight.ad_index_constituent
+  time_key: in_date
+  time_key_mode: range
   wide_table: null
 - asset_type: null
   base_filters: []
@@ -203,12 +238,16 @@ nodes:
   - out_date
   - index_name
   grain: daily
+  interval_keys:
+    end: out_date
+    start: in_date
   name: industry_constituent_real
   node_role: relation_support
   query_freq: null
   status: enabled
   table: starlight.ad_industry_constituent
   time_key: in_date
+  time_key_mode: range
   wide_table: null
 - asset_type: null
   base_filters:
@@ -232,12 +271,14 @@ nodes:
   - is_pub
   - change_reason
   grain: daily
+  interval_keys: {}
   name: industry_level3_base_info_real
   node_role: relation_support
   query_freq: null
   status: enabled
   table: starlight.ad_industry_base_info
   time_key: null
+  time_key_mode: null
   wide_table: null
 edges:
 - bridge_steps: []
@@ -255,7 +296,7 @@ edges:
     allow_equal: true
     available_time_field: null
     base_time_cast: date
-    base_time_field: trade_time
+    base_time_field: date
     lookahead_safe: true
     mode: effective_range
     source_end_field: out_date

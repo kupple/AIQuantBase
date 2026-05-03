@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { navigateTo } from '#imports'
 import { useCapabilityAccess } from '~/composables/useCapabilityAccess'
 
 const {
@@ -13,18 +14,19 @@ const {
   modeProfiles,
   diagnostics,
   loadWorkspace,
-  saveProviderMapping,
   saveModeCapability,
   deleteModeCapability,
+  resolveModeExtensionContract,
 } = useCapabilityAccess()
 
 const selectedModeId = ref('')
 const activeCapabilityKey = ref('')
 const configDialogVisible = ref(false)
-const extensionDialogVisible = ref(false)
-const extensionDialogMode = ref('create')
-const editingExtensionCapability = ref('')
-const suppressExtensionFieldReset = ref(false)
+const extensionBindDialogVisible = ref(false)
+const extensionBindDialogMode = ref('create')
+const extensionContract = ref(null)
+const extensionContractLoading = ref(false)
+const extensionToggleCapability = ref('')
 const fieldRows = ref([])
 
 const providerForm = reactive({
@@ -39,14 +41,10 @@ const providerForm = reactive({
   queryProfiles: 'panel_time_series',
 })
 
-const extensionForm = reactive({
+const extensionBindForm = reactive({
   capability: '',
-  capabilityName: '',
-  capabilityDescription: '',
-  nodeName: '',
-  slots: [],
   fields: [],
-  outputScope: defaultOutputScope(),
+  fieldUsages: {},
 })
 
 const FIELD_HELP = {
@@ -114,109 +112,80 @@ const SLOT_LABELS = {
   risk_fields: '风控判断',
 }
 
-const SLOT_UI_META = {
-  universe_fields: {
-    eyebrow: '选股范围',
-    title: '候选池',
-    description: '用于决定哪些股票进入后续计算。',
-  },
-  filter_fields: {
-    eyebrow: '条件过滤',
-    title: '筛选条件',
-    description: '用于过滤股票，例如行业、风险、阈值条件。',
-  },
-  ranking_fields: {
-    eyebrow: '排序选股',
-    title: '排序打分',
-    description: '用于排名、打分、TopN 选股。',
-  },
-  signal_fields: {
-    eyebrow: '交易信号',
-    title: '买卖信号',
-    description: '用于 entry / exit 这类买卖判断。',
-  },
-  weighting_fields: {
-    eyebrow: '资金分配',
-    title: '仓位权重',
-    description: '用于目标仓位或资金权重计算。',
-  },
-  groupby_fields: {
-    eyebrow: '组合约束',
-    title: '分组控制',
-    description: '用于按行业、板块等维度分组限制。',
-  },
-  neutralization_fields: {
-    eyebrow: '因子处理',
-    title: '中性化',
-    description: '用于行业、市值等维度的中性化处理。',
-  },
-  risk_fields: {
-    eyebrow: '交易约束',
-    title: '风控判断',
-    description: '用于风险过滤或下单前约束。',
-  },
-  report_fields: {
-    eyebrow: '结果输出',
-    title: '报告展示',
-    description: '只进入结果和诊断，不直接影响交易。',
-  },
-  factor_inputs: {
-    eyebrow: '研究输入',
-    title: '因子输入',
-    description: '用于研究模式或因子计算。',
-  },
+const OUTPUT_SCOPE_LABELS = {
+  daily_panel: '股票日频数据',
+  linked_daily_panel: '关联日频数据',
+  intraday_panel: '股票盘中数据',
+  event_stream: '事件流水数据',
 }
 
-const OUTPUT_SCOPE_OPTIONS = [
-  {
-    value: 'daily_panel',
-    label: '股票日频数据',
-    badge: '日',
-    summary: '每只股票每天一行',
-    description: '适合行情、估值、换手率、自定义日频因子。',
-  },
-  {
-    value: 'linked_daily_panel',
-    label: '关联日频数据',
-    badge: '联',
-    summary: '行业/指数等数据映射回股票',
-    description: '适合行业分类、行业日线、板块日线等。',
-  },
-  {
-    value: 'intraday_panel',
-    label: '股票盘中数据',
-    badge: '分',
-    summary: '每只股票每个分钟一行',
-    description: '适合分钟行情、盘中指标、盘口衍生数据。',
-  },
-  {
-    value: 'event_stream',
-    label: '事件流水数据',
-    badge: '事',
-    summary: '按事件发生时间记录',
-    description: '适合公告、分红、龙虎榜等事件型数据。',
-  },
-]
+const ENTITY_TYPE_LABELS = {
+  stock: '股票',
+  index: '指数',
+  industry: '行业',
+  etf: 'ETF',
+  fund: '基金',
+  custom: '自定义实体',
+}
 
-const DEFAULT_SLOTS_BY_OUTPUT_SCOPE = {
-  daily_panel: ['factor_inputs', 'ranking_fields', 'filter_fields', 'weighting_fields', 'report_fields'],
+const CORE_CAPABILITIES = new Set([
+  'price.daily',
+  'benchmark.daily',
+  'price.intraday',
+  'corporate_action.dividend',
+  'tradability.limit_status',
+  'universe.tradeable_flags',
+  'universe.board_flags',
+  'order_constraints.cn_stock',
+])
+
+const DEFAULT_EXTENSION_SLOTS_BY_OUTPUT_SCOPE = {
+  daily_panel: ['ranking_fields', 'filter_fields', 'weighting_fields', 'report_fields'],
   linked_daily_panel: ['filter_fields', 'groupby_fields', 'neutralization_fields', 'report_fields'],
   intraday_panel: ['signal_fields', 'filter_fields', 'report_fields'],
   event_stream: ['filter_fields', 'ranking_fields', 'report_fields'],
 }
 
-const ENTITY_TYPE_OPTIONS = [
-  { value: 'stock', label: '股票' },
-  { value: 'index', label: '指数' },
-  { value: 'industry', label: '行业' },
-  { value: 'etf', label: 'ETF' },
-  { value: 'fund', label: '基金' },
-  { value: 'custom', label: '自定义实体' },
-]
-
 const selectedMode = computed(() =>
   modeProfiles.value.find((item) => item.mode_id === selectedModeId.value)
 )
+
+const selectedModeSlotRows = computed(() =>
+  (selectedMode.value?.extension_slots || [])
+    .map(normalizeExtensionSlot)
+    .filter((item) => item.slot)
+)
+
+const selectedModeSlotMap = computed(() => {
+  const rows = new Map()
+  for (const item of selectedModeSlotRows.value) {
+    rows.set(item.slot, item)
+  }
+  return rows
+})
+
+const modeGroups = computed(() => {
+  const groups = [
+    { key: 'research_modes', title: '研究模式', modes: [] },
+    { key: 'strategy_modes', title: '回测模式', modes: [] },
+  ]
+  const knownGroups = new Map(groups.map((group) => [group.key, group]))
+  for (const mode of modeProfiles.value) {
+    const group = knownGroups.get(mode.mode_kind)
+    if (group) {
+      group.modes.push(mode)
+    } else {
+      let extraGroup = knownGroups.get('other_modes')
+      if (!extraGroup) {
+        extraGroup = { key: 'other_modes', title: '其他模式', modes: [] }
+        knownGroups.set('other_modes', extraGroup)
+        groups.push(extraGroup)
+      }
+      extraGroup.modes.push(mode)
+    }
+  }
+  return groups.filter((group) => group.modes.length)
+})
 
 const modeCapabilityRows = computed(() => {
   const mode = selectedMode.value
@@ -224,7 +193,6 @@ const modeCapabilityRows = computed(() => {
   return [
     ...normalizeModeCapabilities(mode.required_capabilities, 'required'),
     ...normalizeModeCapabilities(mode.conditional_capabilities, 'conditional'),
-    ...normalizeModeCapabilities(mode.optional_capabilities, 'optional'),
     ...normalizeModeCapabilities(mode.extension_capability_bindings, 'extension'),
   ]
 })
@@ -239,16 +207,6 @@ const selectedCapability = computed(() =>
 
 const selectedProviderNode = computed(() =>
   providerNodes.value.find((item) => item.name === providerForm.nodeName)
-)
-
-const selectedExtensionNode = computed(() =>
-  providerNodes.value.find((item) => item.name === extensionForm.nodeName)
-)
-
-const isEditingExtension = computed(() => extensionDialogMode.value === 'edit')
-
-const extensionDialogTitle = computed(() =>
-  isEditingExtension.value ? '编辑扩展能力' : '新增扩展能力'
 )
 
 const selectedProviderBinding = computed(() =>
@@ -276,12 +234,6 @@ const sourceFieldOptions = computed(() =>
   buildSourceFieldOptions(selectedProviderBinding.value, fieldRows.value, selectedProviderNode.value)
 )
 
-const extensionSlotOptions = computed(() =>
-  (selectedMode.value?.extension_slots || [])
-    .map(normalizeExtensionSlot)
-    .filter((item) => item.slot)
-)
-
 const capabilityMetaMap = computed(() => {
   const rows = new Map()
   for (const item of capabilityRegistry.value || []) {
@@ -292,29 +244,127 @@ const capabilityMetaMap = computed(() => {
       name: String(item.name || '').trim(),
       description: String(item.description || '').trim(),
       default_slots: item.default_slots || [],
+      field_usages: normalizeFieldUsages(item.field_usages),
       output_scope: normalizeOutputScope(item.output_scope),
     })
   }
   return rows
 })
 
-const extensionNodeOptions = computed(() =>
-  providerNodes.value.filter((item) => !providerQueryProfiles(item).includes('virtual_runtime_rule'))
+const publicExtensionCapabilities = computed(() =>
+  capabilityRegistry.value
+    .filter((item) => !CORE_CAPABILITIES.has(String(item.capability || '')) && item.enabled !== false)
+    .map((item) => {
+      const capability = String(item.capability || '').trim()
+      const providerBindings = capabilities.value.filter((row) => row.capability === capability)
+      const outputScope = firstOutputScope(
+        ...providerBindings.map((binding) => binding.output_scope),
+        item.output_scope
+      )
+      const defaultFieldUsages = normalizeFieldUsages(item.field_usages)
+      return {
+        ...item,
+        capability,
+        output_scope: outputScope,
+        field_usages: defaultFieldUsages,
+        fields: extensionCapabilityFields(providerBindings, defaultFieldUsages),
+        provider_bindings: providerBindings,
+        provider_nodes: providerBindings.map((binding) => binding.provider_node),
+      }
+    })
 )
 
-const extensionFieldOptions = computed(() => {
-  const binding = capabilities.value.find(
-    (item) => item.capability === extensionForm.capability && item.provider_node === extensionForm.nodeName
-  )
-  return buildSourceFieldOptions(
-    binding,
-    extensionForm.fields.map((field) => ({ source_field: field })),
-    selectedExtensionNode.value
-  )
+const selectedModeExtensionBindingMap = computed(() => {
+  const rows = new Map()
+  for (const item of selectedMode.value?.extension_capability_bindings || []) {
+    const capability = String(item.capability || '').trim()
+    if (capability) rows.set(capability, item)
+  }
+  return rows
 })
 
-const scopeKeyFieldOptions = computed(() =>
-  buildScopeKeyFieldOptions(selectedExtensionNode.value)
+const extensionCapabilityRows = computed(() =>
+  publicExtensionCapabilities.value.map((item, index) => {
+    const binding = selectedModeExtensionBindingMap.value.get(item.capability) || null
+    const bindingFieldUsages = normalizeFieldUsages(binding?.field_usages)
+    const boundFields = Object.keys(bindingFieldUsages).length
+      ? Object.keys(bindingFieldUsages)
+      : (binding?.fields || []).map((field) => String(field || '').trim()).filter(Boolean)
+    const publicFields = item.fields.map((field) => field.name)
+    const fields = boundFields.length ? boundFields : publicFields
+    const fallbackSlots = binding?.allowed_slots || binding?.slots || capabilityDefaultSlots(item)
+    const fieldUsages = Object.keys(bindingFieldUsages).length
+      ? bindingFieldUsages
+      : buildFieldUsageMap(fields, item.field_usages, fallbackSlots)
+    const mappedFields = new Set()
+    for (const providerBinding of item.provider_bindings || []) {
+      for (const field of Object.keys(providerBinding.fields || {})) {
+        mappedFields.add(field)
+      }
+    }
+    return {
+      ...(binding || {}),
+      key: `extension:${item.capability}:${index}`,
+      section: 'extension',
+      capability: item.capability,
+      fields,
+      field_usages: fieldUsages,
+      slots: fieldUsageSlots(fieldUsages),
+      output_scope: item.output_scope,
+      default_slots: item.default_slots || [],
+      provider_bindings: item.provider_bindings || [],
+      provider_nodes: item.provider_nodes || [],
+      mapped_fields: [...mappedFields].sort(),
+      missing_fields: binding ? fields.filter((field) => !mappedFields.has(field)) : [],
+      enabled: Boolean(binding),
+    }
+  })
+)
+
+const selectedExtensionCapabilityRow = computed(() =>
+  publicExtensionCapabilities.value.find((item) => item.capability === extensionBindForm.capability) || null
+)
+
+const existingExtensionModeBinding = computed(() => {
+  const capability = extensionBindForm.capability
+  if (!capability || !selectedMode.value) return null
+  return (selectedMode.value.extension_capability_bindings || [])
+    .find((item) => item.capability === capability) || null
+})
+
+const extensionFieldOptions = computed(() => selectedExtensionCapabilityRow.value?.fields || [])
+
+const resolvedExtensionSlots = computed(() => extensionContract.value?.slots || [])
+
+const extensionUsageColumns = computed(() => {
+  return selectedModeSlotRows.value
+})
+
+const extensionFieldUsageRows = computed(() =>
+  extensionFieldOptions.value.map((field) => ({
+    ...field,
+    usages: _stringList(extensionBindForm.fieldUsages[field.name]?.usages),
+    enabled: _stringList(extensionBindForm.fieldUsages[field.name]?.usages).length > 0,
+  }))
+)
+
+const selectedExtensionFieldCount = computed(() =>
+  extensionFieldUsageRows.value.filter((item) => item.enabled).length
+)
+
+const resolvedExtensionUseRows = computed(() =>
+  resolvedExtensionSlots.value.map((slot) => {
+    const definition = selectedModeSlotMap.value.get(slot) || {}
+    return {
+      slot,
+      label: definition.name || SLOT_LABELS[slot] || slot,
+      description: definition.description || slotDescription(slot),
+    }
+  })
+)
+
+const modeAcceptsExtensionScope = computed(() =>
+  extensionContract.value?.mode_accepts_output_scope ?? true
 )
 
 const capabilityStats = computed(() => {
@@ -322,15 +372,19 @@ const capabilityStats = computed(() => {
   return {
     required: rows.filter((item) => item.section === 'required').length,
     conditional: rows.filter((item) => item.section === 'conditional').length,
-    optional: rows.filter((item) => item.section === 'optional').length,
-    extension: rows.filter((item) => item.section === 'extension').length,
-    missing: rows.filter((item) => item.missing_fields.length || !item.provider_bindings.length).length,
+    extension: extensionCapabilityRows.value.filter((item) => item.enabled).length,
   }
 })
 
+const capabilitySectionRows = computed(() => ({
+  required: dataCapabilityRows.value.filter((item) => item.section === 'required'),
+  conditional: dataCapabilityRows.value.filter((item) => item.section === 'conditional'),
+  extension: extensionCapabilityRows.value,
+}))
+
 const visibleCapabilitySections = computed(() =>
-  ['required', 'conditional', 'optional', 'extension'].filter((section) =>
-    section === 'extension' || dataCapabilityRows.value.some((item) => item.section === section)
+  ['required', 'conditional', 'extension'].filter((section) =>
+    section === 'extension' || capabilitySectionRows.value[section]?.length
   )
 )
 
@@ -363,16 +417,23 @@ function normalizeModeCapabilities(items, section) {
   return (items || []).map((item, index) => {
     const capability = String(item.capability || '').trim()
     const fields = (item.fields || []).map((field) => String(field || '').trim()).filter(Boolean)
-    const providerBindings = capabilities.value.filter((row) => row.capability === capability)
+    const providerBindings = capabilityProviderBindings(capability, item.provider_node)
     const meta = capabilityMetaMap.value.get(capability)
     const outputScope = firstOutputScope(
       ...providerBindings.map((binding) => binding.output_scope),
       meta?.output_scope
     )
-    const mappedFields = new Set()
-    for (const binding of providerBindings) {
-      for (const field of Object.keys(binding.fields || {})) {
-        mappedFields.add(field)
+    const modeFieldMap = normalizeFieldMap(item.field_map)
+    const hasModeFieldMap = Object.prototype.hasOwnProperty.call(item, 'field_map')
+    const mappedFields = new Set(Object.keys(modeFieldMap))
+    if (!hasModeFieldMap) {
+      const mappingBindings = item.provider_node
+        ? providerBindings.filter((binding) => binding.provider_node === item.provider_node)
+        : providerBindings
+      for (const binding of mappingBindings) {
+        for (const field of Object.keys(binding.fields || {})) {
+          mappedFields.add(field)
+        }
       }
     }
     return {
@@ -382,6 +443,9 @@ function normalizeModeCapabilities(items, section) {
       capability,
       fields,
       slots: item.allowed_slots || item.slots || [],
+      provider_node: String(item.provider_node || '').trim(),
+      field_map: modeFieldMap,
+      has_mode_field_map: hasModeFieldMap,
       output_scope: outputScope,
       provider_bindings: providerBindings,
       mapped_fields: [...mappedFields].sort(),
@@ -393,9 +457,9 @@ function normalizeModeCapabilities(items, section) {
 function selectCapability(row) {
   activeCapabilityKey.value = row.key
 
-  const binding = row.provider_bindings[0]
+  const binding = providerBindingForRow(row)
   const node = providerNodes.value.find((item) => item.name === binding?.provider_node) || providerOptions.value[0]
-  providerForm.nodeName = binding?.provider_node || node?.name || ''
+  providerForm.nodeName = row.provider_node || binding?.provider_node || node?.name || ''
   providerForm.capability = row.capability
   providerForm.capabilityName = capabilityLabel(row.capability)
   providerForm.capabilityDescription = binding?.description || ''
@@ -411,11 +475,18 @@ function selectCapability(row) {
 }
 
 function rebuildFieldRows(row, binding) {
-  const sourceFields = binding?.fields || {}
+  const useModeFieldMap = Boolean(row?.has_mode_field_map && (!row.provider_node || row.provider_node === providerForm.nodeName))
+  const sourceFields = useModeFieldMap ? row.field_map || {} : binding?.fields || {}
   const semanticFields = row.fields?.length ? row.fields : Object.keys(sourceFields)
   fieldRows.value = semanticFields.map((field) => ({
     semantic_field: field,
-    source_field: formatFieldValue(sourceFields[field] ?? field),
+    source_field: formatFieldValue(
+      Object.prototype.hasOwnProperty.call(sourceFields, field)
+        ? sourceFields[field]
+        : useModeFieldMap
+        ? ''
+        : field
+    ),
   }))
 }
 
@@ -426,47 +497,143 @@ function openCapabilityDialog(row) {
 
 function openCapabilityCard(row) {
   if (row?.section === 'extension') {
-    openEditExtensionDialog(row)
+    openExtensionBindDialog(row)
     return
   }
   openCapabilityDialog(row)
 }
 
-function resetExtensionForm() {
-  extensionForm.capability = ''
-  extensionForm.capabilityName = ''
-  extensionForm.capabilityDescription = ''
-  extensionForm.nodeName = ''
-  extensionForm.fields = []
-  extensionForm.outputScope = defaultOutputScope()
-  applyDefaultExtensionSlotsForScope(extensionForm.outputScope.scope_type)
+function openExtensionBindDialog(row = null) {
+  if (!selectedMode.value) {
+    ElMessage.warning('请先选择模式')
+    return
+  }
+  const capability = row?.capability || ''
+  if (!capability) {
+    ElMessage.warning('请先选择一张扩展能力卡片')
+    return
+  }
+  const hasModeBinding = Boolean(row?.enabled || selectedModeExtensionBindingMap.value.get(capability))
+  extensionBindDialogMode.value = hasModeBinding ? 'edit' : 'create'
+  extensionBindForm.capability = capability
+  applyExtensionBindingDefaults(row)
+  extensionBindDialogVisible.value = true
+  nextTick(refreshExtensionContract)
 }
 
-function openExtensionDialog() {
-  extensionDialogMode.value = 'create'
-  editingExtensionCapability.value = ''
-  resetExtensionForm()
-  extensionDialogVisible.value = true
+function applyExtensionBindingDefaults(row = null) {
+  const capability = extensionBindForm.capability
+  const binding = row?.capability === capability ? row : existingExtensionModeBinding.value
+  const capabilityRow = publicExtensionCapabilities.value.find((item) => item.capability === capability)
+  const fieldNames = (capabilityRow?.fields || []).map((field) => field.name)
+  const bindingFieldUsages = normalizeFieldUsages(binding?.field_usages)
+  const fallbackSlots = binding?.slots || binding?.allowed_slots || capabilityDefaultSlots(capabilityRow)
+  const nextFieldUsages = Object.keys(bindingFieldUsages).length
+    ? bindingFieldUsages
+    : buildFieldUsageMap(binding?.fields?.length ? binding.fields : fieldNames, capabilityRow?.field_usages, fallbackSlots)
+  extensionBindForm.fields = Object.keys(nextFieldUsages)
+  extensionBindForm.fieldUsages = nextFieldUsages
 }
 
-function openEditExtensionDialog(row) {
-  extensionDialogMode.value = 'edit'
-  editingExtensionCapability.value = row.capability
-  suppressExtensionFieldReset.value = true
-  extensionForm.capability = row.capability
-  extensionForm.capabilityName = capabilityLabel(row.capability)
-  extensionForm.capabilityDescription = capabilityMetaMap.value.get(row.capability)?.description || ''
-  extensionForm.nodeName = row.provider_bindings[0]?.provider_node || ''
-  extensionForm.slots = [...(row.slots || [])]
-  extensionForm.fields = [...(row.fields || [])]
-  extensionForm.outputScope = applyNodeKeyDefaults(
-    firstOutputScope(row.output_scope, capabilityMetaMap.value.get(row.capability)?.output_scope),
-    selectedExtensionNode.value
-  )
-  extensionDialogVisible.value = true
-  nextTick(() => {
-    suppressExtensionFieldReset.value = false
-  })
+function resetExtensionFieldUsagesToDefault() {
+  const capabilityRow = selectedExtensionCapabilityRow.value
+  const fieldNames = (capabilityRow?.fields || []).map((field) => field.name)
+  const nextFieldUsages = buildFieldUsageMap(fieldNames, capabilityRow?.field_usages, capabilityDefaultSlots(capabilityRow))
+  extensionBindForm.fields = Object.keys(nextFieldUsages)
+  extensionBindForm.fieldUsages = nextFieldUsages
+}
+
+function isExtensionFieldEnabled(field) {
+  return _stringList(extensionBindForm.fieldUsages[field]?.usages).length > 0
+}
+
+function toggleExtensionFieldEnabled(field) {
+  if (!field) return
+  if (isExtensionFieldEnabled(field)) {
+    extensionBindForm.fieldUsages = {
+      ...extensionBindForm.fieldUsages,
+      [field]: { usages: [] },
+    }
+  } else {
+    const defaults = defaultUsagesForExtensionField(selectedExtensionCapabilityRow.value, field)
+    extensionBindForm.fieldUsages = {
+      ...extensionBindForm.fieldUsages,
+      [field]: { usages: defaults },
+    }
+  }
+  syncExtensionFieldsFromUsages()
+}
+
+function isAllExtensionFieldsEnabled() {
+  return extensionFieldUsageRows.value.length > 0
+    && extensionFieldUsageRows.value.every((field) => field.enabled)
+}
+
+function isExtensionFieldsIndeterminate() {
+  const enabledCount = extensionFieldUsageRows.value.filter((field) => field.enabled).length
+  return enabledCount > 0 && enabledCount < extensionFieldUsageRows.value.length
+}
+
+function setAllExtensionFieldsEnabled(checked) {
+  const next = { ...extensionBindForm.fieldUsages }
+  for (const field of extensionFieldUsageRows.value) {
+    const current = _stringList(next[field.name]?.usages)
+    next[field.name] = {
+      usages: checked
+        ? (current.length ? current : defaultUsagesForExtensionField(selectedExtensionCapabilityRow.value, field.name))
+        : [],
+    }
+  }
+  extensionBindForm.fieldUsages = next
+  syncExtensionFieldsFromUsages()
+}
+
+function isExtensionUsageSelected(field, slot) {
+  return _stringList(extensionBindForm.fieldUsages[field]?.usages).includes(slot)
+}
+
+function toggleExtensionUsage(field, slot) {
+  if (!field || !slot) return
+  const usages = _stringList(extensionBindForm.fieldUsages[field]?.usages)
+  const nextUsages = usages.includes(slot)
+    ? usages.filter((item) => item !== slot)
+    : [...usages, slot]
+  extensionBindForm.fieldUsages = {
+    ...extensionBindForm.fieldUsages,
+    [field]: { usages: nextUsages },
+  }
+  syncExtensionFieldsFromUsages()
+}
+
+function isExtensionUsageColumnAllSelected(slot) {
+  return extensionFieldUsageRows.value.length > 0
+    && extensionFieldUsageRows.value.every((field) => isExtensionUsageSelected(field.name, slot))
+}
+
+function isExtensionUsageColumnIndeterminate(slot) {
+  const selectedCount = extensionFieldUsageRows.value
+    .filter((field) => isExtensionUsageSelected(field.name, slot)).length
+  return selectedCount > 0 && selectedCount < extensionFieldUsageRows.value.length
+}
+
+function setExtensionUsageColumn(slot, checked) {
+  if (!slot) return
+  const next = { ...extensionBindForm.fieldUsages }
+  for (const field of extensionFieldUsageRows.value) {
+    const current = _stringList(next[field.name]?.usages)
+    const usages = checked
+      ? [...new Set([...current, slot])]
+      : current.filter((item) => item !== slot)
+    next[field.name] = { usages }
+  }
+  extensionBindForm.fieldUsages = next
+  syncExtensionFieldsFromUsages()
+}
+
+function syncExtensionFieldsFromUsages() {
+  extensionBindForm.fields = Object.entries(extensionBindForm.fieldUsages)
+    .filter(([, item]) => _stringList(item?.usages).length)
+    .map(([field]) => field)
 }
 
 async function handleSaveProviderMapping() {
@@ -475,9 +642,31 @@ async function handleSaveProviderMapping() {
     ElMessage.warning('运行时规则不需要绑定 real 表字段')
     return
   }
+  if (!selectedModeId.value || !providerForm.nodeName) {
+    ElMessage.warning('请先选择模式和数据节点')
+    return
+  }
+  const fields = fieldRows.value
+    .map((row) => String(row.semantic_field || '').trim())
+    .filter(Boolean)
+  const fieldMap = {}
+  for (const row of fieldRows.value) {
+    const semanticField = String(row.semantic_field || '').trim()
+    const sourceField = normalizeSourceFieldValue(row.source_field)
+    if (semanticField && sourceField !== undefined) {
+      fieldMap[semanticField] = sourceField
+    }
+  }
   try {
-    await saveProviderMapping(providerForm, fieldRows.value)
-    ElMessage.success('字段映射已保存')
+    await saveModeCapability({
+      modeId: selectedModeId.value,
+      section: selectedCapability.value.section,
+      capability: selectedCapability.value.capability,
+      fields,
+      providerNode: providerForm.nodeName,
+      fieldMap,
+    })
+    ElMessage.success('当前模式字段映射已保存')
     await nextTick()
     const refreshed = modeCapabilityRows.value.find(
       (item) => item.capability === selectedCapability.value.capability && item.section === selectedCapability.value.section
@@ -488,56 +677,97 @@ async function handleSaveProviderMapping() {
   }
 }
 
-async function handleSaveExtensionCapability() {
-  if (!selectedModeId.value || !extensionForm.capability) return
-  const capability = normalizeExtensionCapabilityId(extensionForm.capability)
-  if (!capability) {
-    ElMessage.error('能力英文 ID 只能使用小写英文、数字和下划线，例如 sentiment_news_daily')
+async function refreshExtensionContract() {
+  if (!extensionBindDialogVisible.value || !selectedModeId.value || !extensionBindForm.capability) {
+    extensionContract.value = null
     return
   }
-  if (!extensionForm.slots.length) {
-    ElMessage.error('请选择允许使用位置')
+  const capabilityRow = selectedExtensionCapabilityRow.value
+  if (!capabilityRow) {
+    extensionContract.value = null
     return
   }
-  if (!extensionForm.nodeName || !extensionForm.fields.length) {
-    ElMessage.error('请选择数据节点和要暴露给策略的能力字段')
-    return
+  const currentKey = JSON.stringify({
+    modeId: selectedModeId.value,
+    capability: extensionBindForm.capability,
+    outputScope: capabilityRow.output_scope,
+    defaultSlots: capabilityRow.default_slots || [],
+    fields: extensionFieldOptions.value.map((field) => field.name),
+    defaultFieldUsages: capabilityRow.field_usages || {},
+    fieldUsages: extensionBindForm.fieldUsages || {},
+    slots: existingExtensionModeBinding.value?.slots || [],
+  })
+  extensionContractLoading.value = true
+  try {
+    const result = await resolveModeExtensionContract({
+      modeId: selectedModeId.value,
+      capability: extensionBindForm.capability,
+      outputScope: capabilityRow.output_scope,
+      defaultSlots: capabilityRow.default_slots || [],
+      fields: extensionFieldOptions.value.map((field) => field.name),
+      defaultFieldUsages: capabilityRow.field_usages || {},
+      fieldUsages: extensionBindForm.fieldUsages || {},
+      slots: existingExtensionModeBinding.value?.slots || [],
+    })
+    const latestKey = JSON.stringify({
+      modeId: selectedModeId.value,
+      capability: extensionBindForm.capability,
+      outputScope: selectedExtensionCapabilityRow.value?.output_scope,
+      defaultSlots: selectedExtensionCapabilityRow.value?.default_slots || [],
+      fields: extensionFieldOptions.value.map((field) => field.name),
+      defaultFieldUsages: selectedExtensionCapabilityRow.value?.field_usages || {},
+      fieldUsages: extensionBindForm.fieldUsages || {},
+      slots: existingExtensionModeBinding.value?.slots || [],
+    })
+    if (latestKey === currentKey) {
+      extensionContract.value = result
+    }
+  } catch (error) {
+    extensionContract.value = {
+      ok: false,
+      mode_accepts_output_scope: false,
+      slots: [],
+      diagnostics: [{ message: error instanceof Error ? error.message : '模式合约解析失败' }],
+    }
+  } finally {
+    extensionContractLoading.value = false
   }
+}
 
-  const selectedNode = providerNodes.value.find((item) => item.name === extensionForm.nodeName)
-  const capabilityName = String(extensionForm.capabilityName || '').trim() || capabilityLabel(capability)
-  const capabilityDescription = String(extensionForm.capabilityDescription || '').trim()
-  const nodeName = String(extensionForm.nodeName || '').trim()
+async function handleSaveModeExtensionBinding() {
+  if (!selectedModeId.value || !extensionBindForm.capability) return
+  if (!selectedExtensionCapabilityRow.value) {
+    ElMessage.error('请选择公共扩展能力')
+    return
+  }
+  if (!modeAcceptsExtensionScope.value) {
+    ElMessage.error('当前模式不接受这个扩展能力的输出维度')
+    return
+  }
+  const selectedFieldUsages = activeExtensionFieldUsages()
+  const selectedSlots = fieldUsageSlots(selectedFieldUsages)
+  if (!selectedSlots.length) {
+    ElMessage.error('当前模式没有可自动承接这个扩展能力的用途')
+    return
+  }
+  if (extensionFieldOptions.value.length && !Object.keys(selectedFieldUsages).length) {
+    ElMessage.error('请至少启用一个字段用途')
+    return
+  }
   try {
     await saveModeCapability({
       modeId: selectedModeId.value,
       section: 'extension',
-      capability,
-      fieldsText: extensionForm.fields.join(', '),
-      allowedSlots: extensionForm.slots,
+      capability: extensionBindForm.capability,
+      fieldsText: Object.keys(selectedFieldUsages).join(', '),
+      allowedSlots: selectedSlots,
+      fieldUsages: selectedFieldUsages,
     })
-    await saveProviderMapping(
-      {
-        nodeName,
-        capability,
-        capabilityName,
-        capabilityDescription,
-        defaultSlots: extensionForm.slots,
-        outputScope: extensionForm.outputScope,
-        keys: selectedNode?.keys || {},
-        assetTypes: (selectedNode?.asset_types || ['stock']).join(', '),
-        queryProfiles: providerQueryProfiles(selectedNode).join(', ') || 'panel_time_series',
-      },
-      extensionForm.fields.map((field) => ({
-        semantic_field: field,
-        source_field: field,
-      }))
-    )
-    ElMessage.success(isEditingExtension.value ? '扩展能力已更新' : '扩展能力已添加')
-    extensionDialogVisible.value = false
+    extensionBindDialogVisible.value = false
+    ElMessage.success(extensionBindDialogMode.value === 'edit' ? '扩展能力用法已更新' : '扩展能力已开启')
     await nextTick()
     const refreshed = modeCapabilityRows.value.find(
-      (item) => item.capability === capability && item.section === 'extension'
+      (item) => item.capability === extensionBindForm.capability && item.section === 'extension'
     )
     if (refreshed) selectCapability(refreshed)
   } catch (error) {
@@ -545,14 +775,90 @@ async function handleSaveExtensionCapability() {
   }
 }
 
-async function handleDeleteExtensionCapability(row) {
+function isExtensionToggleLoading(capability) {
+  return extensionToggleCapability.value === capability
+}
+
+async function handleToggleModeExtension(row, enabled) {
   if (!selectedModeId.value || !row?.capability) return
+  if (enabled) {
+    await handleEnableModeExtension(row)
+  } else {
+    await handleDisableModeExtension(row)
+  }
+}
+
+async function handleEnableModeExtension(row) {
+  if (!row.provider_bindings?.length) {
+    ElMessage.error('该扩展能力还没有绑定数据节点，请先到公共能力库维护')
+    return
+  }
+  extensionToggleCapability.value = row.capability
+  try {
+    const contract = await resolveModeExtensionContract({
+      modeId: selectedModeId.value,
+      capability: row.capability,
+      outputScope: row.output_scope,
+      defaultSlots: row.default_slots || [],
+      fields: row.fields || [],
+      defaultFieldUsages: row.field_usages || {},
+      slots: row.slots || [],
+    })
+    if (!contract?.mode_accepts_output_scope) {
+      ElMessage.error('当前模式不接受这个扩展能力的输出维度')
+      return
+    }
+    if (!contract?.slots?.length) {
+      ElMessage.error('当前模式没有可自动承接这个扩展能力的用途')
+      return
+    }
+    const fieldUsages = contract.field_usages && Object.keys(contract.field_usages).length
+      ? normalizeFieldUsages(contract.field_usages)
+      : buildFieldUsageMap(row.fields || [], row.field_usages, contract.slots)
+    await saveModeCapability({
+      modeId: selectedModeId.value,
+      section: 'extension',
+      capability: row.capability,
+      fieldsText: Object.keys(fieldUsages).join(', '),
+      allowedSlots: fieldUsageSlots(fieldUsages),
+      fieldUsages,
+    })
+    ElMessage.success('扩展能力已开启')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '开启失败')
+  } finally {
+    extensionToggleCapability.value = ''
+  }
+}
+
+async function handleDisableModeExtension(row) {
+  if (!row.enabled) return
+  extensionToggleCapability.value = row.capability
+  try {
+    await deleteModeCapability({
+      modeId: selectedModeId.value,
+      section: 'extension',
+      capability: row.capability,
+    })
+    if (extensionBindForm.capability === row.capability) {
+      extensionBindDialogVisible.value = false
+    }
+    ElMessage.success('扩展能力已关闭')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '关闭失败')
+  } finally {
+    extensionToggleCapability.value = ''
+  }
+}
+
+async function handleDeleteModeExtensionBinding() {
+  if (!selectedModeId.value || !extensionBindForm.capability) return
   try {
     await ElMessageBox.confirm(
-      `确认彻底删除扩展能力「${capabilityLabel(row.capability)}」？该操作会删除所有模式绑定，并移除 AIQuantBase 全局注册和字段映射。`,
-      '删除扩展能力',
+      `确认从当前模式解绑「${capabilityLabel(extensionBindForm.capability)}」？公共扩展能力定义会保留。`,
+      '解绑扩展能力',
       {
-        confirmButtonText: '彻底删除',
+        confirmButtonText: '解绑',
         cancelButtonText: '取消',
         type: 'warning',
       }
@@ -560,22 +866,29 @@ async function handleDeleteExtensionCapability(row) {
     await deleteModeCapability({
       modeId: selectedModeId.value,
       section: 'extension',
-      capability: row.capability,
-      deleteProviderRegistration: true,
+      capability: extensionBindForm.capability,
     })
-    if (activeCapabilityKey.value === row.key) {
-      activeCapabilityKey.value = ''
-    }
-    ElMessage.success('扩展能力已删除')
+    extensionBindDialogVisible.value = false
+    activeCapabilityKey.value = ''
+    ElMessage.success('已从当前模式解绑')
     await nextTick()
     setDefaultCapability()
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
-    ElMessage.error(error instanceof Error ? error.message : '删除失败')
+    ElMessage.error(error instanceof Error ? error.message : '解绑失败')
   }
 }
 
 function capabilityStatus(row) {
+  if (row.section === 'extension' && !row.enabled) {
+    if (!row.provider_bindings.length) return { type: 'danger', label: '未绑定数据节点' }
+    return { type: 'info', label: '未启用' }
+  }
+  if (row.section === 'extension' && row.enabled) {
+    if (!row.provider_bindings.length) return { type: 'danger', label: '未绑定数据节点' }
+    if (row.missing_fields.length) return { type: 'warning', label: `缺 ${row.missing_fields.length} 个字段` }
+    return { type: 'success', label: '已启用' }
+  }
   if (!row.provider_bindings.length) return { type: 'danger', label: '未绑定数据节点' }
   if (row.missing_fields.length) return { type: 'warning', label: `缺 ${row.missing_fields.length} 个字段` }
   return { type: 'success', label: '可用' }
@@ -591,8 +904,7 @@ function isRuntimeRuleCapability(row) {
 
 function sectionTitle(section) {
   if (section === 'required') return '必需能力'
-  if (section === 'conditional') return '条件能力'
-  if (section === 'optional') return '可选能力'
+  if (section === 'conditional') return '可选能力'
   return '扩展能力'
 }
 
@@ -668,116 +980,20 @@ function firstOutputScope(...values) {
 function outputScopeLabel(value) {
   const scope = normalizeOutputScope(value)
   if (!scope.scope_type) return '未设置输出维度'
-  const option = OUTPUT_SCOPE_OPTIONS.find((item) => item.value === scope.scope_type)
+  const label = OUTPUT_SCOPE_LABELS[scope.scope_type] || scope.scope_type
   if (scope.scope_type === 'linked_daily_panel') {
-    return `${option?.label || scope.scope_type}：${entityTypeLabel(scope.base_entity_type)} -> ${entityTypeLabel(scope.linked_entity_type)} -> ${entityTypeLabel(scope.output_entity_type)}`
+    return `${label}：${entityTypeLabel(scope.base_entity_type)} -> ${entityTypeLabel(scope.linked_entity_type)} -> ${entityTypeLabel(scope.output_entity_type)}`
   }
-  return `${option?.label || scope.scope_type}：${entityTypeLabel(scope.entity_type)}`
+  return `${label}：${entityTypeLabel(scope.entity_type)}`
 }
 
 function entityTypeLabel(value) {
-  return ENTITY_TYPE_OPTIONS.find((item) => item.value === value)?.label || value || '-'
+  return ENTITY_TYPE_LABELS[value] || value || '-'
 }
 
 function providerQueryProfiles(value) {
   const profiles = value?.query_profiles || value?.access_patterns || []
   return Array.isArray(profiles) ? profiles.map((item) => String(item || '').trim()).filter(Boolean) : []
-}
-
-function nodeDescription(node) {
-  const text = String(node?.description_zh || node?.description || '').trim()
-  if (text) return text
-  const fieldCount = Array.isArray(node?.source_fields) ? node.source_fields.length : 0
-  return fieldCount ? `${fieldCount} 个可用字段` : '暂无中文说明'
-}
-
-function isOutputScopeSelected(scopeType) {
-  return extensionForm.outputScope.scope_type === scopeType
-}
-
-function setOutputScopeType(scopeType) {
-  if (!scopeType) return
-  extensionForm.outputScope = applyNodeKeyDefaults({
-    ...extensionForm.outputScope,
-    scope_type: scopeType,
-  }, selectedExtensionNode.value)
-  applyDefaultExtensionSlotsForScope(scopeType)
-}
-
-function defaultExtensionSlotsForScope(scopeType) {
-  const allowedSlots = new Set(extensionSlotOptions.value.map((item) => item.slot))
-  return (DEFAULT_SLOTS_BY_OUTPUT_SCOPE[scopeType] || []).filter((slot) => allowedSlots.has(slot))
-}
-
-function applyDefaultExtensionSlotsForScope(scopeType) {
-  const defaults = defaultExtensionSlotsForScope(scopeType)
-  if (defaults.length) {
-    extensionForm.slots = defaults
-  }
-}
-
-function buildScopeKeyFieldOptions(node) {
-  const options = new Map()
-  const addOption = (value) => {
-    const text = String(value || '').trim()
-    if (!text || options.has(text)) return
-    const help = fieldHelp(text)
-    options.set(text, {
-      value: text,
-      label: help.label === text ? text : `${text}｜${help.label}`,
-      description: help.description,
-    })
-  }
-  for (const value of Object.values(node?.keys || {})) addOption(value)
-  for (const value of node?.source_fields || []) addOption(value)
-  return [...options.values()]
-}
-
-function applyNodeKeyDefaults(scopeValue, node) {
-  const scope = cloneOutputScope(scopeValue)
-  if (!node) return scope
-  const entityField = inferNodeEntityField(node)
-  const timeField = inferNodeTimeField(node, scope.scope_type)
-  if (entityField) scope.keys.entity = entityField
-  if (scope.scope_type === 'event_stream') {
-    if (timeField) scope.keys.event_time = timeField
-    delete scope.keys.time
-  } else {
-    if (timeField) scope.keys.time = timeField
-    delete scope.keys.event_time
-  }
-  return scope
-}
-
-function inferNodeEntityField(node) {
-  const keys = node?.keys || {}
-  return pickNodeField(node, [
-    keys.symbol,
-    keys.entity,
-    keys.code,
-    'code',
-    'market_code',
-    'index_code',
-  ])
-}
-
-function inferNodeTimeField(node, scopeType) {
-  const keys = node?.keys || {}
-  const eventCandidates = [keys.event_time, keys.publish_time, keys.payout_time, keys.time, 'event_time', 'ann_date', 'date_ex']
-  const panelCandidates = [keys.time, keys.datetime, 'trade_time', 'trade_date', 'datetime', 'date']
-  return pickNodeField(node, scopeType === 'event_stream' ? eventCandidates : panelCandidates)
-}
-
-function pickNodeField(node, candidates) {
-  const sourceFields = new Set((node?.source_fields || []).map((item) => String(item || '').trim()).filter(Boolean))
-  const keyFields = new Set(Object.values(node?.keys || {}).map((item) => String(item || '').trim()).filter(Boolean))
-  for (const candidate of candidates) {
-    const text = String(candidate || '').trim()
-    if (text && (sourceFields.has(text) || keyFields.has(text))) return text
-  }
-  for (const value of keyFields) return value
-  for (const value of sourceFields) return value
-  return ''
 }
 
 function modeDescription(mode) {
@@ -795,6 +1011,78 @@ function capabilityLabel(capability) {
   const meta = capabilityMetaMap.value.get(capability)
   if (meta?.name) return meta.name
   return CAPABILITY_LABELS[capability] || capability
+}
+
+function extensionCapabilityFields(providerBindings, defaultFieldUsages = {}) {
+  const rows = []
+  const seen = new Set()
+  const usages = normalizeFieldUsages(defaultFieldUsages)
+  for (const binding of providerBindings || []) {
+    for (const [field, source] of Object.entries(binding.fields || {})) {
+      if (seen.has(field)) continue
+      seen.add(field)
+      rows.push({
+        name: field,
+        source: sourceFieldLabel(source),
+        usages: _stringList(usages[field]?.usages),
+        ...fieldHelp(field),
+      })
+    }
+  }
+  return rows
+}
+
+function sourceFieldLabel(value) {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') {
+    if (value.derive) return `派生：${value.derive}`
+    if (value.field) return value.field
+    return '结构映射'
+  }
+  return '-'
+}
+
+function fieldHelp(field) {
+  const [label, description] = FIELD_HELP[field] || [field, '']
+  return { label, description }
+}
+
+function fieldPreview(row) {
+  if (row.section === 'extension') {
+    return extensionFieldPreview(row)
+  }
+  if (row.slots?.length && row.fields?.length) {
+    return `${row.fields.map((field) => fieldHelp(field).label).join('、')}｜用途：${row.slots.map(slotLabel).join('、')}`
+  }
+  if (row.fields?.length) {
+    return row.fields.map((field) => fieldHelp(field).label).join('、')
+  }
+  if (row.slots?.length) {
+    return `模式用途：${row.slots.map(slotLabel).join('、')}`
+  }
+  return '无需固定字段'
+}
+
+function extensionFieldPreview(row) {
+  if (!row.enabled && row.fields?.length) {
+    return `可提供字段：${row.fields.map((field) => fieldHelp(field).label).join('、')}`
+  }
+  if (row.fields?.length) {
+    return `字段：${row.fields.map((field) => fieldHelp(field).label).join('、')}`
+  }
+  if (row.mapped_fields?.length) {
+    return `已映射字段：${row.mapped_fields.map((field) => fieldHelp(field).label).join('、')}`
+  }
+  return '动态字段或无需固定字段'
+}
+
+function extensionUsePreview(row) {
+  const labels = (row.slots || []).map(slotLabel).filter(Boolean)
+  return labels.length ? labels.join('、') : '未声明'
+}
+
+function slotLabel(slot) {
+  return SLOT_LABELS[slot] || slot
 }
 
 function normalizeExtensionSlot(item) {
@@ -815,88 +1103,116 @@ function normalizeExtensionSlot(item) {
   }
 }
 
-function isExtensionSlotSelected(slot) {
-  return extensionForm.slots.includes(slot)
-}
-
-function isExtensionFieldSelected(field) {
-  return extensionForm.fields.includes(field)
-}
-
-function toggleExtensionSlot(slot) {
-  if (!slot) return
-  if (isExtensionSlotSelected(slot)) {
-    extensionForm.slots = extensionForm.slots.filter((item) => item !== slot)
-  } else {
-    extensionForm.slots = [...extensionForm.slots, slot]
-  }
-}
-
-function toggleExtensionField(field) {
-  if (!field) return
-  if (isExtensionFieldSelected(field)) {
-    extensionForm.fields = extensionForm.fields.filter((item) => item !== field)
-  } else {
-    extensionForm.fields = [...extensionForm.fields, field]
-  }
-}
-
-function selectAllExtensionFields() {
-  extensionForm.fields = extensionFieldOptions.value.map((item) => item.value)
-}
-
-function clearExtensionFields() {
-  extensionForm.fields = []
-}
-
-function normalizeExtensionCapabilityId(value) {
-  const text = String(value || '').trim()
-  if (!/^[a-z][a-z0-9_]*$/.test(text)) return ''
-  return text
-}
-
-function fieldHelp(field) {
-  const [label, description] = FIELD_HELP[field] || [field, '']
-  return { label, description }
-}
-
-function fieldPreview(row) {
-  if (row.slots?.length && row.fields?.length) {
-    return `${row.fields.map((field) => fieldHelp(field).label).join('、')}｜槽位：${row.slots.map(slotLabel).join('、')}`
-  }
-  if (row.fields?.length) {
-    return row.fields.map((field) => fieldHelp(field).label).join('、')
-  }
-  if (row.slots?.length) {
-    return `字段槽位：${row.slots.map(slotLabel).join('、')}`
-  }
-  return '无需固定字段'
-}
-
-function slotLabel(slot) {
-  return SLOT_LABELS[slot] || slot
-}
-
-function slotUiMeta(slot) {
-  return {
-    eyebrow: '扩展用途',
-    title: slotLabel(slot),
-    description: slotDescription(slot),
-    ...(SLOT_UI_META[slot] || {}),
-  }
-}
-
 function slotDescription(slot) {
   const descriptions = {
-    universe_fields: '用于构建或缩小候选股票池，例如指数成分、主题标签、自定义股票池标记。',
-    filter_fields: '用于过滤候选股票，例如财务过滤、风险过滤、龙虎榜过滤。',
-    ranking_fields: '用于排序、打分和选股，通常需要数值字段，例如市值、因子分、资金流。',
-    signal_fields: '用于买卖信号表达式，例如技术指标信号、风险预警分数。',
-    weighting_fields: '用于目标权重或仓位计算，例如目标仓位、风险权重、得分权重。',
-    report_fields: '仅用于结果输出和诊断展示，不直接影响交易决策。',
+    universe_fields: '用于构建或缩小候选股票池。',
+    filter_fields: '用于过滤候选股票。',
+    ranking_fields: '用于排序、打分和选股。',
+    signal_fields: '用于买卖信号表达式。',
+    weighting_fields: '用于目标权重或仓位计算。',
+    groupby_fields: '用于行业、主题、板块等分组统计或分组约束。',
+    neutralization_fields: '用于行业或风格中性化处理。',
+    report_fields: '仅用于结果输出和诊断展示。',
     factor_inputs: '用于研究或因子计算的输入字段。',
   }
   return descriptions[slot] || '当前模式定义的扩展数据使用位置。'
+}
+
+function _stringList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean)
+  }
+  if (typeof value === 'string') {
+    return value.split(',').map((item) => item.trim()).filter(Boolean)
+  }
+  return []
+}
+
+function normalizeFieldUsages(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const rows = {}
+  for (const [field, item] of Object.entries(value)) {
+    const fieldName = String(field || '').trim()
+    if (!fieldName) continue
+    const usages = Array.isArray(item)
+      ? _stringList(item)
+      : _stringList(item?.usages || item?.slots || item?.allowed_slots)
+    if (usages.length) rows[fieldName] = { usages }
+  }
+  return rows
+}
+
+function normalizeFieldMap(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const rows = {}
+  for (const [field, source] of Object.entries(value)) {
+    const fieldName = String(field || '').trim()
+    if (!fieldName || source === undefined || source === null || source === '') continue
+    rows[fieldName] = source
+  }
+  return rows
+}
+
+function capabilityProviderBindings(capability, preferredProviderNode = '') {
+  const rows = capabilities.value.filter((row) => row.capability === capability)
+  const preferred = String(preferredProviderNode || '').trim()
+  if (!preferred) return rows
+  return [
+    ...rows.filter((row) => row.provider_node === preferred),
+    ...rows.filter((row) => row.provider_node !== preferred),
+  ]
+}
+
+function providerBindingForRow(row) {
+  const providerNode = String(row?.provider_node || '').trim()
+  if (providerNode) {
+    return (row.provider_bindings || []).find((binding) => binding.provider_node === providerNode) || row.provider_bindings?.[0]
+  }
+  return row?.provider_bindings?.[0]
+}
+
+function fieldUsageSlots(fieldUsages) {
+  const slots = new Set()
+  for (const item of Object.values(normalizeFieldUsages(fieldUsages))) {
+    for (const slot of _stringList(item.usages)) slots.add(slot)
+  }
+  return [...slots].sort()
+}
+
+function buildFieldUsageMap(fields, defaultFieldUsages = {}, fallbackSlots = []) {
+  const defaults = normalizeFieldUsages(defaultFieldUsages)
+  const fallback = _stringList(fallbackSlots)
+  const allowed = new Set(selectedModeSlotRows.value.map((item) => item.slot))
+  const rows = {}
+  for (const field of _stringList(fields)) {
+    const usages = _stringList(defaults[field]?.usages || fallback).filter((slot) => allowed.has(slot))
+    if (usages.length) rows[field] = { usages }
+  }
+  return rows
+}
+
+function capabilityDefaultSlots(capabilityRow) {
+  const explicit = _stringList(capabilityRow?.default_slots)
+  if (explicit.length) return explicit
+  const scopeType = normalizeOutputScope(capabilityRow?.output_scope).scope_type
+  return DEFAULT_EXTENSION_SLOTS_BY_OUTPUT_SCOPE[scopeType] || []
+}
+
+function defaultUsagesForExtensionField(capabilityRow, field) {
+  const defaults = normalizeFieldUsages(capabilityRow?.field_usages)
+  const usages = _stringList(defaults[field]?.usages)
+  return usages.length
+    ? usages.filter((slot) => selectedModeSlotMap.value.has(slot))
+    : capabilityDefaultSlots(capabilityRow).filter((slot) => selectedModeSlotMap.value.has(slot))
+}
+
+function activeExtensionFieldUsages() {
+  const rows = {}
+  for (const [field, item] of Object.entries(normalizeFieldUsages(extensionBindForm.fieldUsages))) {
+    const usages = _stringList(item.usages).filter((slot) => selectedModeSlotMap.value.has(slot))
+    if (usages.length) rows[field] = { usages }
+  }
+  return rows
 }
 
 function formatFieldValue(value) {
@@ -904,6 +1220,21 @@ function formatFieldValue(value) {
     return JSON.stringify(value)
   }
   return String(value ?? '')
+}
+
+function normalizeSourceFieldValue(value) {
+  if (value === null || value === undefined) return undefined
+  if (typeof value !== 'string') return value
+  const text = value.trim()
+  if (!text) return undefined
+  if (text.startsWith('{') || text.startsWith('[')) {
+    try {
+      return JSON.parse(text)
+    } catch {
+      return text
+    }
+  }
+  return text
 }
 
 function buildSourceFieldOptions(binding, rows, node) {
@@ -938,6 +1269,7 @@ watch(modeProfiles, () => {
 
 watch(selectedModeId, () => {
   activeCapabilityKey.value = ''
+  extensionBindDialogVisible.value = false
   nextTick(setDefaultCapability)
 })
 
@@ -950,18 +1282,11 @@ watch(
 )
 
 watch(
-  () => extensionForm.nodeName,
+  () => extensionBindForm.capability,
   () => {
-    if (suppressExtensionFieldReset.value) return
-    extensionForm.fields = []
-    extensionForm.outputScope = applyNodeKeyDefaults(extensionForm.outputScope, selectedExtensionNode.value)
-  }
-)
-
-watch(
-  () => extensionForm.outputScope.scope_type,
-  () => {
-    extensionForm.outputScope = applyNodeKeyDefaults(extensionForm.outputScope, selectedExtensionNode.value)
+    if (!extensionBindDialogVisible.value) return
+    applyExtensionBindingDefaults()
+    refreshExtensionContract()
   }
 )
 
@@ -975,22 +1300,28 @@ onMounted(ensureWorkspace)
         <el-card class="panel-card" shadow="never">
           <div class="mode-intro">
             <h2>模式工作台</h2>
-            <p>选择一个业务模式，右侧会联动显示该模式需要的数据能力、字段映射和待处理项。</p>
+            <p>选择一个业务模式，右侧会联动显示该模式需要的数据能力和字段映射。</p>
           </div>
 
           <div class="mode-list">
-            <button
-              v-for="mode in modeProfiles"
-              :key="mode.mode_id"
-              type="button"
-              class="mode-option"
-              :class="{ active: selectedModeId === mode.mode_id }"
-              @click="selectedModeId = mode.mode_id"
-            >
-              <strong>{{ mode.mode_name }}</strong>
-              <span>{{ modeKindLabel(mode.mode_kind) }}</span>
-              <p>{{ modeDescription(mode) }}</p>
-            </button>
+            <section v-for="group in modeGroups" :key="group.key" class="mode-group">
+              <div class="mode-group-title">
+                <span>{{ group.title }}</span>
+                <em>{{ group.modes.length }}</em>
+              </div>
+              <button
+                v-for="mode in group.modes"
+                :key="mode.mode_id"
+                type="button"
+                class="mode-option"
+                :class="{ active: selectedModeId === mode.mode_id }"
+                @click="selectedModeId = mode.mode_id"
+              >
+                <strong>{{ mode.mode_name }}</strong>
+                <span>{{ modeKindLabel(mode.mode_kind) }}</span>
+                <p>{{ modeDescription(mode) }}</p>
+              </button>
+            </section>
           </div>
         </el-card>
       </aside>
@@ -1003,36 +1334,38 @@ onMounted(ensureWorkspace)
             <p>{{ modeDescription(selectedMode) }}</p>
           </div>
           <div class="inline-stats">
-            <span><strong>{{ capabilityStats.required }}</strong> 必需</span>
-            <span><strong>{{ capabilityStats.conditional }}</strong> 条件</span>
-            <span><strong>{{ capabilityStats.optional }}</strong> 可选</span>
-            <span><strong>{{ capabilityStats.extension }}</strong> 扩展</span>
-            <span><strong>{{ capabilityStats.missing }}</strong> 待处理</span>
+            <span><strong>{{ capabilityStats.required }}</strong><em>必需</em></span>
+            <span><strong>{{ capabilityStats.conditional }}</strong><em>可选</em></span>
+            <span><strong>{{ capabilityStats.extension }}</strong><em>扩展</em></span>
           </div>
         </div>
 
         <section v-for="section in visibleCapabilitySections" :key="section" class="cap-section">
           <div class="section-title">
-            <h2>{{ sectionTitle(section) }}</h2>
-            <el-button
-              v-if="section === 'extension'"
-              size="large"
-              type="primary"
-              class="extension-add-button"
-              @click="openExtensionDialog"
-            >
-              新增扩展能力
-            </el-button>
+            <div>
+              <h2>{{ sectionTitle(section) }}</h2>
+              <p v-if="section === 'extension'" class="section-subtitle">
+                已启用 {{ capabilityStats.extension }} / {{ publicExtensionCapabilities.length }} 个。默认展示全部公共扩展能力；开关只影响当前模式是否启用，公共定义在扩展能力库维护。
+              </p>
+            </div>
+            <div v-if="section === 'extension'" class="section-actions">
+              <el-button size="large" plain @click="navigateTo('/extensions')">公共能力库</el-button>
+            </div>
           </div>
 
-          <div v-if="dataCapabilityRows.filter((item) => item.section === section).length" class="capability-grid">
+          <div v-if="capabilitySectionRows[section]?.length" class="capability-grid">
             <div
-              v-for="row in dataCapabilityRows.filter((item) => item.section === section)"
+              v-for="row in capabilitySectionRows[section]"
               :key="row.key"
               role="button"
               tabindex="0"
               class="capability-card"
-              :class="{ active: activeCapabilityKey === row.key }"
+              :class="{
+                active: activeCapabilityKey === row.key,
+                'extension-card': row.section === 'extension',
+                'extension-enabled': row.section === 'extension' && row.enabled,
+                'extension-disabled': row.section === 'extension' && !row.enabled,
+              }"
               @click="openCapabilityCard(row)"
               @keydown.enter="openCapabilityCard(row)"
               @keydown.space.prevent="openCapabilityCard(row)"
@@ -1040,11 +1373,30 @@ onMounted(ensureWorkspace)
               <div class="card-head">
                 <div>
                   <strong>{{ capabilityLabel(row.capability) }}</strong>
-                  <span>{{ row.capability }}</span>
+                  <span class="capability-id">{{ row.capability }}</span>
                 </div>
-                <el-tag :type="capabilityStatus(row).type" size="small">{{ capabilityStatus(row).label }}</el-tag>
+                <div class="card-controls">
+                  <el-tag :type="capabilityStatus(row).type" size="small">{{ capabilityStatus(row).label }}</el-tag>
+                  <el-switch
+                    v-if="row.section === 'extension'"
+                    :model-value="row.enabled"
+                    :loading="isExtensionToggleLoading(row.capability)"
+                    :disabled="!row.provider_bindings.length || isExtensionToggleLoading(row.capability)"
+                    size="small"
+                    inline-prompt
+                    active-text="开"
+                    inactive-text="关"
+                    @click.stop
+                    @keydown.stop
+                    @change="(value) => handleToggleModeExtension(row, value)"
+                  />
+                </div>
               </div>
-              <p>{{ fieldPreview(row) }}</p>
+              <p class="card-field-preview" :title="fieldPreview(row)">{{ fieldPreview(row) }}</p>
+              <div v-if="row.section === 'extension' && row.enabled" class="extension-use-summary">
+                <span>模式用途</span>
+                <strong>{{ extensionUsePreview(row) }}</strong>
+              </div>
               <div class="provider-tags">
                 <el-tag v-for="binding in row.provider_bindings" :key="binding.provider_node" size="small" effect="plain">
                   {{ binding.provider_node }}
@@ -1055,9 +1407,8 @@ onMounted(ensureWorkspace)
                 <el-tag v-if="!row.provider_bindings.length" size="small" type="danger" effect="plain">未绑定</el-tag>
               </div>
               <div v-if="row.section === 'extension'" class="extension-card-actions">
-                <el-button size="small" plain @click.stop="openEditExtensionDialog(row)">编辑</el-button>
-                <el-button size="small" plain type="danger" @click.stop="handleDeleteExtensionCapability(row)">
-                  删除
+                <el-button size="small" plain @click.stop="openExtensionBindDialog(row)">
+                  {{ row.enabled ? '编辑用法' : '配置并开启' }}
                 </el-button>
               </div>
             </div>
@@ -1066,7 +1417,7 @@ onMounted(ensureWorkspace)
             v-else
             class="section-empty"
             :image-size="68"
-            :description="section === 'extension' ? '当前模式暂无扩展能力' : '暂无能力'"
+            :description="section === 'extension' ? '暂无公共扩展能力，请先到扩展能力库新增' : '暂无能力'"
           />
         </section>
       </main>
@@ -1076,6 +1427,8 @@ onMounted(ensureWorkspace)
       v-model="configDialogVisible"
       width="min(980px, 92vw)"
       class="capability-dialog"
+      align-center
+      append-to-body
       destroy-on-close
     >
       <template #header>
@@ -1158,297 +1511,146 @@ onMounted(ensureWorkspace)
             :disabled="activeProviderIsVirtual || !fieldRows.length || !providerForm.nodeName"
             @click="handleSaveProviderMapping"
           >
-            保存字段映射
+            保存当前模式字段映射
           </el-button>
         </div>
       </template>
     </el-dialog>
 
     <el-dialog
-      v-model="extensionDialogVisible"
-      :title="extensionDialogTitle"
-      width="min(920px, calc(100vw - 32px))"
-      class="extension-capability-dialog"
+      v-model="extensionBindDialogVisible"
+      width="min(920px, 92vw)"
+      class="mode-extension-dialog"
       align-center
       append-to-body
       destroy-on-close
     >
-      <div class="extension-dialog-scroll">
-        <el-form label-position="top" class="extension-form">
-          <section class="extension-step-card">
-            <div class="extension-step-title">
-              <span>01</span>
-              <h3>基础信息</h3>
-            </div>
-            <div class="extension-form-grid two">
-              <el-form-item label="能力英文名">
-                <el-input
-                  v-model="extensionForm.capability"
-                  clearable
-                  :disabled="isEditingExtension"
-                  placeholder="例如 sentiment_news_daily"
-                />
-              </el-form-item>
+      <template #header>
+        <div class="dialog-title">
+          <div>
+            <p>{{ selectedMode?.mode_name }} / 扩展能力</p>
+            <h2>{{ extensionBindDialogMode === 'edit' ? '编辑模式用法' : '配置并开启扩展能力' }}</h2>
+            <span>公共能力定义在扩展能力库维护，这里只配置当前模式如何使用。</span>
+          </div>
+        </div>
+      </template>
 
-              <el-form-item label="能力中文名">
-                <el-input
-                  v-model="extensionForm.capabilityName"
-                  clearable
-                  placeholder="例如 新闻情绪日频"
-                />
-              </el-form-item>
-            </div>
-            <el-form-item label="能力说明">
-              <el-input
-                v-model="extensionForm.capabilityDescription"
-                type="textarea"
-                :rows="2"
-                placeholder="简要说明这份数据在策略里解决什么问题"
-              />
-            </el-form-item>
-          </section>
+      <section class="extension-bind-body">
+        <div v-if="selectedExtensionCapabilityRow" class="extension-public-summary">
+          <div>
+            <strong>{{ selectedExtensionCapabilityRow.name || selectedExtensionCapabilityRow.capability }}</strong>
+            <span>{{ selectedExtensionCapabilityRow.description || '暂无说明' }}</span>
+          </div>
+          <div class="provider-tags">
+            <el-tag size="small" type="info" effect="plain">
+              {{ outputScopeLabel(selectedExtensionCapabilityRow.output_scope) }}
+            </el-tag>
+            <el-tag
+              v-for="node in selectedExtensionCapabilityRow.provider_nodes"
+              :key="node"
+              size="small"
+              effect="plain"
+            >
+              {{ node }}
+            </el-tag>
+          </div>
+        </div>
 
-          <section class="extension-step-card">
-            <div class="extension-step-title">
-              <span>02</span>
-              <h3>数据来源</h3>
+        <el-alert
+          v-if="selectedExtensionCapabilityRow && !modeAcceptsExtensionScope"
+          type="warning"
+          :closable="false"
+          show-icon
+          title="当前模式不接受这个扩展能力的输出维度"
+        />
+
+        <section class="extension-bind-panel">
+          <div class="extension-bind-title">
+            <div>
+              <strong>字段用途确认</strong>
+              <span>每行是一个字段，每列是当前模式可承接的业务用途；默认继承扩展能力库。</span>
             </div>
-            <el-form-item label="数据节点">
-              <el-select
-                v-model="extensionForm.nodeName"
-                filterable
-                allow-create
-                default-first-option
-                class="full-width"
-                popper-class="extension-capability-popper"
-                placeholder="选择 real 表节点"
-              >
-                <el-option
-                  v-for="node in extensionNodeOptions"
-                  :key="node.name"
-                  :label="node.name"
-                  :value="node.name"
+            <el-button size="small" text type="primary" @click="resetExtensionFieldUsagesToDefault">恢复默认用途</el-button>
+          </div>
+          <el-skeleton v-if="extensionContractLoading" :rows="2" animated />
+          <div
+            v-else-if="extensionFieldUsageRows.length && extensionUsageColumns.length"
+            class="field-usage-table"
+            :style="{ '--usage-column-count': extensionUsageColumns.length }"
+          >
+            <div class="field-usage-head">
+              <span>字段</span>
+              <div class="usage-head-cell">
+                <el-checkbox
+                  :model-value="isAllExtensionFieldsEnabled()"
+                  :indeterminate="isExtensionFieldsIndeterminate()"
+                  @change="setAllExtensionFieldsEnabled"
                 >
-                  <div class="node-option">
-                    <strong>{{ node.name }}</strong>
-                    <span>{{ nodeDescription(node) }}</span>
-                  </div>
-                </el-option>
-              </el-select>
-            </el-form-item>
-            <div v-if="selectedExtensionNode" class="selected-node-summary">
-              <span>{{ selectedExtensionNode.source_fields?.length || 0 }} 个字段</span>
-              <span>{{ providerQueryProfiles(selectedExtensionNode).join(' / ') || '未声明查询方式' }}</span>
-            </div>
-          </section>
-
-          <section class="extension-step-card">
-            <div class="extension-step-title">
-              <span>03</span>
-              <h3>输出维度</h3>
-            </div>
-            <div class="scope-editor">
-              <div class="output-scope-grid">
-                <button
-                  v-for="option in OUTPUT_SCOPE_OPTIONS"
-                  :key="option.value"
-                  type="button"
-                  class="output-scope-card"
-                  :class="{ active: isOutputScopeSelected(option.value) }"
-                  @click="setOutputScopeType(option.value)"
-                >
-                  <span class="scope-badge">{{ option.badge }}</span>
-                  <strong>{{ option.label }}</strong>
-                  <em>{{ option.summary }}</em>
-                </button>
+                  启用
+                </el-checkbox>
               </div>
-
-              <div v-if="extensionForm.outputScope.scope_type === 'linked_daily_panel'" class="scope-grid three">
-                <div class="scope-field">
-                  <label>基础实体</label>
-                  <el-select
-                    v-model="extensionForm.outputScope.base_entity_type"
-                    popper-class="extension-capability-popper"
-                    placeholder="选择基础实体"
-                  >
-                    <el-option
-                      v-for="option in ENTITY_TYPE_OPTIONS"
-                      :key="`base-${option.value}`"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </div>
-                <div class="scope-field">
-                  <label>关联实体</label>
-                  <el-select
-                    v-model="extensionForm.outputScope.linked_entity_type"
-                    popper-class="extension-capability-popper"
-                    placeholder="选择关联实体"
-                  >
-                    <el-option
-                      v-for="option in ENTITY_TYPE_OPTIONS"
-                      :key="`linked-${option.value}`"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </div>
-                <div class="scope-field">
-                  <label>输出实体</label>
-                  <el-select
-                    v-model="extensionForm.outputScope.output_entity_type"
-                    popper-class="extension-capability-popper"
-                    placeholder="选择输出实体"
-                  >
-                    <el-option
-                      v-for="option in ENTITY_TYPE_OPTIONS"
-                      :key="`output-${option.value}`"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </div>
-              </div>
-
-              <div v-else class="scope-grid">
-                <div class="scope-field">
-                  <label>实体类型</label>
-                  <el-select
-                    v-model="extensionForm.outputScope.entity_type"
-                    popper-class="extension-capability-popper"
-                    placeholder="选择实体类型"
-                  >
-                    <el-option
-                      v-for="option in ENTITY_TYPE_OPTIONS"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </div>
-              </div>
-
-              <div class="scope-grid">
-                <div class="scope-field">
-                  <label>实体字段</label>
-                  <el-select
-                    v-model="extensionForm.outputScope.keys.entity"
-                    filterable
-                    class="full-width"
-                    popper-class="extension-capability-popper"
-                    :disabled="!scopeKeyFieldOptions.length"
-                    placeholder="选择数据节点后自动匹配"
-                  >
-                    <el-option
-                      v-for="option in scopeKeyFieldOptions"
-                      :key="`entity-${option.value}`"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </div>
-                <div v-if="extensionForm.outputScope.scope_type === 'event_stream'" class="scope-field">
-                  <label>事件时间字段</label>
-                  <el-select
-                    v-model="extensionForm.outputScope.keys.event_time"
-                    filterable
-                    class="full-width"
-                    popper-class="extension-capability-popper"
-                    :disabled="!scopeKeyFieldOptions.length"
-                    placeholder="选择事件时间字段"
-                  >
-                    <el-option
-                      v-for="option in scopeKeyFieldOptions"
-                      :key="`event-time-${option.value}`"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </div>
-                <div v-else class="scope-field">
-                  <label>时间字段</label>
-                  <el-select
-                    v-model="extensionForm.outputScope.keys.time"
-                    filterable
-                    class="full-width"
-                    popper-class="extension-capability-popper"
-                    :disabled="!scopeKeyFieldOptions.length"
-                    placeholder="选择数据节点后自动匹配"
-                  >
-                    <el-option
-                      v-for="option in scopeKeyFieldOptions"
-                      :key="`time-${option.value}`"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="extension-step-card">
-            <div class="extension-step-title">
-              <span>04</span>
-              <h3>策略用途</h3>
-            </div>
-            <div v-if="extensionSlotOptions.length" class="usage-choice-grid">
-              <button
-                v-for="slot in extensionSlotOptions"
+              <div
+                v-for="slot in extensionUsageColumns"
                 :key="slot.slot"
-                type="button"
-                class="usage-choice-card"
-                :class="{ active: isExtensionSlotSelected(slot.slot) }"
-                @click="toggleExtensionSlot(slot.slot)"
+                class="usage-head-cell"
+                :title="slot.description"
               >
-                <span>{{ slotUiMeta(slot.slot).eyebrow }}</span>
-                <strong>{{ slot.name || slotUiMeta(slot.slot).title }}</strong>
-                <em>{{ isExtensionSlotSelected(slot.slot) ? '已选择' : '点击选择' }}</em>
-              </button>
-            </div>
-            <el-empty v-else description="当前模式没有定义扩展用途" :image-size="72" />
-          </section>
-
-          <section class="extension-step-card">
-            <div class="extension-step-title">
-              <span>05</span>
-              <h3>策略可用字段</h3>
-            </div>
-            <div class="field-picker-toolbar">
-              <span>已选择 {{ extensionForm.fields.length }} / {{ extensionFieldOptions.length }}</span>
-              <div>
-                <el-button size="small" text type="primary" @click="selectAllExtensionFields">全选</el-button>
-                <el-button size="small" text @click="clearExtensionFields">清空</el-button>
+                <el-checkbox
+                  :model-value="isExtensionUsageColumnAllSelected(slot.slot)"
+                  :indeterminate="isExtensionUsageColumnIndeterminate(slot.slot)"
+                  @change="(checked) => setExtensionUsageColumn(slot.slot, checked)"
+                >
+                  {{ slot.name || slotLabel(slot.slot) }}
+                </el-checkbox>
               </div>
             </div>
-            <div v-if="extensionFieldOptions.length" class="field-choice-list">
-              <button
-                v-for="option in extensionFieldOptions"
-                :key="option.value"
-                type="button"
-                class="field-choice-row"
-                :class="{ active: isExtensionFieldSelected(option.value) }"
-                @click="toggleExtensionField(option.value)"
-              >
-                <span class="field-choice-main">
-                  <strong>{{ fieldHelp(option.value).label }}</strong>
-                  <code>{{ option.value }}</code>
-                </span>
-                <small>{{ option.description || fieldHelp(option.value).description || '来自所选数据节点' }}</small>
-                <em>{{ isExtensionFieldSelected(option.value) ? '已选' : '选择' }}</em>
-              </button>
+            <div
+              v-for="field in extensionFieldUsageRows"
+              :key="field.name"
+              class="field-usage-row"
+              :class="{ disabled: !field.enabled }"
+            >
+              <div class="field-usage-name">
+                <strong>{{ field.label }}</strong>
+                <code>{{ field.name }}</code>
+                <small>{{ field.description || '来自公共扩展能力' }}</small>
+              </div>
+              <el-switch
+                :model-value="field.enabled"
+                size="small"
+                @change="() => toggleExtensionFieldEnabled(field.name)"
+              />
+              <el-checkbox
+                v-for="slot in extensionUsageColumns"
+                :key="`${field.name}-${slot.slot}`"
+                :model-value="isExtensionUsageSelected(field.name, slot.slot)"
+                :disabled="!field.enabled"
+                @change="() => toggleExtensionUsage(field.name, slot.slot)"
+              />
             </div>
-            <el-empty v-else description="请先选择数据节点" :image-size="64" />
-          </section>
-        </el-form>
-      </div>
+          </div>
+          <el-empty v-else description="当前模式没有可自动承接的位置或扩展能力未声明字段" :image-size="64" />
+        </section>
+
+        <div v-if="extensionFieldUsageRows.length" class="extension-usage-summary">
+          已启用 {{ selectedExtensionFieldCount }} 个字段，{{ fieldUsageSlots(activeExtensionFieldUsages()).length }} 类用途。
+        </div>
+      </section>
 
       <template #footer>
         <div class="dialog-actions">
-          <el-button @click="extensionDialogVisible = false">关闭</el-button>
-          <el-button type="primary" :loading="saving" @click="handleSaveExtensionCapability">
-            {{ isEditingExtension ? '保存修改' : '添加到当前模式' }}
+          <el-button @click="extensionBindDialogVisible = false">关闭</el-button>
+          <el-button
+            v-if="extensionBindDialogMode === 'edit'"
+            plain
+            type="danger"
+            :loading="saving"
+            @click="handleDeleteModeExtensionBinding"
+          >
+            解绑
+          </el-button>
+          <el-button type="primary" :loading="saving" @click="handleSaveModeExtensionBinding">
+            {{ extensionBindDialogMode === 'edit' ? '保存模式用法' : '开启当前模式' }}
           </el-button>
         </div>
       </template>
@@ -1508,15 +1710,6 @@ onMounted(ensureWorkspace)
   gap: 12px;
 }
 
-.extension-add-button {
-  min-height: 42px;
-  padding: 0 20px;
-  border-radius: 8px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  box-shadow: 0 8px 18px rgba(24, 120, 86, 0.18);
-}
-
 .mode-intro {
   padding: 2px 2px 14px;
   border-bottom: 1px solid rgba(65, 88, 72, 0.1);
@@ -1537,7 +1730,7 @@ onMounted(ensureWorkspace)
   line-height: 1.5;
 }
 
-.card-head span,
+.card-head .capability-id,
 .dialog-title p,
 .dialog-title span {
   color: #6c786f;
@@ -1547,8 +1740,41 @@ onMounted(ensureWorkspace)
 .mode-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
   padding-top: 14px;
+}
+
+.mode-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.mode-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.mode-group-title span {
+  color: #2b4637;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mode-group-title em {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(57, 102, 74, 0.08);
+  color: #526259;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 20px;
+  text-align: center;
 }
 
 .mode-option {
@@ -1596,6 +1822,10 @@ onMounted(ensureWorkspace)
   background: rgba(255, 255, 255, 0.72);
 }
 
+.mode-context > div:first-child {
+  min-width: 0;
+}
+
 .mode-context span,
 .inline-stats span {
   color: #6c786f;
@@ -1604,20 +1834,34 @@ onMounted(ensureWorkspace)
 
 .inline-stats {
   display: grid;
-  grid-template-columns: repeat(2, minmax(74px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, 58px);
+  gap: 6px;
+  flex: 0 0 auto;
   justify-content: flex-end;
-  min-width: 300px;
 }
 
 .inline-stats span {
-  padding: 6px 10px;
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: baseline;
+  column-gap: 4px;
+  height: 28px;
+  padding: 5px 7px;
   border-radius: 8px;
   background: rgba(57, 102, 74, 0.08);
+  white-space: nowrap;
 }
 
 .inline-stats strong {
   color: #1e3327;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.inline-stats em {
+  color: #6c786f;
+  font-style: normal;
+  text-align: left;
 }
 
 h2,
@@ -1626,23 +1870,55 @@ h3 {
   color: #1e3327;
 }
 
+.section-subtitle {
+  margin: 4px 0 0;
+  color: #6c786f;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .cap-section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+}
+
+:global(.el-overlay:has(.capability-dialog)),
+:global(.el-overlay:has(.mode-extension-dialog)) {
+  z-index: 10020 !important;
+}
+
+:global(.el-overlay-dialog:has(.capability-dialog)),
+:global(.el-overlay-dialog:has(.mode-extension-dialog)) {
+  padding: 12px;
+  overflow: hidden;
+}
+
+:global(.capability-dialog),
+:global(.mode-extension-dialog) {
+  margin: 0;
+  max-height: calc(100vh - 48px);
 }
 
 .capability-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  justify-content: start;
 }
 
 .capability-card {
   display: flex;
   flex-direction: column;
-  min-height: 132px;
-  padding: 16px;
+  min-height: 88px;
+  padding: 9px 10px;
   border-radius: 8px;
   border: 1px solid rgba(65, 88, 72, 0.14);
   background: rgba(255, 255, 255, 0.9);
@@ -1653,43 +1929,147 @@ h3 {
 
 .capability-card:hover,
 .capability-card.active {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   border-color: rgba(31, 109, 79, 0.42);
   box-shadow: var(--shadow-md);
+}
+
+.capability-card.extension-disabled {
+  background: rgba(249, 251, 249, 0.72);
+}
+
+.capability-card.extension-disabled p,
+.capability-card.extension-disabled .provider-tags {
+  opacity: 0.78;
 }
 
 .card-head {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 6px;
   align-items: flex-start;
 }
 
+.card-head > div {
+  min-width: 0;
+}
+
 .card-head strong,
-.card-head span {
+.card-head .capability-id {
   display: block;
 }
 
-.capability-card p {
-  margin: 12px 0;
-  color: #526259;
+.card-head strong {
+  max-width: 100%;
+  overflow: hidden;
   font-size: 13px;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-head .capability-id {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: auto;
+}
+
+.card-controls :deep(.el-switch) {
+  --el-switch-on-color: #187856;
+}
+
+.capability-card .card-field-preview {
+  display: -webkit-box;
+  margin: 6px 0 7px;
+  min-height: 28px;
+  max-height: 28px;
+  overflow: hidden;
+  color: #526259;
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .provider-tags {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  gap: 4px;
+  max-width: 100%;
+  min-height: 20px;
+  max-height: 20px;
+  overflow: hidden;
+}
+
+.extension-use-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: auto 0 7px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: rgba(57, 102, 74, 0.08);
+}
+
+.extension-use-summary span {
+  flex: 0 0 auto;
+  color: #6c786f;
+  font-size: 11px;
+}
+
+.extension-use-summary strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #1e3327;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capability-card :deep(.el-tag) {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.capability-card :deep(.el-tag__content) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .extension-card-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 5px;
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 6px;
+}
+
+.extension-card-actions :deep(.el-button) {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
 }
 
 .dialog-title {
@@ -1708,505 +2088,232 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: min(500px, calc(100vh - 260px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 2px 10px;
 }
 
 .node-form {
   max-width: 520px;
 }
 
-.extension-form {
-  width: 100%;
-}
-
-:deep(.extension-form .el-form-item) {
-  margin-bottom: 10px;
-}
-
-:deep(.extension-form .el-form-item:last-child) {
-  margin-bottom: 0;
-}
-
-:global(.el-overlay:has(.extension-capability-dialog)) {
-  z-index: 9999 !important;
-}
-
-:global(.el-overlay-dialog:has(.extension-capability-dialog)) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  overflow: hidden;
-}
-
-:global(.extension-capability-dialog) {
-  margin: 0;
+.extension-bind-body {
   display: flex;
   flex-direction: column;
-  height: min(700px, calc(100vh - 24px));
-  max-height: calc(100vh - 24px);
-  border-radius: 14px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 16% 0%, rgba(42, 126, 92, 0.12), transparent 34%),
-    linear-gradient(180deg, #ffffff 0%, #f8fbf8 100%);
-  box-shadow: 0 28px 76px rgba(18, 40, 28, 0.24);
-}
-
-:global(.extension-capability-dialog .el-dialog__header) {
-  padding: 12px 20px 10px;
-  margin: 0;
-  border-bottom: 1px solid rgba(65, 88, 72, 0.1);
-}
-
-:global(.extension-capability-dialog .el-dialog__title) {
-  color: #14281d;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-}
-
-:global(.extension-capability-dialog .el-dialog__headerbtn) {
-  top: 9px;
-  right: 14px;
-}
-
-:global(.extension-capability-dialog .el-dialog__body) {
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 0;
-  overflow: hidden;
-}
-
-:global(.extension-capability-dialog .el-dialog__footer) {
-  padding: 10px 20px 12px;
-  border-top: 1px solid rgba(65, 88, 72, 0.1);
-  background: rgba(255, 255, 255, 0.92);
-}
-
-:global(.extension-capability-popper) {
-  z-index: 10001 !important;
-}
-
-.extension-dialog-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: none;
+  gap: 12px;
+  max-height: min(500px, calc(100vh - 260px));
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 14px 20px 16px;
+  padding: 2px 2px 10px;
 }
 
-.extension-dialog-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-
-.extension-dialog-scroll::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(46, 91, 65, 0.24);
-}
-
-.extension-dialog-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.extension-step-card {
-  padding: 12px 14px;
-  border: 1px solid rgba(65, 88, 72, 0.12);
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 10px 28px rgba(31, 70, 48, 0.06);
-}
-
-.extension-step-card + .extension-step-card {
-  margin-top: 10px;
-}
-
-.extension-step-title {
+.extension-public-summary {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(65, 88, 72, 0.12);
+  border-radius: 8px;
+  background: rgba(248, 251, 248, 0.9);
+}
+
+.extension-public-summary strong,
+.extension-public-summary span {
+  display: block;
+}
+
+.extension-public-summary strong {
+  color: #1e3327;
+  font-size: 14px;
+}
+
+.extension-public-summary span {
+  margin-top: 4px;
+  color: #526259;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.extension-bind-panel {
+  padding: 12px;
+  border: 1px solid rgba(65, 88, 72, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.extension-bind-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 10px;
 }
 
-.extension-step-title span {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  background: #187856;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 800;
+.extension-bind-title strong,
+.extension-bind-title span {
+  display: block;
 }
 
-.extension-step-title h3 {
-  color: #14281d;
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.extension-form-grid {
-  display: grid;
-  gap: 8px;
-}
-
-.extension-form-grid.two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.node-option {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  line-height: 1.3;
-}
-
-.node-option strong {
+.extension-bind-title strong {
   color: #1e3327;
-  font-weight: 700;
-}
-
-.node-option span {
-  color: #6c786f;
-  font-size: 12px;
-}
-
-.selected-node-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: -6px;
-}
-
-.selected-node-summary span {
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(24, 120, 86, 0.09);
-  color: #315342;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.output-scope-grid,
-.usage-choice-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  width: 100%;
-}
-
-.output-scope-card,
-.usage-choice-card {
-  position: relative;
-  min-height: 76px;
-  padding: 9px 10px;
-  border: 1px solid rgba(65, 88, 72, 0.14);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 250, 246, 0.94));
-  text-align: left;
-  cursor: pointer;
-  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
-}
-
-.output-scope-card:hover,
-.output-scope-card.active,
-.usage-choice-card:hover,
-.usage-choice-card.active {
-  transform: translateY(-1px);
-  border-color: rgba(24, 120, 86, 0.56);
-  background: linear-gradient(180deg, rgba(244, 252, 247, 0.98), rgba(235, 248, 240, 0.96));
-  box-shadow: 0 10px 22px rgba(31, 109, 79, 0.12);
-}
-
-.scope-badge {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  margin-bottom: 7px;
-  border-radius: 7px;
-  background: rgba(24, 120, 86, 0.12);
-  color: #187856;
   font-size: 13px;
-  font-weight: 800;
 }
 
-.output-scope-card.active .scope-badge {
-  background: #187856;
-  color: #fff;
-}
-
-.output-scope-card strong,
-.usage-choice-card strong {
-  display: block;
-  color: #14281d;
-  font-size: 13px;
-  line-height: 1.25;
-}
-
-.output-scope-card em,
-.usage-choice-card em {
-  display: inline-block;
+.extension-bind-title span {
   margin-top: 4px;
-  color: #187856;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 800;
-}
-
-.output-scope-card small,
-.usage-choice-card small {
-  display: block;
-  margin-top: 6px;
   color: #526259;
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.usage-choice-card {
-  min-height: 72px;
-}
-
-.usage-choice-card > span {
-  display: inline-block;
-  margin-bottom: 5px;
-  color: #6c786f;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.usage-choice-card.active::after {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #187856;
-  content: '';
-}
-
-.field-picker-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.field-picker-toolbar span {
-  color: #405248;
   font-size: 12px;
-  font-weight: 800;
+  line-height: 1.45;
 }
 
-.field-choice-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 260px;
-  overflow-y: auto;
-  padding-right: 4px;
+.field-usage-table {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid rgba(65, 88, 72, 0.12);
+  border-radius: 8px;
 }
 
-.field-choice-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.field-choice-list::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(46, 91, 65, 0.2);
-}
-
-.field-choice-row {
+.field-usage-head,
+.field-usage-row {
   display: grid;
-  grid-template-columns: minmax(180px, 0.9fr) minmax(180px, 1.1fr) auto;
+  grid-template-columns: 220px 58px repeat(var(--usage-column-count, 8), 104px);
   align-items: center;
-  gap: 12px;
-  min-height: 42px;
-  padding: 7px 10px;
-  border: 1px solid rgba(65, 88, 72, 0.14);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.9);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  width: max-content;
+  min-width: 100%;
 }
 
-.field-choice-row:hover,
-.field-choice-row.active {
-  border-color: rgba(24, 120, 86, 0.56);
-  background: linear-gradient(180deg, rgba(244, 252, 247, 0.98), rgba(235, 248, 240, 0.96));
-  box-shadow: 0 6px 16px rgba(31, 109, 79, 0.08);
+.field-usage-head {
+  min-height: 28px;
+  background: rgba(57, 102, 74, 0.08);
 }
 
-.field-choice-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.field-choice-main strong {
-  flex: 0 1 auto;
-  max-width: 42%;
-  color: #14281d;
-  font-size: 13px;
-  line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.field-choice-main code {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: #187856;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.field-choice-row small {
-  overflow: hidden;
-  color: #526259;
-  font-size: 11px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.field-choice-row em {
-  min-width: 38px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: rgba(68, 91, 76, 0.1);
-  color: #526259;
-  font-size: 11px;
-  font-style: normal;
+.field-usage-head > span,
+.field-usage-head > .usage-head-cell {
+  padding: 6px 8px;
+  color: #344c3d;
+  font-size: 10.5px;
   font-weight: 800;
   text-align: center;
 }
 
-.field-choice-row.active em {
-  background: #187856;
-  color: #fff;
-}
-
-.full-width {
-  width: 100%;
-}
-
-.slot-choice-grid,
-.scope-choice-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-  width: 100%;
-}
-
-.slot-choice-card {
-  min-height: 46px;
-  padding: 6px 8px;
-  border: 1px solid rgba(65, 88, 72, 0.16);
-  border-radius: 7px;
-  background: rgba(248, 251, 248, 0.92);
+.field-usage-head > span:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #edf5ef;
+  box-shadow: 1px 0 0 rgba(65, 88, 72, 0.12);
   text-align: left;
-  cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
-.slot-choice-card:hover,
-.slot-choice-card.active {
-  border-color: rgba(23, 128, 91, 0.56);
-  background: rgba(237, 248, 242, 0.98);
-  box-shadow: 0 4px 10px rgba(31, 109, 79, 0.08);
-}
-
-.slot-choice-head {
+.usage-head-cell {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.slot-choice-head strong {
-  color: #1e3327;
-  font-size: 11px;
-  line-height: 1.2;
-}
-
-.slot-choice-head span {
-  flex: 0 0 auto;
-  padding: 1px 4px;
-  border-radius: 999px;
-  background: rgba(68, 91, 76, 0.1);
-  color: #526259;
-  font-size: 9px;
-}
-
-.slot-choice-card.active .slot-choice-head span {
-  background: rgba(24, 120, 86, 0.16);
-  color: #187856;
-  font-weight: 700;
-}
-
-.slot-choice-card code {
-  display: inline-block;
-  margin-top: 2px;
-  color: #187856;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-  font-size: 9px;
-}
-
-.slot-choice-card small {
-  display: -webkit-box;
-  margin-top: 2px;
-  overflow: hidden;
-  color: #526259;
-  font-size: 9px;
-  line-height: 1.2;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
-}
-
-.scope-choice-card {
-  min-height: 50px;
-}
-
-.scope-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-}
-
-.scope-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.scope-grid.three {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.scope-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  justify-content: center;
   min-width: 0;
 }
 
-.scope-field label {
-  color: #405248;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.2;
+.usage-head-cell :deep(.el-checkbox) {
+  max-width: 100%;
+  height: 18px;
+}
+
+.usage-head-cell :deep(.el-checkbox__label) {
+  min-width: 0;
+  overflow: hidden;
+  padding-left: 4px;
+  color: #344c3d;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-head-cell :deep(.el-checkbox__inner) {
+  width: 12px;
+  height: 12px;
+}
+
+.field-usage-row {
+  min-height: 42px;
+  border-top: 1px solid rgba(65, 88, 72, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.field-usage-row.disabled {
+  background: rgba(249, 251, 249, 0.72);
+  opacity: 0.72;
+}
+
+.field-usage-row > * {
+  justify-self: center;
+}
+
+.field-usage-name {
+  display: grid;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  column-gap: 6px;
+  row-gap: 1px;
+  align-items: baseline;
+  justify-self: stretch;
+  min-width: 0;
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 1px 0 0 rgba(65, 88, 72, 0.1);
+}
+
+.field-usage-row.disabled .field-usage-name {
+  background: rgba(249, 251, 249, 0.98);
+}
+
+.field-usage-name strong,
+.field-usage-name code,
+.field-usage-name small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-usage-name strong {
+  color: #1e3327;
+  font-size: 12px;
+}
+
+.field-usage-name code {
+  margin-top: 0;
+  color: #187856;
+  font-size: 10.5px;
+}
+
+.field-usage-name small {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  color: #526259;
+  font-size: 10px;
+}
+
+.extension-usage-summary {
+  color: #526259;
+  font-size: 12px;
+  text-align: right;
+}
+
+.field-usage-table :deep(.el-checkbox) {
+  height: 22px;
+}
+
+.field-usage-table :deep(.el-checkbox__inner) {
+  width: 13px;
+  height: 13px;
 }
 
 .mb {
@@ -2269,47 +2376,26 @@ h3 {
 }
 
 @media (max-width: 1180px) {
-  .workbench-grid,
-  .capability-grid,
-  .slot-choice-grid {
+  .workbench-grid {
     grid-template-columns: 1fr;
-  }
-
-  .output-scope-grid,
-  .usage-choice-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .field-choice-row {
-    grid-template-columns: minmax(160px, 1fr) auto;
-  }
-
-  .field-choice-row small {
-    display: none;
   }
 }
 
 @media (max-width: 760px) {
-  :global(.el-overlay-dialog:has(.extension-capability-dialog)) {
-    padding: 6px;
-  }
-
-  .extension-form-grid.two,
-  .scope-grid,
-  .scope-grid.three,
-  .output-scope-grid,
-  .usage-choice-grid {
+  .capability-grid {
     grid-template-columns: 1fr;
   }
 
-  .extension-dialog-scroll {
-    padding: 12px;
+  .section-title,
+  .section-actions,
+  .extension-public-summary,
+  .extension-bind-title {
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  :global(.extension-capability-dialog .el-dialog__header),
-  :global(.extension-capability-dialog .el-dialog__footer) {
-    padding-right: 14px;
-    padding-left: 14px;
+  .field-usage-table {
+    margin-right: -4px;
   }
 }
 </style>

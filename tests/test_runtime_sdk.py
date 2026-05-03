@@ -383,6 +383,32 @@ def test_execute_panel_profile_for_stock_uses_query_intent_path():
     assert "resolved" in result["debug"]
 
 
+def test_execute_panel_profile_supports_where_filters():
+    runtime = GraphRuntime.from_defaults()
+    runtime.executor = FakeExecutor()
+    result = runtime.execute_query_profile(
+        {
+            "query_profile": "panel_time_series",
+            "universe": "all_a",
+            "fields": ["index_constituent_code"],
+            "start": "2024-01-01 00:00:00",
+            "end": "2024-01-31 23:59:59",
+            "where": {
+                "mode": "and",
+                "items": [
+                    {"field": "index_constituent_code", "op": "eq", "value": "399101.SZ"},
+                ],
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    where_items = result["debug"]["intent"]["where"]["items"]
+    assert {"field": "index_constituent_code", "op": "=", "value": "399101.SZ"} in where_items
+    assert "399101.SZ" in result["debug"]["sql"]
+    assert "index_constituent_code" in result["debug"]["sql"]
+
+
 def test_execute_panel_profile_for_stock_supports_discrete_stock_daily_fields():
     runtime = GraphRuntime.from_defaults()
     runtime.executor = FakeExecutor()

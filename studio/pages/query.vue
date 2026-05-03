@@ -10,6 +10,11 @@ const {
   notifyAction,
   hasLlmConfigured,
 } = useWorkbench()
+
+definePageMeta({
+  middleware: () => navigateTo('/'),
+})
+
 const nlRunning = ref(false)
 const sqlRunning = ref(false)
 

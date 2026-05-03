@@ -19,24 +19,69 @@ aiquantbase:
     - volume
     - amount
     - backward_adj_factor
+    provider_node: stock_daily_real
+    field_map:
+      open: open
+      high: high
+      low: low
+      close: close
+      pre_close: pre_close
+      volume: volume
+      amount: amount
+      backward_adj_factor: backward_adj_factor
   - capability: benchmark.daily
+    fields:
+    - open
+    - close
+    provider_node: stock_daily_real
+    field_map:
+      open: open
+      close: close
   - capability: corporate_action.dividend
+    provider_node: dividend_real
+    field_map:
+      dividend_cash_pre_tax: dvd_per_share_pre_tax_cash
+      dividend_cash_after_tax: dvd_per_share_after_tax_cash
+      dividend_stock_per_share: dvd_per_share_stk
+      dividend_bonus_rate: div_bonusrate
+      dividend_conversed_rate: div_conversedrate
+      ex_dividend_date: date_ex
+      dividend_payout_date: date_dvd_payout
+      equity_record_date: date_eqy_record
   - capability: tradability.limit_status
     fields:
     - high_limited
     - low_limited
+    provider_node: stock_daily_real
+    field_map:
+      high_limited: high_limited
+      low_limited: low_limited
   - capability: universe.tradeable_flags
     fields:
     - is_st
     - is_suspended
     - is_wd_sec
+    provider_node: stock_daily_real
+    field_map:
+      is_st: is_st
+      is_suspended: is_suspended
+      is_wd_sec: is_wd_sec
   - capability: universe.board_flags
     fields:
     - is_kcb
     - is_cyb
     - is_bjs
+    provider_node: stock_daily_real
+    field_map:
+      is_kcb: is_kcb
+      is_cyb: is_cyb
+      is_bjs: is_bjs
   - capability: order_constraints.cn_stock
-  optional_capabilities: []
+    provider_node: cn_stock_order_rules
+    field_map:
+      lot_size: 100
+      supports_min_commission: true
+      supports_order_volume_ratio: true
   conditional_capabilities:
   - capability: price.intraday
     enabled_when:
@@ -50,6 +95,14 @@ aiquantbase:
     - close
     - amount
     - volume
+    provider_node: stock_minute_real
+    field_map:
+      open: open
+      high: high
+      low: low
+      close: close
+      amount: amount
+      volume: volume
   extension_slots:
   - slot: universe_fields
     name: 候选池字段
@@ -100,10 +153,15 @@ aiquantbase:
   extension_capability_bindings:
   - capability: valuation_snapshot
     query_profile: panel_time_series
+    provider_node: stock_daily_real
     fields:
     - market_cap
     - float_market_cap
     - turnover_rate
+    field_map:
+      market_cap: market_cap
+      float_market_cap: float_market_cap
+      turnover_rate: turnover_rate
     slots:
     - ranking_fields
     - filter_fields
@@ -111,27 +169,71 @@ aiquantbase:
     - report_fields
   - capability: industry_classification
     query_profile: panel_time_series
+    provider_node: stock_industry_daily_real
     fields:
     - industry_code
     - industry_level1_name
     - industry_level2_name
     - industry_level3_name
     - industry_name
+    field_map:
+      industry_code: industry_code
+      industry_level1_name: industry_level1_name
+      industry_level2_name: industry_level2_name
+      industry_level3_name: industry_level3_name
+      industry_name: industry_name
     slots:
     - filter_fields
     - groupby_fields
     - neutralization_fields
     - report_fields
-  - capability: custom_factor_daily
-    query_profile: panel_time_series
-    description: 用户自定义日频因子字段，字段名由 AIQuantBase 能力接入配置决定
-    fields: []
+  - capability: stock_pool_membership
+    query_profile: interval_membership
+    provider_node: index_constituent_real
+    description: 指数、板块、主题或自定义股票池成分归属字段
+    fields:
+    - index_constituent_code
+    - index_constituent_name
+    - index_name
+    field_map:
+      index_constituent_code: index_code
+      index_constituent_name: index_name
+      index_name: index_name
     slots:
     - universe_fields
     - filter_fields
+    - report_fields
+  - capability: dragon_tiger_daily
+    provider_node: long_hu_bang_real
+    fields:
+    - buy_amount
+    - change_range
+    - flow_mark
+    - market_code
+    - reason_type
+    - reason_type_name
+    - security_name
+    - sell_amount
+    - total_amount
+    - total_volume
+    - trade_date
+    - trader_name
+    field_map:
+      buy_amount: buy_amount
+      change_range: change_range
+      flow_mark: flow_mark
+      market_code: market_code
+      reason_type: reason_type
+      reason_type_name: reason_type_name
+      security_name: security_name
+      sell_amount: sell_amount
+      total_amount: total_amount
+      total_volume: total_volume
+      trade_date: trade_date
+      trader_name: trader_name
+    slots:
+    - filter_fields
     - ranking_fields
-    - signal_fields
-    - weighting_fields
     - report_fields
 query_needs:
 - id: daily_market

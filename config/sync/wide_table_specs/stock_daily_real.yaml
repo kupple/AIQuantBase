@@ -1,5 +1,5 @@
 wide_table:
-  id: wide::stock_daily_real::c83034b0
+  id: wide::stock_daily_real
   name: stock_daily_real
   description: 由普通节点 stock_daily_real 转换生成
   source_node: stock_daily_real
@@ -14,20 +14,22 @@ wide_table:
     version_field: ''
   fields:
   - code
-  - trade_time
   - open
   - high
   - low
   - close
-  - pre_close
   - volume
   - amount
+  - trade_time
+  - pre_close
+  - turnover_rate
+  - is_st
+  - is_suspended
   - open_adj
+  - backward_adj_factor
   - high_adj
   - low_adj
   - close_adj
-  - is_st
-  - is_suspended
   - is_wd_sec
   - is_xr_sec
   - is_kcb
@@ -35,16 +37,16 @@ wide_table:
   - is_bjs
   - high_limited
   - low_limited
-  - backward_adj_factor
   - market_cap
+  - tot_share
   - float_market_cap
-  - turnover_rate
+  - float_share
   key_fields:
   - code
   - trade_time
   status: enabled
-  created_at: '2026-04-21T21:43:50'
-  updated_at: '2026-04-21T21:43:50'
+  created_at: '2026-05-03T00:53:12'
+  updated_at: '2026-05-03T00:53:12'
 graph_bundle:
   graph_path: /Users/zhao/Desktop/git/AIQuantBase/config/graph.yaml
   fields_path: /Users/zhao/Desktop/git/AIQuantBase/config/fields.yaml
@@ -52,20 +54,22 @@ graph_bundle:
     source_node: stock_daily_real
     selected_fields:
     - code
-    - trade_time
     - open
     - high
     - low
     - close
-    - pre_close
     - volume
     - amount
+    - trade_time
+    - pre_close
+    - turnover_rate
+    - is_st
+    - is_suspended
     - open_adj
+    - backward_adj_factor
     - high_adj
     - low_adj
     - close_adj
-    - is_st
-    - is_suspended
     - is_wd_sec
     - is_xr_sec
     - is_kcb
@@ -73,70 +77,105 @@ graph_bundle:
     - is_bjs
     - high_limited
     - low_limited
-    - backward_adj_factor
     - market_cap
+    - tot_share
     - float_market_cap
-    - turnover_rate
+    - float_share
     raw_source_fields:
     - code
-    - trade_time
     - open
     - high
     - low
     - close
     - volume
     - amount
+    - tradestatus
   snapshot:
     nodes:
     - name: stock_daily_real
-      table: starlight.ad_market_kline_daily
+      table: baostock.bs_daily_kline
       entity_keys:
       - code
-      time_key: trade_time
+      time_key: date
+      time_key_mode: single
+      interval_keys: {}
       grain: daily
       fields:
+      - date
       - code
-      - trade_time
       - open
       - high
       - low
       - close
       - volume
       - amount
-      description: 股票日线行情主表
+      - tradestatus
+      description: 由普通节点 stock_daily_real 转换生成
       description_zh: null
       node_role: query_entry
       status: enabled
       asset_type: stock
       query_freq: 1d
-      base_filters:
-      - field: security_type
-        op: '='
-        value: EXTRA_STOCK_A
+      base_filters: []
+      wide_table:
+        created_at: '2026-05-03T00:53:12'
+        description: 由普通节点 stock_daily_real 转换生成
+        engine: Memory
+        fields:
+        - code
+        - open
+        - high
+        - low
+        - close
+        - volume
+        - amount
+        - trade_time
+        - pre_close
+        - turnover_rate
+        - is_st
+        - is_suspended
+        - open_adj
+        - backward_adj_factor
+        - high_adj
+        - low_adj
+        - close_adj
+        - is_wd_sec
+        - is_xr_sec
+        - is_kcb
+        - is_cyb
+        - is_bjs
+        - high_limited
+        - low_limited
+        - market_cap
+        - tot_share
+        - float_market_cap
+        - float_share
+        id: wide::stock_daily_real
+        key_fields:
+        - code
+        - trade_time
+        order_by:
+        - code
+        - trade_time
+        partition_by: []
+        source_node: stock_daily_real
+        status: enabled
+        target_database: starlight
+        target_table: stock_daily_real
+        updated_at: '2026-05-03T00:53:12'
+        version_field: ''
     edges: []
     fields:
-    - standard_field: pre_close
+    - standard_field: trade_time
       source_node: null
-      source_field: preclose
-      field_role: status_snapshot_field
+      source_field: date
+      field_role: direct_field
       base_node: stock_daily_real
       binding_mode: source_table
-      source_table: starlight.ad_history_stock_status
-      relation_type: any
-      join_keys:
-      - base: code
-        source: market_code
-      time_binding:
-        mode: same_date
-        base_time_field: trade_time
-        source_time_field: trade_date
-        source_start_field: null
-        source_end_field: null
-        base_time_cast: date
-        source_time_cast: null
-        available_time_field: null
-        allow_equal: true
-        lookahead_safe: true
+      source_table: baostock.bs_daily_kline
+      relation_type: null
+      join_keys: []
+      time_binding: null
       bridge_steps: []
       resolver_type: direct
       depends_on: []
@@ -147,9 +186,102 @@ graph_bundle:
       via_node: null
       time_semantics: null
       lookahead_category: none
-      description_zh: 来自状态快照表
+      description_zh: 映射自 Baostock 日线日期字段
       notes:
-      - Mapped from status snapshot table
+      - Mapped from baostock.bs_daily_kline.date
+    - standard_field: pre_close
+      source_node: null
+      source_field: preclose
+      field_role: status_snapshot_field
+      base_node: stock_daily_real
+      binding_mode: source_table
+      source_table: baostock.bs_daily_kline
+      relation_type: null
+      join_keys: []
+      time_binding: null
+      bridge_steps: []
+      resolver_type: direct
+      depends_on: []
+      formula: null
+      applies_to_grain: daily
+      path_domain: null
+      path_group: null
+      via_node: null
+      time_semantics: null
+      lookahead_category: none
+      description_zh: 映射自 Baostock 前收盘价字段
+      notes:
+      - Mapped from baostock.bs_daily_kline.preclose
+    - standard_field: turnover_rate
+      source_node: null
+      source_field: turn
+      field_role: liquidity_field
+      base_node: stock_daily_real
+      binding_mode: source_table
+      source_table: baostock.bs_daily_kline
+      relation_type: null
+      join_keys: []
+      time_binding: null
+      bridge_steps: []
+      resolver_type: direct
+      depends_on: []
+      formula: null
+      applies_to_grain: daily
+      path_domain: null
+      path_group: null
+      via_node: null
+      time_semantics: null
+      lookahead_category: none
+      description_zh: 映射自 Baostock 换手率字段
+      notes:
+      - Mapped from baostock.bs_daily_kline.turn
+    - standard_field: is_st
+      source_node: null
+      source_field: is_st
+      field_role: status_flag
+      base_node: stock_daily_real
+      binding_mode: source_table
+      source_table: baostock.bs_daily_kline
+      relation_type: null
+      join_keys: []
+      time_binding: null
+      bridge_steps: []
+      resolver_type: direct
+      depends_on: []
+      formula: null
+      applies_to_grain: daily
+      path_domain: null
+      path_group: null
+      via_node: null
+      time_semantics: null
+      lookahead_category: none
+      description_zh: 映射自 Baostock ST 标记
+      notes:
+      - Mapped from baostock.bs_daily_kline.is_st
+    - standard_field: is_suspended
+      source_node: null
+      source_field: null
+      field_role: status_flag
+      base_node: stock_daily_real
+      binding_mode: derived
+      source_table: null
+      relation_type: null
+      join_keys: []
+      time_binding: null
+      bridge_steps: []
+      resolver_type: derived
+      depends_on:
+      - tradestatus
+      formula: '{tradestatus} = ''0'''
+      applies_to_grain: daily
+      path_domain: null
+      path_group: null
+      via_node: null
+      time_semantics: null
+      lookahead_category: none
+      description_zh: 根据 Baostock 交易状态推导是否停牌
+      notes:
+      - Derived for stock_daily_real
     - standard_field: open_adj
       source_node: null
       source_field: null
@@ -188,7 +320,7 @@ graph_bundle:
         source: code
       time_binding:
         mode: same_date
-        base_time_field: trade_time
+        base_time_field: date
         source_time_field: trade_date
         source_start_field: null
         source_end_field: null
@@ -286,76 +418,6 @@ graph_bundle:
       description_zh: 基于原始收盘价与后复权因子计算的复权收盘价
       notes:
       - Derived adjusted close based on raw close and backward adjustment factor
-    - standard_field: is_st
-      source_node: null
-      source_field: is_st_sec
-      field_role: status_flag
-      base_node: stock_daily_real
-      binding_mode: source_table
-      source_table: starlight.ad_history_stock_status
-      relation_type: any
-      join_keys:
-      - base: code
-        source: market_code
-      time_binding:
-        mode: same_date
-        base_time_field: trade_time
-        source_time_field: trade_date
-        source_start_field: null
-        source_end_field: null
-        base_time_cast: date
-        source_time_cast: null
-        available_time_field: null
-        allow_equal: true
-        lookahead_safe: true
-      bridge_steps: []
-      resolver_type: direct
-      depends_on: []
-      formula: null
-      applies_to_grain: daily
-      path_domain: null
-      path_group: null
-      via_node: null
-      time_semantics: null
-      lookahead_category: none
-      description_zh: 来自状态快照表
-      notes:
-      - Mapped from status snapshot table
-    - standard_field: is_suspended
-      source_node: null
-      source_field: is_susp_sec
-      field_role: status_flag
-      base_node: stock_daily_real
-      binding_mode: source_table
-      source_table: starlight.ad_history_stock_status
-      relation_type: direct
-      join_keys:
-      - base: code
-        source: market_code
-      time_binding:
-        mode: same_date
-        base_time_field: trade_time
-        source_time_field: trade_date
-        source_start_field: null
-        source_end_field: null
-        base_time_cast: date
-        source_time_cast: null
-        available_time_field: null
-        allow_equal: true
-        lookahead_safe: true
-      bridge_steps: []
-      resolver_type: direct
-      depends_on: []
-      formula: null
-      applies_to_grain: daily
-      path_domain: null
-      path_group: null
-      via_node: null
-      time_semantics: null
-      lookahead_category: none
-      description_zh: 来自状态快照表
-      notes:
-      - Mapped from status snapshot table
     - standard_field: is_wd_sec
       source_node: null
       source_field: is_wd_sec
@@ -369,7 +431,7 @@ graph_bundle:
         source: market_code
       time_binding:
         mode: same_date
-        base_time_field: trade_time
+        base_time_field: date
         source_time_field: trade_date
         source_start_field: null
         source_end_field: null
@@ -404,7 +466,7 @@ graph_bundle:
         source: market_code
       time_binding:
         mode: same_date
-        base_time_field: trade_time
+        base_time_field: date
         source_time_field: trade_date
         source_start_field: null
         source_end_field: null
@@ -517,7 +579,7 @@ graph_bundle:
         source: market_code
       time_binding:
         mode: same_date
-        base_time_field: trade_time
+        base_time_field: date
         source_time_field: trade_date
         source_start_field: null
         source_end_field: null
@@ -552,7 +614,7 @@ graph_bundle:
         source: market_code
       time_binding:
         mode: same_date
-        base_time_field: trade_time
+        base_time_field: date
         source_time_field: trade_date
         source_start_field: null
         source_end_field: null
@@ -613,7 +675,7 @@ graph_bundle:
         source: market_code
       time_binding:
         mode: asof
-        base_time_field: trade_time
+        base_time_field: date
         source_time_field: change_date
         source_start_field: null
         source_end_field: null
@@ -675,7 +737,7 @@ graph_bundle:
         source: market_code
       time_binding:
         mode: asof
-        base_time_field: trade_time
+        base_time_field: date
         source_time_field: change_date
         source_start_field: null
         source_end_field: null
@@ -698,51 +760,27 @@ graph_bundle:
       notes:
       - Mapped from equity structure table
       - Share unit is 10k shares
-    - standard_field: turnover_rate
-      source_node: null
-      source_field: null
-      field_role: derived_field
-      base_node: stock_daily_real
-      binding_mode: derived
-      source_table: null
-      relation_type: null
-      join_keys: []
-      time_binding: null
-      bridge_steps: []
-      resolver_type: derived
-      depends_on:
-      - volume
-      - float_share
-      formula: '{volume} / nullIf(({float_share} * 10000), 0)'
-      applies_to_grain: daily
-      path_domain: null
-      path_group: null
-      via_node: null
-      time_semantics: null
-      lookahead_category: none
-      description_zh: 按日计算的换手率
-      notes:
-      - Derived daily turnover rate
-      - float_share is in 10k-share units so denominator multiplies by 10000
 materialization_bundle:
   query_intent:
     from: stock_daily_real
     select:
     - code
-    - trade_time
     - open
     - high
     - low
     - close
-    - pre_close
     - volume
     - amount
+    - trade_time
+    - pre_close
+    - turnover_rate
+    - is_st
+    - is_suspended
     - open_adj
+    - backward_adj_factor
     - high_adj
     - low_adj
     - close_adj
-    - is_st
-    - is_suspended
     - is_wd_sec
     - is_xr_sec
     - is_kcb
@@ -750,10 +788,10 @@ materialization_bundle:
     - is_bjs
     - high_limited
     - low_limited
-    - backward_adj_factor
     - market_cap
+    - tot_share
     - float_market_cap
-    - turnover_rate
+    - float_share
     safety:
       lookahead_safe: false
       strict_mode: true
@@ -761,8 +799,6 @@ materialization_bundle:
     base_node: stock_daily_real
     select_fields:
     - field: code
-      alias: null
-    - field: trade_time
       alias: null
     - field: open
       alias: null
@@ -772,23 +808,29 @@ materialization_bundle:
       alias: null
     - field: close
       alias: null
-    - field: pre_close
-      alias: null
     - field: volume
       alias: null
     - field: amount
       alias: null
+    - field: trade_time
+      alias: null
+    - field: pre_close
+      alias: null
+    - field: turnover_rate
+      alias: null
+    - field: is_st
+      alias: null
+    - field: is_suspended
+      alias: null
     - field: open_adj
+      alias: null
+    - field: backward_adj_factor
       alias: null
     - field: high_adj
       alias: null
     - field: low_adj
       alias: null
     - field: close_adj
-      alias: null
-    - field: is_st
-      alias: null
-    - field: is_suspended
       alias: null
     - field: is_wd_sec
       alias: null
@@ -804,70 +846,54 @@ materialization_bundle:
       alias: null
     - field: low_limited
       alias: null
-    - field: backward_adj_factor
-      alias: null
     - field: market_cap
+      alias: null
+    - field: tot_share
       alias: null
     - field: float_market_cap
       alias: null
-    - field: turnover_rate
+    - field: float_share
       alias: null
     aggregations: []
     group_by: []
     field_bindings:
       code: stock_daily_real
-      trade_time: stock_daily_real
       open: stock_daily_real
       high: stock_daily_real
       low: stock_daily_real
       close: stock_daily_real
-      pre_close: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
-        [{"base": "code", "source": "market_code"}], "relation_type": "any", "source_table":
-        "starlight.ad_history_stock_status", "time_binding": {"allow_equal": true,
-        "available_time_field": null, "base_time_cast": "date", "base_time_field":
-        "trade_time", "lookahead_safe": true, "mode": "same_date", "source_end_field":
-        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
-        "trade_date"}}'
       volume: stock_daily_real
       amount: stock_daily_real
+      trade_time: stock_daily_real
+      pre_close: stock_daily_real
+      turnover_rate: stock_daily_real
+      is_st: stock_daily_real
+      tradestatus: stock_daily_real
+      is_suspended: stock_daily_real
       backward_adj_factor: 'table__{"base_node": "stock_daily_real", "bridge_steps":
         [], "join_keys": [{"base": "code", "source": "code"}], "relation_type": "any",
         "source_table": "starlight.ad_backward_factor", "time_binding": {"allow_equal":
         true, "available_time_field": null, "base_time_cast": "date", "base_time_field":
-        "trade_time", "lookahead_safe": true, "mode": "same_date", "source_end_field":
-        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
+        "date", "lookahead_safe": true, "mode": "same_date", "source_end_field": null,
+        "source_start_field": null, "source_time_cast": null, "source_time_field":
         "trade_date"}}'
       open_adj: stock_daily_real
       high_adj: stock_daily_real
       low_adj: stock_daily_real
       close_adj: stock_daily_real
-      is_st: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
-        [{"base": "code", "source": "market_code"}], "relation_type": "any", "source_table":
-        "starlight.ad_history_stock_status", "time_binding": {"allow_equal": true,
-        "available_time_field": null, "base_time_cast": "date", "base_time_field":
-        "trade_time", "lookahead_safe": true, "mode": "same_date", "source_end_field":
-        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
-        "trade_date"}}'
-      is_suspended: 'table__{"base_node": "stock_daily_real", "bridge_steps": [],
-        "join_keys": [{"base": "code", "source": "market_code"}], "relation_type":
-        "direct", "source_table": "starlight.ad_history_stock_status", "time_binding":
-        {"allow_equal": true, "available_time_field": null, "base_time_cast": "date",
-        "base_time_field": "trade_time", "lookahead_safe": true, "mode": "same_date",
-        "source_end_field": null, "source_start_field": null, "source_time_cast":
-        null, "source_time_field": "trade_date"}}'
       is_wd_sec: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
         [{"base": "code", "source": "market_code"}], "relation_type": "direct", "source_table":
         "starlight.ad_history_stock_status", "time_binding": {"allow_equal": true,
         "available_time_field": null, "base_time_cast": "date", "base_time_field":
-        "trade_time", "lookahead_safe": true, "mode": "same_date", "source_end_field":
-        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
+        "date", "lookahead_safe": true, "mode": "same_date", "source_end_field": null,
+        "source_start_field": null, "source_time_cast": null, "source_time_field":
         "trade_date"}}'
       is_xr_sec: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
         [{"base": "code", "source": "market_code"}], "relation_type": "direct", "source_table":
         "starlight.ad_history_stock_status", "time_binding": {"allow_equal": true,
         "available_time_field": null, "base_time_cast": "date", "base_time_field":
-        "trade_time", "lookahead_safe": true, "mode": "same_date", "source_end_field":
-        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
+        "date", "lookahead_safe": true, "mode": "same_date", "source_end_field": null,
+        "source_start_field": null, "source_time_cast": null, "source_time_field":
         "trade_date"}}'
       is_kcb: stock_daily_real
       is_cyb: stock_daily_real
@@ -876,48 +902,49 @@ materialization_bundle:
         "join_keys": [{"base": "code", "source": "market_code"}], "relation_type":
         "direct", "source_table": "starlight.ad_history_stock_status", "time_binding":
         {"allow_equal": true, "available_time_field": null, "base_time_cast": "date",
-        "base_time_field": "trade_time", "lookahead_safe": true, "mode": "same_date",
-        "source_end_field": null, "source_start_field": null, "source_time_cast":
-        null, "source_time_field": "trade_date"}}'
+        "base_time_field": "date", "lookahead_safe": true, "mode": "same_date", "source_end_field":
+        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
+        "trade_date"}}'
       low_limited: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
         [{"base": "code", "source": "market_code"}], "relation_type": "direct", "source_table":
         "starlight.ad_history_stock_status", "time_binding": {"allow_equal": true,
         "available_time_field": null, "base_time_cast": "date", "base_time_field":
-        "trade_time", "lookahead_safe": true, "mode": "same_date", "source_end_field":
-        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
+        "date", "lookahead_safe": true, "mode": "same_date", "source_end_field": null,
+        "source_start_field": null, "source_time_cast": null, "source_time_field":
         "trade_date"}}'
       tot_share: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
         [{"base": "code", "source": "market_code"}], "relation_type": "any", "source_table":
         "starlight.ad_equity_structure", "time_binding": {"allow_equal": true, "available_time_field":
-        null, "base_time_cast": "date", "base_time_field": "trade_time", "lookahead_safe":
+        null, "base_time_cast": "date", "base_time_field": "date", "lookahead_safe":
         true, "mode": "asof", "source_end_field": null, "source_start_field": null,
         "source_time_cast": null, "source_time_field": "change_date"}}'
       market_cap: stock_daily_real
       float_share: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
         [{"base": "code", "source": "market_code"}], "relation_type": "any", "source_table":
         "starlight.ad_equity_structure", "time_binding": {"allow_equal": true, "available_time_field":
-        null, "base_time_cast": "date", "base_time_field": "trade_time", "lookahead_safe":
+        null, "base_time_cast": "date", "base_time_field": "date", "lookahead_safe":
         true, "mode": "asof", "source_end_field": null, "source_start_field": null,
         "source_time_cast": null, "source_time_field": "change_date"}}'
       float_market_cap: stock_daily_real
-      turnover_rate: stock_daily_real
     resolved_fields:
       code: code
-      trade_time: trade_time
       open: open
       high: high
       low: low
       close: close
-      pre_close: preclose
       volume: volume
       amount: amount
+      trade_time: date
+      pre_close: preclose
+      turnover_rate: turn
+      is_st: is_st
+      tradestatus: tradestatus
+      is_suspended: is_suspended
       backward_adj_factor: factor_value
       open_adj: open_adj
       high_adj: high_adj
       low_adj: low_adj
       close_adj: close_adj
-      is_st: is_st_sec
-      is_suspended: is_susp_sec
       is_wd_sec: is_wd_sec
       is_xr_sec: is_xr_sec
       is_kcb: is_kcb
@@ -929,8 +956,11 @@ materialization_bundle:
       market_cap: market_cap
       float_share: float_share
       float_market_cap: float_market_cap
-      turnover_rate: turnover_rate
     derived_fields:
+      is_suspended:
+        depends_on:
+        - tradestatus
+        formula: '{tradestatus} = ''0'''
       open_adj:
         depends_on:
         - open
@@ -973,56 +1003,18 @@ materialization_bundle:
         - close
         - float_share
         formula: '{close} * ({float_share} * 10000)'
-      turnover_rate:
-        depends_on:
-        - volume
-        - float_share
-        formula: '{volume} / nullIf(({float_share} * 10000), 0)'
     steps:
-    - edge_name: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
-        [{"base": "code", "source": "market_code"}], "relation_type": "any", "source_table":
-        "starlight.ad_history_stock_status", "time_binding": {"allow_equal": true,
-        "available_time_field": null, "base_time_cast": "date", "base_time_field":
-        "trade_time", "lookahead_safe": true, "mode": "same_date", "source_end_field":
-        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
-        "trade_date"}}'
-      from_node: stock_daily_real
-      to_node: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
-        [{"base": "code", "source": "market_code"}], "relation_type": "any", "source_table":
-        "starlight.ad_history_stock_status", "time_binding": {"allow_equal": true,
-        "available_time_field": null, "base_time_cast": "date", "base_time_field":
-        "trade_time", "lookahead_safe": true, "mode": "same_date", "source_end_field":
-        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
-        "trade_date"}}'
-      relation_type: any
-      join_keys:
-      - base: code
-        source: market_code
-      to_table: starlight.ad_history_stock_status
-      time_binding:
-        mode: same_date
-        base_time_field: trade_time
-        source_time_field: trade_date
-        source_start_field: null
-        source_end_field: null
-        base_time_cast: date
-        source_time_cast: null
-        available_time_field: null
-        allow_equal: true
-        lookahead_safe: true
-      bridge_steps: []
-      lookahead_safe_for_event: false
     - edge_name: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
         [{"base": "code", "source": "code"}], "relation_type": "any", "source_table":
         "starlight.ad_backward_factor", "time_binding": {"allow_equal": true, "available_time_field":
-        null, "base_time_cast": "date", "base_time_field": "trade_time", "lookahead_safe":
+        null, "base_time_cast": "date", "base_time_field": "date", "lookahead_safe":
         true, "mode": "same_date", "source_end_field": null, "source_start_field":
         null, "source_time_cast": null, "source_time_field": "trade_date"}}'
       from_node: stock_daily_real
       to_node: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
         [{"base": "code", "source": "code"}], "relation_type": "any", "source_table":
         "starlight.ad_backward_factor", "time_binding": {"allow_equal": true, "available_time_field":
-        null, "base_time_cast": "date", "base_time_field": "trade_time", "lookahead_safe":
+        null, "base_time_cast": "date", "base_time_field": "date", "lookahead_safe":
         true, "mode": "same_date", "source_end_field": null, "source_start_field":
         null, "source_time_cast": null, "source_time_field": "trade_date"}}'
       relation_type: any
@@ -1032,7 +1024,7 @@ materialization_bundle:
       to_table: starlight.ad_backward_factor
       time_binding:
         mode: same_date
-        base_time_field: trade_time
+        base_time_field: date
         source_time_field: trade_date
         source_start_field: null
         source_end_field: null
@@ -1047,16 +1039,16 @@ materialization_bundle:
         [{"base": "code", "source": "market_code"}], "relation_type": "direct", "source_table":
         "starlight.ad_history_stock_status", "time_binding": {"allow_equal": true,
         "available_time_field": null, "base_time_cast": "date", "base_time_field":
-        "trade_time", "lookahead_safe": true, "mode": "same_date", "source_end_field":
-        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
+        "date", "lookahead_safe": true, "mode": "same_date", "source_end_field": null,
+        "source_start_field": null, "source_time_cast": null, "source_time_field":
         "trade_date"}}'
       from_node: stock_daily_real
       to_node: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
         [{"base": "code", "source": "market_code"}], "relation_type": "direct", "source_table":
         "starlight.ad_history_stock_status", "time_binding": {"allow_equal": true,
         "available_time_field": null, "base_time_cast": "date", "base_time_field":
-        "trade_time", "lookahead_safe": true, "mode": "same_date", "source_end_field":
-        null, "source_start_field": null, "source_time_cast": null, "source_time_field":
+        "date", "lookahead_safe": true, "mode": "same_date", "source_end_field": null,
+        "source_start_field": null, "source_time_cast": null, "source_time_field":
         "trade_date"}}'
       relation_type: direct
       join_keys:
@@ -1065,7 +1057,7 @@ materialization_bundle:
       to_table: starlight.ad_history_stock_status
       time_binding:
         mode: same_date
-        base_time_field: trade_time
+        base_time_field: date
         source_time_field: trade_date
         source_start_field: null
         source_end_field: null
@@ -1079,14 +1071,14 @@ materialization_bundle:
     - edge_name: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
         [{"base": "code", "source": "market_code"}], "relation_type": "any", "source_table":
         "starlight.ad_equity_structure", "time_binding": {"allow_equal": true, "available_time_field":
-        null, "base_time_cast": "date", "base_time_field": "trade_time", "lookahead_safe":
+        null, "base_time_cast": "date", "base_time_field": "date", "lookahead_safe":
         true, "mode": "asof", "source_end_field": null, "source_start_field": null,
         "source_time_cast": null, "source_time_field": "change_date"}}'
       from_node: stock_daily_real
       to_node: 'table__{"base_node": "stock_daily_real", "bridge_steps": [], "join_keys":
         [{"base": "code", "source": "market_code"}], "relation_type": "any", "source_table":
         "starlight.ad_equity_structure", "time_binding": {"allow_equal": true, "available_time_field":
-        null, "base_time_cast": "date", "base_time_field": "trade_time", "lookahead_safe":
+        null, "base_time_cast": "date", "base_time_field": "date", "lookahead_safe":
         true, "mode": "asof", "source_end_field": null, "source_start_field": null,
         "source_time_cast": null, "source_time_field": "change_date"}}'
       relation_type: any
@@ -1096,7 +1088,7 @@ materialization_bundle:
       to_table: starlight.ad_equity_structure
       time_binding:
         mode: asof
-        base_time_field: trade_time
+        base_time_field: date
         source_time_field: change_date
         source_start_field: null
         source_end_field: null
@@ -1122,34 +1114,29 @@ materialization_bundle:
       strict_mode: true
   base_context:
     base_node: stock_daily_real
-    base_table: starlight.ad_market_kline_daily
+    base_table: baostock.bs_daily_kline
     entity_keys:
     - code
-    time_key: trade_time
+    time_key: date
     grain: daily
-    base_filters:
-    - field: security_type
-      op: '='
-      value: EXTRA_STOCK_A
-  preview_sql: "SELECT\n  b0.code AS code,\n  b0.trade_time AS trade_time,\n  b0.open\
-    \ AS open,\n  b0.high AS high,\n  b0.low AS low,\n  b0.close AS close,\n  t1.preclose\
-    \ AS pre_close,\n  b0.volume AS volume,\n  b0.amount AS amount,\n  (b0.open *\
-    \ t2.factor_value) AS open_adj,\n  (b0.high * t2.factor_value) AS high_adj,\n\
-    \  (b0.low * t2.factor_value) AS low_adj,\n  (b0.close * t2.factor_value) AS close_adj,\n\
-    \  t1.is_st_sec AS is_st,\n  t3.is_susp_sec AS is_suspended,\n  t3.is_wd_sec AS\
-    \ is_wd_sec,\n  t3.is_xr_sec AS is_xr_sec,\n  (startsWith(b0.code, '688')) AS\
-    \ is_kcb,\n  (startsWith(b0.code, '30')) AS is_cyb,\n  (endsWith(b0.code, '.BJ'))\
-    \ AS is_bjs,\n  t3.high_limited AS high_limited,\n  t3.low_limited AS low_limited,\n\
-    \  t2.factor_value AS backward_adj_factor,\n  (b0.close * (t4.tot_share * 10000))\
-    \ AS market_cap,\n  (b0.close * (t4.float_share * 10000)) AS float_market_cap,\n\
-    \  (b0.volume / nullIf((t4.float_share * 10000), 0)) AS turnover_rate\nFROM starlight.ad_market_kline_daily\
-    \ b0\nANY LEFT JOIN starlight.ad_history_stock_status t1 ON b0.code = t1.market_code\
-    \ AND toDate(b0.trade_time) = t1.trade_date\nANY LEFT JOIN starlight.ad_backward_factor\
-    \ t2 ON b0.code = t2.code AND toDate(b0.trade_time) = t2.trade_date\nLEFT JOIN\
-    \ starlight.ad_history_stock_status t3 ON b0.code = t3.market_code AND toDate(b0.trade_time)\
-    \ = t3.trade_date\nASOF LEFT JOIN starlight.ad_equity_structure t4 ON b0.code\
-    \ = t4.market_code AND toDate(b0.trade_time) >= t4.change_date"
+    base_filters: []
+  preview_sql: "SELECT\n  b0.code AS code,\n  b0.open AS open,\n  b0.high AS high,\n\
+    \  b0.low AS low,\n  b0.close AS close,\n  b0.volume AS volume,\n  b0.amount AS\
+    \ amount,\n  b0.date AS trade_time,\n  b0.preclose AS pre_close,\n  b0.turn AS\
+    \ turnover_rate,\n  b0.is_st AS is_st,\n  (b0.tradestatus = '0') AS is_suspended,\n\
+    \  (b0.open * t1.factor_value) AS open_adj,\n  t1.factor_value AS backward_adj_factor,\n\
+    \  (b0.high * t1.factor_value) AS high_adj,\n  (b0.low * t1.factor_value) AS low_adj,\n\
+    \  (b0.close * t1.factor_value) AS close_adj,\n  t2.is_wd_sec AS is_wd_sec,\n\
+    \  t2.is_xr_sec AS is_xr_sec,\n  (startsWith(b0.code, '688')) AS is_kcb,\n  (startsWith(b0.code,\
+    \ '30')) AS is_cyb,\n  (endsWith(b0.code, '.BJ')) AS is_bjs,\n  t2.high_limited\
+    \ AS high_limited,\n  t2.low_limited AS low_limited,\n  (b0.close * (t3.tot_share\
+    \ * 10000)) AS market_cap,\n  t3.tot_share AS tot_share,\n  (b0.close * (t3.float_share\
+    \ * 10000)) AS float_market_cap,\n  t3.float_share AS float_share\nFROM baostock.bs_daily_kline\
+    \ b0\nANY LEFT JOIN starlight.ad_backward_factor t1 ON b0.code = t1.code AND toDate(b0.date)\
+    \ = t1.trade_date\nLEFT JOIN starlight.ad_history_stock_status t2 ON b0.code =\
+    \ t2.market_code AND toDate(b0.date) = t2.trade_date\nASOF LEFT JOIN starlight.ad_equity_structure\
+    \ t3 ON b0.code = t3.market_code AND toDate(b0.date) >= t3.change_date"
 export_meta:
-  exported_at: '2026-04-23T00:52:37'
+  exported_at: '2026-05-03T09:11:35'
   exported_by: aiquantbase
   format_version: 1

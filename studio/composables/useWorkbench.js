@@ -380,6 +380,8 @@ export function useWorkbench() {
     nodeForm.value.tableName = ''
     nodeForm.value.entity_keys = []
     nodeForm.value.time_key = ''
+    nodeForm.value.time_key_mode = 'single'
+    nodeForm.value.interval_keys = blankIntervalKeys()
     nodeForm.value.fields = []
 
     schema.value.selectedDatabase = value || ''
@@ -398,6 +400,10 @@ export function useWorkbench() {
   async function selectTable(name) {
     nodeForm.value.tableName = name || ''
     nodeForm.value.fields = []
+    nodeForm.value.entity_keys = []
+    nodeForm.value.time_key = ''
+    nodeForm.value.time_key_mode = 'single'
+    nodeForm.value.interval_keys = blankIntervalKeys()
     schema.value.selectedTable = name || ''
     schema.value.columns = []
 
@@ -445,13 +451,22 @@ export function useWorkbench() {
   function inferNodeTemplate() {
     const selectedTable = String(nodeForm.value.tableName || '')
     const allFields = schema.value.columns.map((item) => item.name)
+    const intervalKeys = inferIntervalKeys(allFields)
 
     if (!nodeForm.value.name) {
       nodeForm.value.name = selectedTable.replace(/^ad_/, '')
     }
     nodeForm.value.grain = inferGrain(selectedTable)
     nodeForm.value.entity_keys = nodeForm.value.entity_keys.length ? nodeForm.value.entity_keys : inferEntityKeys(allFields)
-    nodeForm.value.time_key = nodeForm.value.time_key || inferTimeKey(allFields)
+    if (!nodeForm.value.time_key && intervalKeys.start && intervalKeys.end) {
+      nodeForm.value.time_key_mode = 'range'
+      nodeForm.value.time_key = intervalKeys.start
+      nodeForm.value.interval_keys = intervalKeys
+    } else {
+      nodeForm.value.time_key_mode = nodeForm.value.time_key_mode || 'single'
+      nodeForm.value.time_key = nodeForm.value.time_key || inferTimeKey(allFields)
+      nodeForm.value.interval_keys = nodeForm.value.interval_keys || blankIntervalKeys()
+    }
     nodeForm.value.fields = nodeForm.value.fields.length ? nodeForm.value.fields : allFields
 
     if (!nodeForm.value.description) {
@@ -484,6 +499,8 @@ export function useWorkbench() {
       tableName,
       entity_keys: Array.isArray(target.entity_keys) ? [...target.entity_keys] : [],
       time_key: target.time_key || '',
+      time_key_mode: inferTimeKeyMode(target),
+      interval_keys: normalizeIntervalKeys(target.interval_keys),
       grain: target.grain || inferGrain(tableName),
       fields: Array.isArray(target.fields) ? [...target.fields] : [],
       description: target.description || target.description_zh || '',
@@ -536,6 +553,8 @@ export function useWorkbench() {
       tableName,
       entity_keys: Array.isArray(target.entity_keys) ? [...target.entity_keys] : [],
       time_key: target.time_key || '',
+      time_key_mode: inferTimeKeyMode(target),
+      interval_keys: normalizeIntervalKeys(target.interval_keys),
       grain: target.grain || inferGrain(tableName),
       fields: Array.isArray(target.fields) ? [...target.fields] : [],
       description: target.description || target.description_zh || '',
@@ -571,7 +590,11 @@ export function useWorkbench() {
       name,
       table: `${database}.${tableName}`,
       entity_keys: uniqueList(nodeForm.value.entity_keys),
-      time_key: nodeForm.value.time_key || null,
+      time_key: normalizedTimeKey(nodeForm.value),
+      time_key_mode: normalizedTimeKeyMode(nodeForm.value),
+      interval_keys: normalizedTimeKeyMode(nodeForm.value) === 'range'
+        ? normalizeIntervalKeys(nodeForm.value.interval_keys)
+        : null,
       grain: nodeForm.value.grain || inferGrain(tableName),
       fields: uniqueList(nodeForm.value.fields),
       description: String(nodeForm.value.description || '').trim() || null,
@@ -902,6 +925,7 @@ export function useWorkbench() {
       description: String(original.description || '').trim() || null,
       fields: Array.isArray(original.fields) ? [...original.fields] : [],
       entity_keys: Array.isArray(original.entity_keys) ? [...original.entity_keys] : [],
+      interval_keys: normalizeIntervalKeys(original.interval_keys),
       base_filters: Array.isArray(original.base_filters) ? original.base_filters.map((item) => ({ ...item })) : [],
     }
     delete clonedNode.wide_table
@@ -913,6 +937,7 @@ export function useWorkbench() {
         name: supportNameMap.get(supportNode.name),
         fields: Array.isArray(supportNode.fields) ? [...supportNode.fields] : [],
         entity_keys: Array.isArray(supportNode.entity_keys) ? [...supportNode.entity_keys] : [],
+        interval_keys: normalizeIntervalKeys(supportNode.interval_keys),
       })
     }
 
@@ -1254,6 +1279,8 @@ function blankNode() {
     tableName: '',
     entity_keys: [],
     time_key: '',
+    time_key_mode: 'single',
+    interval_keys: blankIntervalKeys(),
     grain: 'daily',
     fields: [],
     description: '',
@@ -1262,6 +1289,51 @@ function blankNode() {
     asset_type: '',
     query_freq: '',
     base_filters: [],
+  }
+}
+
+function blankIntervalKeys() {
+  return {
+    start: '',
+    end: '',
+  }
+}
+
+function normalizeIntervalKeys(value) {
+  const source = value && typeof value === 'object' ? value : {}
+  return {
+    start: String(source.start || source.start_time || '').trim(),
+    end: String(source.end || source.end_time || '').trim(),
+  }
+}
+
+function inferTimeKeyMode(node) {
+  const explicit = String(node?.time_key_mode || '').trim()
+  if (explicit === 'range' || explicit === 'single') return explicit
+  const intervalKeys = normalizeIntervalKeys(node?.interval_keys)
+  return intervalKeys.start && intervalKeys.end ? 'range' : 'single'
+}
+
+function normalizedTimeKeyMode(node) {
+  return inferTimeKeyMode(node)
+}
+
+function normalizedTimeKey(node) {
+  const mode = normalizedTimeKeyMode(node)
+  if (mode === 'range') {
+    const intervalKeys = normalizeIntervalKeys(node.interval_keys)
+    return intervalKeys.start || String(node.time_key || '').trim() || null
+  }
+  return String(node.time_key || '').trim() || null
+}
+
+function inferIntervalKeys(fields) {
+  const names = new Set((fields || []).map((item) => String(item || '').trim()).filter(Boolean))
+  const startCandidates = ['in_date', 'start_date', 'start_time', 'begin_date', 'effective_date']
+  const endCandidates = ['out_date', 'end_date', 'end_time', 'expire_date', 'expiry_date']
+  return {
+    start: startCandidates.find((item) => names.has(item)) || '',
+    end: endCandidates.find((item) => names.has(item)) || '',
   }
 }
 

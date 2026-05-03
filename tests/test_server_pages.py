@@ -89,6 +89,42 @@ def test_workspace_api_uses_configured_graph_path(tmp_path: Path):
     assert len(payload["graph"]["nodes"]) == 1
 
 
+def test_workspace_api_preserves_range_time_keys(tmp_path: Path):
+    client, graph_path, _, _ = _client(tmp_path)
+    graph_path.write_text(
+        dump_yaml(
+            {
+                "nodes": [
+                    {
+                        "name": "index_constituent_real",
+                        "table": "starlight.ad_index_constituent",
+                        "entity_keys": ["con_code"],
+                        "time_key": "in_date",
+                        "time_key_mode": "range",
+                        "interval_keys": {
+                            "start": "in_date",
+                            "end": "out_date",
+                        },
+                        "grain": "daily",
+                        "fields": ["index_code", "con_code", "in_date", "out_date"],
+                    }
+                ],
+                "edges": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    response = client.get("/api/workspace")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    node = payload["graph"]["nodes"][0]
+    assert node["time_key"] == "in_date"
+    assert node["time_key_mode"] == "range"
+    assert node["interval_keys"] == {"start": "in_date", "end": "out_date"}
+
+
 def test_schema_databases_returns_json_error_when_clickhouse_fails(tmp_path: Path):
     client, _, _, _ = _client(tmp_path)
 

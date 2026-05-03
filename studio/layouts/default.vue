@@ -8,8 +8,8 @@ const route = useRoute()
 
 const planningItems = [
   { path: '/database', label: '节点工作台' },
+  { path: '/extensions', label: '扩展能力' },
   { path: '/capabilities', label: '模式工作台' },
-  { path: '/query', label: '查询测试' },
 ]
 
 const syncItems = [
@@ -53,7 +53,7 @@ onMounted(() => {
           duration: 2400,
           grouping: true,
         })
-        if (!['/settings', '/guide'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities')) {
+        if (!['/settings', '/guide'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities') && !route.path.startsWith('/extensions')) {
           navigateTo('/settings')
         }
         return
@@ -68,7 +68,7 @@ onMounted(() => {
         message: error instanceof Error ? error.message : '工作区载入失败',
         duration: 3200,
       })
-      if (!['/settings', '/guide'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities')) {
+      if (!['/settings', '/guide'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities') && !route.path.startsWith('/extensions')) {
         navigateTo('/settings')
       }
     })

@@ -11,7 +11,7 @@ datasource:
   database: starlight
   db_type: clickhouse
   extra_params: {}
-  host: 172.16.0.68
+  host: 192.168.2.249
   id: primary
   name: Primary Data Source
   password: a452359549

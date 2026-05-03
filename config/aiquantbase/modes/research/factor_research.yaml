@@ -1,61 +1,181 @@
 version: 1
 mode_kind: research_modes
 mode_name: factor_research
-description: 因子研究模式
-
+description: 日频因子研究模式
 aiquantbase:
+  accepted_output_scopes:
+  - scope_type: daily_panel
+    entity_type: stock
+  - scope_type: linked_daily_panel
+    output_entity_type: stock
   required_capabilities:
-    - capability: price.daily
-  optional_capabilities:
-    - capability: benchmark.daily
-    - capability: universe.board_flags
-    - capability: universe.tradeable_flags
-    - capability: valuation_snapshot
+  - capability: price.daily
+    fields:
+    - close_adj
+    provider_node: stock_daily_real
+    field_map:
+      open: open
+      high: high
+      low: low
+      close: close
+      pre_close: pre_close
+      volume: volume
+      amount: amount
+      dollar_volume: amount
+      backward_adj_factor: backward_adj_factor
+      close_adj: close_adj
+      high_limited: high_limited
+      low_limited: low_limited
+      is_st: is_st
+      is_suspended: is_suspended
+      is_wd_sec: is_wd_sec
+      listed_days:
+        derive: trade_date - list_date
+        depends_on:
+        - list_date
+      is_kcb: is_kcb
+      is_cyb: is_cyb
+      is_bjs: is_bjs
+  conditional_capabilities:
+  - capability: benchmark.daily
+    fields:
+    - close
+    provider_node: stock_daily_real
+    field_map:
+      close: close
+  - capability: universe.board_flags
+    fields:
+    - is_kcb
+    - is_cyb
+    - is_bjs
+    provider_node: stock_daily_real
+    field_map:
+      is_kcb: is_kcb
+      is_cyb: is_cyb
+      is_bjs: is_bjs
+  - capability: universe.tradeable_flags
+    fields:
+    - is_st
+    - is_suspended
+    - is_wd_sec
+    - listed_days
+    provider_node: stock_daily_real
+    field_map:
+      is_st: is_st
+      is_suspended: is_suspended
+      is_wd_sec: is_wd_sec
+      listed_days:
+        derive: trade_date - list_date
+        depends_on:
+        - list_date
+  - capability: tradability.limit_status
+    fields:
+    - high_limited
+    - low_limited
+    provider_node: stock_daily_real
+    field_map:
+      high_limited: high_limited
+      low_limited: low_limited
   extension_slots:
-    - slot: factor_inputs
-      name: 因子输入
-      description: 用于因子计算和分析的输入字段
-      query_profile: panel_time_series
-      freq: 1d
-    - slot: filter_fields
-      name: 过滤字段
-      description: 用于研究样本过滤
-      query_profile: panel_time_series
-      freq: 1d
-    - slot: groupby_fields
-      name: 分组字段
-      description: 用于行业、主题等分组分析
-      query_profile: panel_time_series
-      freq: 1d
-    - slot: neutralization_fields
-      name: 中性化字段
-      description: 用于因子中性化处理
-      query_profile: panel_time_series
-      freq: 1d
-    - slot: report_fields
-      name: 报告字段
-      description: 仅用于研究结果展示
-      query_profile: panel_time_series
-      freq: 1d
-  extension_capability_bindings: []
-
+  - slot: factor_inputs
+    name: 因子输入
+    description: 用于因子计算和分析的输入字段
+    query_profile: panel_time_series
+    freq: 1d
+    allowed_dtypes:
+    - float
+    - int
+  - slot: filter_fields
+    name: 过滤字段
+    description: 用于研究样本过滤
+    query_profile: panel_time_series
+    freq: 1d
+  - slot: groupby_fields
+    name: 分组字段
+    description: 用于行业、主题等分组分析
+    query_profile: panel_time_series
+    freq: 1d
+  - slot: neutralization_fields
+    name: 中性化字段
+    description: 用于因子中性化处理
+    query_profile: panel_time_series
+    freq: 1d
+    allowed_dtypes:
+    - float
+    - int
+  - slot: report_fields
+    name: 报告字段
+    description: 仅用于研究结果展示
+    query_profile: panel_time_series
+    freq: 1d
+  extension_capability_bindings:
+  - capability: valuation_snapshot
+    query_profile: panel_time_series
+    provider_node: stock_daily_real
+    fields:
+    - market_cap
+    - float_market_cap
+    - turnover_rate
+    field_map:
+      market_cap: market_cap
+      float_market_cap: float_market_cap
+      turnover_rate: turnover_rate
+    slots:
+    - factor_inputs
+    - filter_fields
+    - neutralization_fields
+    - report_fields
+  - capability: industry_classification
+    query_profile: panel_time_series
+    provider_node: stock_industry_daily_real
+    fields:
+    - industry_code
+    - industry_level1_name
+    - industry_level2_name
+    - industry_level3_name
+    - industry_name
+    field_map:
+      industry_code: industry_code
+      industry_level1_name: industry_level1_name
+      industry_level2_name: industry_level2_name
+      industry_level3_name: industry_level3_name
+      industry_name: industry_name
+    slots:
+    - filter_fields
+    - groupby_fields
+    - neutralization_fields
+    - report_fields
+  - capability: custom_factor_daily
+    query_profile: panel_time_series
+    description: 用户自定义日频因子字段
+    provider_node: stock_daily_real
+    fields: []
+    field_map: {}
+    slots:
+    - factor_inputs
+    - filter_fields
+    - groupby_fields
+    - neutralization_fields
+    - report_fields
 query_needs:
-  - id: daily_market
-    use: stock_daily_panel
-    required: true
-    derive:
-      universe_from: scope.universe
-      symbols_from: scope.symbols
-      start_from: scope.start
-      end_from: scope.end
-      fields_from:
-        - data_requirement.fields
-  - id: benchmark_daily
-    use: benchmark_daily_series
-    required: false
-    derive:
-      symbol_from: scope.benchmark
-      start_from: scope.start
-      end_from: scope.end
-      fields_default:
-        - close
+- id: daily_market
+  use: stock_daily_panel
+  required: true
+  derive:
+    universe_from: scope.universe
+    symbols_from: scope.symbols
+    start_from: scope.start
+    end_from: scope.end
+    fields_from:
+    - data_requirement.fields
+    fields_append:
+    - close_adj
+- id: benchmark_daily
+  use: benchmark_daily_series
+  required: false
+  derive:
+    symbol_from: scope.benchmark
+    start_from: scope.start
+    end_from: scope.end
+    fields_default:
+    - close

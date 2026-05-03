@@ -106,6 +106,7 @@ ASSET_FIELD_ALLOWLIST = {
         'industry_index_code', 'industry_index_name', 'industry_code',
         'industry_level1_name', 'industry_level2_name', 'industry_level3_name',
         'industry_name', 'in_date', 'out_date',
+        'index_constituent_code', 'index_constituent_name', 'index_name',
     },
     ('stock', '1m'): {
         'code', 'trade_time', 'open', 'high', 'low', 'close', 'volume', 'amount',
@@ -490,9 +491,14 @@ class GraphRuntime:
                     'supported_fields': supported_fields,
                     'unsupported_fields': unsupported_fields,
                     'score': len(supported_fields),
+                    'priority': self._query_entry_priority(
+                        node_name,
+                        asset_type=str(resolved_asset_type or ''),
+                        freq=freq,
+                    ),
                 }
             )
-        scored.sort(key=lambda item: (-item['score'], item['node']))
+        scored.sort(key=lambda item: (-item['score'], -item['priority'], item['node']))
         best = next((item for item in scored if not item['unsupported_fields']), None)
         fallback = scored[0] if scored else None
         return {
@@ -515,6 +521,8 @@ class GraphRuntime:
             )
         if profile == 'panel_time_series':
             result = self._execute_panel_time_series_profile(request)
+        elif profile == 'interval_membership':
+            result = self._execute_interval_membership_profile(request)
         elif profile == 'event_stream':
             result = self._execute_event_stream_profile(request)
         elif profile == 'anchored_intraday_window':
@@ -994,6 +1002,7 @@ class GraphRuntime:
             'provider_node': request.get('provider_node') or request.get('node'),
             'query_profile': request.get('query_profile'),
             'capability': request.get('capability'),
+            'where': request.get('where'),
         }
         return self._execute_query_request(profile_request, page_size=request.get('page_size'))
 
@@ -1143,6 +1152,148 @@ class GraphRuntime:
             },
         }
 
+    def _execute_interval_membership_profile(self, request: dict[str, Any]) -> dict[str, Any]:
+        started = perf_counter()
+        provider_node = str(request.get('provider_node') or request.get('node') or '').strip()
+        node = self.registry.nodes.get(provider_node)
+        if node is None:
+            return self._profile_failure_result(
+                request=request,
+                code='missing_query_node',
+                message=f'provider_node={provider_node or None} is not registered',
+                empty_reason='validation_failed',
+                elapsed_ms=int((perf_counter() - started) * 1000),
+            )
+
+        key_schema = dict(request.get('key_schema') or {})
+        symbol_key = str(key_schema.get('symbol') or (node.entity_keys[0] if node.entity_keys else 'code')).strip()
+        start_key = str(key_schema.get('start') or node.time_key or 'in_date').strip()
+        end_key = str(key_schema.get('end') or 'out_date').strip()
+        symbols = sorted({str(item).strip() for item in list(request.get('symbols') or []) if str(item).strip()})
+        fields = [str(item).strip() for item in list(request.get('fields') or []) if str(item).strip()]
+        if not request.get('start') or not request.get('end'):
+            return self._profile_failure_result(
+                request=request,
+                code='missing_execution_date',
+                message='start/end is required for interval_membership query',
+                empty_reason='validation_failed',
+                elapsed_ms=int((perf_counter() - started) * 1000),
+            )
+
+        select_parts = [
+            f'{symbol_key} AS code',
+            f'{start_key} AS interval_start',
+            f'{end_key} AS interval_end',
+        ]
+        selected_aliases = {'code', 'interval_start', 'interval_end'}
+        for field in fields:
+            if field in selected_aliases:
+                continue
+            select_parts.append(field)
+            selected_aliases.add(field)
+
+        start_sql = self._quote_sql_string(str(request.get('start')).strip())
+        end_sql = self._quote_sql_string(str(request.get('end')).strip())
+        where_parts = [
+            f'{start_key} <= toDate({end_sql})',
+            f'({end_key} IS NULL OR {end_key} > toDate({start_sql}))',
+        ]
+        if symbols:
+            symbol_sql = ', '.join(self._quote_sql_string(symbol) for symbol in symbols)
+            where_parts.append(f'{symbol_key} IN ({symbol_sql})')
+        for item in self._query_request_where_items(request.get('where')):
+            rendered = self._render_simple_where_item(item)
+            if rendered:
+                where_parts.append(rendered)
+
+        sql = (
+            'SELECT '
+            + ', '.join(select_parts)
+            + f' FROM {node.table} WHERE '
+            + ' AND '.join(where_parts)
+            + f' ORDER BY {symbol_key}, {start_key}'
+        )
+        execute_started = perf_counter()
+        result = self.execute_sql(sql)
+        execute_finished = perf_counter()
+        df = result.get('df')
+        if not isinstance(df, pd.DataFrame):
+            df = pd.DataFrame()
+        issues: list[dict[str, Any]] = []
+        empty = False
+        empty_reason = None
+        if result.get('code') != SUCCESS_CODE:
+            issues.append(self._issue(code='query_failed', message=str(result.get('message') or 'interval_membership query failed'), path='query'))
+            empty = True
+            empty_reason = 'query_failed'
+        elif df.empty:
+            issues.append(self._issue(code='empty_result', message='interval_membership query succeeded but returned no rows', path='query'))
+            empty = True
+            empty_reason = 'no_rows'
+
+        elapsed_ms = int((perf_counter() - started) * 1000)
+        query_timings = {
+            'execute_seconds': round(execute_finished - execute_started, 6),
+            'total_seconds': round(perf_counter() - started, 6),
+        }
+        executor_stats = result.get('statistics') or {}
+        if executor_stats:
+            query_timings['executor'] = executor_stats
+        meta = {
+            'query_profile': request.get('query_profile'),
+            'capability': request.get('capability'),
+            'provider_node': provider_node,
+            'node': provider_node,
+            'fields': fields,
+            'row_count': int(len(df.index)),
+            'symbol_count': len(symbols),
+            'empty': empty,
+            'empty_reason': empty_reason,
+            'elapsed_ms': elapsed_ms,
+            'timings': query_timings,
+        }
+        return {
+            'ok': result.get('code') == SUCCESS_CODE and not issues,
+            'df': df,
+            'issues': issues,
+            'meta': meta,
+            'debug': {
+                'request': request,
+                'resolved': {
+                    'provider_node': provider_node,
+                    'symbol_key': symbol_key,
+                    'start_key': start_key,
+                    'end_key': end_key,
+                },
+                'intent': {
+                    'query_profile': request.get('query_profile'),
+                    'provider_node': provider_node,
+                    'fields': fields,
+                    'where': request.get('where'),
+                },
+                'sql': sql,
+                'timings': query_timings,
+            },
+        }
+
+    def _render_simple_where_item(self, item: dict[str, Any]) -> str:
+        field = str(item.get('field') or '').strip()
+        op = str(item.get('op') or '').strip().lower()
+        value = item.get('value')
+        if not field or value is None:
+            return ''
+        if op in {'=', '!=', '<>', '>', '>=', '<', '<='}:
+            return f'{field} {op} {self._sql_literal(value)}'
+        if op in {'in', 'not in'}:
+            values = value if isinstance(value, list) else [value]
+            values = [entry for entry in values if entry is not None]
+            if not values:
+                return ''
+            sql_values = ', '.join(self._sql_literal(entry) for entry in values)
+            operator = 'IN' if op == 'in' else 'NOT IN'
+            return f'{field} {operator} ({sql_values})'
+        return ''
+
     def _execute_membership_profile(self, request: dict[str, Any]) -> dict[str, Any]:
         operation = str(request.get('operation') or 'filter_symbols').strip()
         if operation == 'resolve_target':
@@ -1284,16 +1435,18 @@ class GraphRuntime:
         select_fields = list(dict.fromkeys(identity_fields + fields))
         symbol_field = identity_fields[0] if identity_fields else 'code'
         time_field = identity_fields[1] if len(identity_fields) > 1 else 'trade_time'
+        where_items = (
+            [{'field': symbol_field, 'op': 'in' if len(symbols) > 1 else '=', 'value': (symbols if len(symbols) > 1 else symbols[0])}]
+            if symbols
+            else []
+        )
+        where_items.extend(self._query_request_where_items(request.get('where')))
         intent = {
             'from': node,
             'select': select_fields,
             'where': {
                 'mode': 'and',
-                'items': (
-                    [{'field': symbol_field, 'op': 'in' if len(symbols) > 1 else '=', 'value': (symbols if len(symbols) > 1 else symbols[0])}]
-                    if symbols
-                    else []
-                ),
+                'items': where_items,
             },
             'time_range': {
                 'field': time_field,
@@ -1377,6 +1530,39 @@ class GraphRuntime:
             'meta': meta,
             'debug': debug,
         }
+
+    def _query_request_where_items(self, where: Any) -> list[dict[str, Any]]:
+        if not where:
+            return []
+        raw_items: list[Any]
+        if isinstance(where, dict):
+            raw_items = list(where.get('items') or [])
+        elif isinstance(where, list):
+            raw_items = list(where)
+        else:
+            return []
+
+        items: list[dict[str, Any]] = []
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            field = str(item.get('field') or '').strip()
+            op = str(item.get('op') or '').strip().lower()
+            if op in {'eq', '=='}:
+                op = '='
+            if not field or op not in {'=', '!=', '<>', '>', '>=', '<', '<=', 'in', 'not in'}:
+                continue
+            value = item.get('value')
+            if value is None:
+                continue
+            if op in {'in', 'not in'}:
+                if not isinstance(value, list):
+                    value = [value]
+                value = [entry for entry in value if entry is not None]
+                if not value:
+                    continue
+            items.append({'field': field, 'op': op, 'value': value})
+        return items
 
     def build_intent_from_requirement(self, data_requirement: dict[str, Any]) -> dict[str, Any]:
         fields = list(data_requirement.get('fields') or [])
@@ -2614,6 +2800,8 @@ class GraphRuntime:
             table=target_table,
             entity_keys=entity_keys,
             time_key=time_key,
+            time_key_mode=node.time_key_mode,
+            interval_keys=dict(node.interval_keys or {}),
             grain=node.grain,
             fields=overlay_fields,
             description=str(spec.get('description') or node.description or '').strip() or node.description,
@@ -2773,6 +2961,10 @@ class GraphRuntime:
     def _is_node_field_allowed(self, field_name: str, node_name: str) -> bool:
         node = self.registry.nodes.get(node_name)
         if node and field_name in set(node.fields):
+            return True
+        if node:
+            # Graph-registered nodes already limit fields through node.fields and fields.yaml
+            # path resolution. Do not block custom extension fields with legacy asset allowlists.
             return True
         asset_type, freq = self._asset_freq_for_node(node_name)
         if not asset_type or not freq:

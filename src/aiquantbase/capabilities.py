@@ -107,6 +107,14 @@ def upsert_provider_node_semantic(
     capability_description = str(payload.get("capability_description") or "").strip()
     default_slots = _string_list(payload.get("default_slots") or payload.get("allowed_slots") or payload.get("slots"))
     output_scope = _normalize_output_scope(payload.get("output_scope"))
+    field_usages = _normalize_field_usages(payload.get("field_usages"))
+    clear_default_slots = _boolish(payload.get("clear_default_slots"))
+    clear_field_usages = _boolish(payload.get("clear_field_usages"))
+    replace_provider_nodes = _boolish(payload.get("replace_provider_nodes"))
+    replace_fields = _boolish(payload.get("replace_fields"))
+
+    if replace_provider_nodes:
+        _remove_capability_from_other_provider_nodes(nodes, capability=capability, keep_node=node_name)
 
     node = nodes.setdefault(node_name, {})
     if not isinstance(node, dict):
@@ -125,7 +133,11 @@ def upsert_provider_node_semantic(
         semantics[capability] = semantic
     if payload.get("capability_description"):
         semantic["description"] = str(payload.get("capability_description"))
-    semantic["fields"] = fields
+    existing_fields = semantic.get("fields")
+    if replace_fields or not isinstance(existing_fields, dict):
+        semantic["fields"] = fields
+    else:
+        semantic["fields"] = {**existing_fields, **fields}
     _upsert_capability_registry_entry(
         manifest,
         capability=capability,
@@ -133,6 +145,9 @@ def upsert_provider_node_semantic(
         description=capability_description,
         default_slots=default_slots,
         output_scope=output_scope,
+        field_usages=field_usages,
+        clear_default_slots=clear_default_slots,
+        clear_field_usages=clear_field_usages,
     )
 
     _write_yaml(manifest_path, manifest)
@@ -145,7 +160,41 @@ def upsert_provider_node_semantic(
         "capability_description": capability_description,
         "default_slots": default_slots,
         "output_scope": output_scope,
+        "field_usages": field_usages,
         "fields": fields,
+    }
+
+
+def set_capability_registry_enabled(
+    payload: dict[str, Any],
+    *,
+    provider_manifest_path: str | Path | None = None,
+) -> dict[str, Any]:
+    root = _resolve_capability_root(
+        capability_root=payload.get("capability_root"),
+        alphablocks_root=payload.get("alphablocks_root"),
+    )
+    manifest_path = _resolve_capability_path(
+        provider_manifest_path or payload.get("provider_manifest_path") or "manifest.yaml",
+        root=root,
+    )
+    manifest = load_yaml(manifest_path)
+    registry = manifest.setdefault("capability_registry", {})
+    if not isinstance(registry, dict):
+        raise ValueError("provider manifest capability_registry must be a mapping")
+
+    capability = _required_text(payload, "capability")
+    if capability not in registry or not isinstance(registry.get(capability), dict):
+        raise ValueError(f"capability registry entry not found: {capability}")
+
+    enabled = _boolish(payload.get("enabled"))
+    registry[capability]["enabled"] = enabled
+    _write_yaml(manifest_path, manifest)
+    return {
+        "ok": True,
+        "provider_manifest_path": str(manifest_path),
+        "capability": capability,
+        "enabled": enabled,
     }
 
 
@@ -194,14 +243,38 @@ def upsert_mode_capability(
     if not isinstance(rows, list):
         raise ValueError(f"mode aiquantbase.{section} must be a list")
 
+    field_map_provided = any(key in payload for key in ("field_map", "fieldMap", "field_mappings", "fieldMappings"))
+    field_map = _normalize_field_mapping(
+        payload.get("field_map")
+        if "field_map" in payload
+        else payload.get("fieldMap")
+        if "fieldMap" in payload
+        else payload.get("field_mappings")
+        if "field_mappings" in payload
+        else payload.get("fieldMappings")
+    )
     fields = _string_list(payload.get("fields"))
+    if field_map and not fields:
+        fields = list(field_map)
+    field_usages = _normalize_field_usages(payload.get("field_usages"))
+    if field_usages and not fields:
+        fields = list(field_usages)
     slots = _string_list(payload.get("allowed_slots") or payload.get("slots"))
+    if field_usages and not slots:
+        slots = sorted({slot for item in field_usages.values() for slot in _string_list(item.get("usages"))})
     next_item = {
         "capability": capability,
         "fields": fields,
     }
+    provider_node = str(payload.get("provider_node") or payload.get("providerNode") or "").strip()
+    if provider_node:
+        next_item["provider_node"] = provider_node
+    if field_map_provided:
+        next_item["field_map"] = field_map
     if slots:
         next_item["slots"] = slots
+    if field_usages:
+        next_item["field_usages"] = field_usages
     for key in ("query_profile", "query_template", "description"):
         value = payload.get(key)
         if value not in (None, ""):
@@ -224,7 +297,10 @@ def upsert_mode_capability(
         "section": section,
         "capability": capability,
         "fields": fields,
+        "provider_node": provider_node,
+        "field_map": field_map,
         "slots": slots,
+        "field_usages": field_usages,
     }
 
 
@@ -311,6 +387,159 @@ def delete_mode_capability(
     }
 
 
+DEFAULT_EXTENSION_SLOTS_BY_OUTPUT_SCOPE = {
+    "daily_panel": ["ranking_fields", "filter_fields", "weighting_fields", "report_fields"],
+    "linked_daily_panel": ["filter_fields", "groupby_fields", "neutralization_fields", "report_fields"],
+    "intraday_panel": ["signal_fields", "filter_fields", "report_fields"],
+    "event_stream": ["filter_fields", "ranking_fields", "report_fields"],
+}
+
+
+def resolve_mode_extension_contract(payload: dict[str, Any]) -> dict[str, Any]:
+    root = _resolve_capability_root(
+        capability_root=payload.get("capability_root"),
+        alphablocks_root=payload.get("alphablocks_root"),
+    )
+    registry_path = _resolve_capability_path(
+        payload.get("mode_registry_path") or "mode_capabilities.yaml",
+        root=root,
+    )
+    registry = _safe_load_yaml(registry_path, diagnostics=[], label="mode_registry")
+    mode_path = _resolve_mode_config_path(
+        root=root,
+        mode_registry=registry,
+        mode_file_path=payload.get("mode_file_path"),
+        mode_id=payload.get("mode_id"),
+        mode_kind=payload.get("mode_kind"),
+        mode_name=payload.get("mode_name"),
+    )
+    mode_config = load_yaml(mode_path)
+    aiqb = mode_config.get("aiquantbase") or {}
+    if not isinstance(aiqb, dict):
+        raise ValueError("mode aiquantbase section must be a mapping")
+
+    output_scope = _normalize_output_scope(payload.get("output_scope"))
+    accepted_scopes = [
+        _normalize_output_scope(scope)
+        for scope in list(aiqb.get("accepted_output_scopes") or [])
+        if _normalize_output_scope(scope)
+    ]
+    mode_accepts_output_scope = _output_scope_compatible(output_scope, accepted_scopes)
+    slots = _resolve_extension_contract_slots(
+        aiqb,
+        output_scope=output_scope,
+        requested_slots=_string_list(payload.get("slots") or payload.get("allowed_slots")),
+        default_slots=_string_list(payload.get("default_slots")),
+    )
+    fields = _string_list(payload.get("fields"))
+    requested_field_usages = _normalize_field_usages(payload.get("field_usages"))
+    default_field_usages = _normalize_field_usages(payload.get("default_field_usages"))
+    resolved_field_usages = _resolve_extension_contract_field_usages(
+        aiqb,
+        fields=fields,
+        fallback_slots=slots,
+        requested_field_usages=requested_field_usages,
+        default_field_usages=default_field_usages,
+    )
+    if resolved_field_usages:
+        slots = sorted({slot for item in resolved_field_usages.values() for slot in item.get("usages", [])})
+    slot_map = {
+        str(item.get("slot") or "").strip(): item
+        for item in _extension_slot_rows(aiqb)
+        if str(item.get("slot") or "").strip()
+    }
+    diagnostics: list[dict[str, Any]] = []
+    if output_scope and accepted_scopes and not mode_accepts_output_scope:
+        diagnostics.append(
+            _diagnostic(
+                "error",
+                "extension_output_scope_not_accepted",
+                "extension output_scope is not accepted by current mode",
+                output_scope=output_scope,
+                accepted_output_scopes=accepted_scopes,
+            )
+        )
+    if not slots:
+        diagnostics.append(
+            _diagnostic(
+                "warning",
+                "extension_slots_not_resolved",
+                "no extension slots can be resolved for current mode and output_scope",
+                output_scope=output_scope,
+            )
+        )
+
+    return {
+        "ok": not any(item.get("severity") == "error" for item in diagnostics),
+        "mode_id": _mode_id(mode_config),
+        "mode_file_path": str(mode_path),
+        "capability": str(payload.get("capability") or "").strip(),
+        "output_scope": output_scope,
+        "accepted_output_scopes": accepted_scopes,
+        "mode_accepts_output_scope": mode_accepts_output_scope,
+        "slots": slots,
+        "field_usages": resolved_field_usages,
+        "slot_definitions": [
+            deepcopy(slot_map[slot])
+            for slot in slots
+            if slot in slot_map
+        ],
+        "diagnostics": diagnostics,
+    }
+
+
+def _resolve_extension_contract_slots(
+    aiqb: dict[str, Any],
+    *,
+    output_scope: dict[str, Any],
+    requested_slots: list[str] | None = None,
+    default_slots: list[str] | None = None,
+) -> list[str]:
+    allowed_slots = {
+        str(item.get("slot") or "").strip()
+        for item in _extension_slot_rows(aiqb)
+        if str(item.get("slot") or "").strip()
+    }
+    for candidates in (
+        requested_slots or [],
+        default_slots or [],
+        DEFAULT_EXTENSION_SLOTS_BY_OUTPUT_SCOPE.get(str(output_scope.get("scope_type") or ""), []),
+    ):
+        resolved = [slot for slot in _string_list(candidates) if slot in allowed_slots]
+        if resolved:
+            return resolved
+    return []
+
+
+def _resolve_extension_contract_field_usages(
+    aiqb: dict[str, Any],
+    *,
+    fields: list[str],
+    fallback_slots: list[str],
+    requested_field_usages: dict[str, dict[str, Any]] | None = None,
+    default_field_usages: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, dict[str, Any]]:
+    allowed_slots = {
+        str(item.get("slot") or "").strip()
+        for item in _extension_slot_rows(aiqb)
+        if str(item.get("slot") or "").strip()
+    }
+    requested = requested_field_usages or {}
+    defaults = default_field_usages or {}
+    ordered_fields = _merge_unique(_merge_unique(list(requested), list(defaults)), fields)
+    rows: dict[str, dict[str, Any]] = {}
+    for field in ordered_fields:
+        candidates = _string_list(
+            (requested.get(field) or {}).get("usages")
+            or (defaults.get(field) or {}).get("usages")
+            or fallback_slots
+        )
+        usages = [slot for slot in candidates if slot in allowed_slots]
+        if usages:
+            rows[field] = {"usages": usages}
+    return rows
+
+
 def build_capability_preview(payload: dict[str, Any]) -> dict[str, Any]:
     root = _resolve_capability_root(
         capability_root=payload.get("capability_root"),
@@ -341,6 +570,9 @@ def build_capability_preview(payload: dict[str, Any]) -> dict[str, Any]:
     manifest = load_yaml(manifest_path)
     templates_root = load_yaml(templates_path)
     mode_config = load_yaml(mode_path)
+    graph_catalog = _load_graph_catalog(payload.get("graph_path"))
+    aiqb = mode_config.get("aiquantbase") or {}
+    mode_binding_map = _mode_capability_binding_map(aiqb)
     context = _preview_context(payload)
     resolved_queries: list[dict[str, Any]] = []
     diagnostics: list[dict[str, Any]] = []
@@ -357,11 +589,15 @@ def build_capability_preview(payload: dict[str, Any]) -> dict[str, Any]:
         params = deepcopy(template.get("params_template") or {})
         _apply_derivations(params, query_need.get("derive") or {}, context)
         _finalize_params(params)
+        capability = str(template.get("capability") or "").strip()
+        mode_binding = mode_binding_map.get(capability) or {}
         binding = _find_provider_binding(
             manifest=manifest,
-            capability=str(template.get("capability") or ""),
+            graph_catalog=graph_catalog,
+            capability=capability,
             query_profile=str(template.get("query_profile") or ""),
             asset_type=str(params.get("asset_type") or "stock"),
+            provider_node=str(mode_binding.get("provider_node") or "").strip(),
         )
         if binding is None:
             diagnostics.append(
@@ -374,8 +610,11 @@ def build_capability_preview(payload: dict[str, Any]) -> dict[str, Any]:
                 )
             )
             continue
+        configured_field_map = _normalize_field_mapping(mode_binding.get("field_map"))
+        provider_field_map = _normalize_field_mapping(binding.get("node_field_map") or binding.get("field_map"))
+        base_field_map = {**provider_field_map, **configured_field_map}
         requested_field_map, unmapped_fields = _select_requested_field_map(
-            binding.get("node_field_map") or binding.get("field_map") or {},
+            base_field_map,
             params.get("fields") or [],
             allow_dynamic_fields=bool(binding.get("allow_dynamic_fields")),
         )
@@ -387,6 +626,7 @@ def build_capability_preview(payload: dict[str, Any]) -> dict[str, Any]:
                 "capability": template.get("capability"),
                 "query_profile": template.get("query_profile"),
                 "provider_node": binding.get("node"),
+                "mode_provider_node": mode_binding.get("provider_node"),
                 "params": params,
                 "key_schema": binding.get("key_schema") or {},
                 "filters": binding.get("filters") or {},
@@ -399,6 +639,7 @@ def build_capability_preview(payload: dict[str, Any]) -> dict[str, Any]:
     resolved_queries.extend(
         _build_extension_queries(
             manifest=manifest,
+            graph_catalog=graph_catalog,
             mode_config=mode_config,
             context=context,
             diagnostics=diagnostics,
@@ -533,6 +774,8 @@ def _load_graph_catalog(path_like: str | Path | None = None) -> dict[str, dict[s
             "fields": fields,
             "entity_keys": _string_list(item.get("entity_keys")),
             "time_key": item.get("time_key"),
+            "time_key_mode": item.get("time_key_mode"),
+            "interval_keys": deepcopy(item.get("interval_keys") or {}),
         }
     return rows
 
@@ -588,9 +831,19 @@ def _provider_node_rows(manifest: dict[str, Any], *, graph_catalog: dict[str, di
 def _keys_from_graph_node(graph_node: dict[str, Any]) -> dict[str, str]:
     entity_keys = _string_list(graph_node.get("entity_keys"))
     time_key = str(graph_node.get("time_key") or "").strip()
+    time_key_mode = str(graph_node.get("time_key_mode") or "").strip()
+    interval_keys = graph_node.get("interval_keys") if isinstance(graph_node.get("interval_keys"), dict) else {}
     keys: dict[str, str] = {}
     if entity_keys:
         keys["symbol"] = entity_keys[0]
+    if time_key_mode == "range" or interval_keys:
+        start_key = str(interval_keys.get("start") or interval_keys.get("start_time") or time_key or "").strip()
+        end_key = str(interval_keys.get("end") or interval_keys.get("end_time") or "").strip()
+        if start_key:
+            keys["start"] = start_key
+        if end_key:
+            keys["end"] = end_key
+        return keys or {"symbol": "code", "start": "start_date", "end": "end_date"}
     if time_key:
         keys["time"] = time_key
     return keys or {"symbol": "code", "time": "trade_time"}
@@ -609,7 +862,9 @@ def _capability_registry_map(manifest: dict[str, Any]) -> dict[str, dict[str, An
             "capability": capability_id,
             "name": str(item.get("name") or item.get("display_name") or capability_id).strip(),
             "description": str(item.get("description") or "").strip(),
+            "enabled": True if "enabled" not in item else _boolish(item.get("enabled")),
             "default_slots": _string_list(item.get("default_slots") or item.get("allowed_slots") or item.get("slots")),
+            "field_usages": _normalize_field_usages(item.get("field_usages")),
             "output_scope": _normalize_output_scope(item.get("output_scope")),
         }
     return rows
@@ -627,8 +882,19 @@ def _upsert_capability_registry_entry(
     description: str = "",
     default_slots: list[str] | None = None,
     output_scope: dict[str, Any] | None = None,
+    field_usages: dict[str, dict[str, Any]] | None = None,
+    clear_default_slots: bool = False,
+    clear_field_usages: bool = False,
 ) -> None:
-    if not name and not description and not default_slots and not output_scope:
+    if (
+        not name
+        and not description
+        and not default_slots
+        and not output_scope
+        and not field_usages
+        and not clear_default_slots
+        and not clear_field_usages
+    ):
         return
     registry = manifest.setdefault("capability_registry", {})
     if not isinstance(registry, dict):
@@ -642,10 +908,34 @@ def _upsert_capability_registry_entry(
     if description:
         row["description"] = description
     slots = _string_list(default_slots)
-    if slots:
+    if clear_default_slots:
+        row.pop("default_slots", None)
+    elif slots:
         row["default_slots"] = slots
     if output_scope:
         row["output_scope"] = output_scope
+    normalized_field_usages = _normalize_field_usages(field_usages)
+    if clear_field_usages:
+        row.pop("field_usages", None)
+    elif normalized_field_usages:
+        row["field_usages"] = normalized_field_usages
+
+
+def _remove_capability_from_other_provider_nodes(
+    nodes: dict[str, Any],
+    *,
+    capability: str,
+    keep_node: str,
+) -> None:
+    for node_name, node in list(nodes.items()):
+        if node_name == keep_node or not isinstance(node, dict):
+            continue
+        semantics = node.get("semantics")
+        if not isinstance(semantics, dict) or capability not in semantics:
+            continue
+        semantics.pop(capability, None)
+        if not semantics:
+            node.pop("semantics", None)
 
 
 def _delete_capability_from_mode_config(
@@ -871,6 +1161,9 @@ def _normalize_optional_data(value: Any) -> list[dict[str, Any]]:
             "fields": fields,
             "slots": _string_list(item.get("slots")),
         }
+        field_usages = _normalize_field_usages(item.get("field_usages"))
+        if field_usages:
+            row["field_usages"] = field_usages
         for key in ("query_profile", "query_template", "description"):
             value_text = str(item.get(key) or "").strip()
             if value_text:
@@ -882,6 +1175,7 @@ def _normalize_optional_data(value: Any) -> list[dict[str, Any]]:
 def _build_extension_queries(
     *,
     manifest: dict[str, Any],
+    graph_catalog: dict[str, dict[str, Any]] | None = None,
     mode_config: dict[str, Any],
     context: dict[str, Any],
     diagnostics: list[dict[str, Any]],
@@ -918,8 +1212,24 @@ def _build_extension_queries(
                 )
             )
             continue
+        binding_field_usages = _normalize_field_usages(binding_config.get("field_usages"))
         binding_slots = set(_string_list(binding_config.get("slots") or binding_config.get("allowed_slots")))
-        requested_slots = set(_string_list(item.get("slots"))) or set(binding_slots)
+        item_field_usages = _normalize_field_usages(item.get("field_usages"))
+        requested_slots = set(_string_list(item.get("slots")))
+        if not requested_slots and item_field_usages:
+            requested_slots = {
+                slot
+                for field in fields
+                for slot in _string_list((item_field_usages.get(field) or {}).get("usages"))
+            }
+        if not requested_slots and binding_field_usages:
+            requested_slots = {
+                slot
+                for field in fields
+                for slot in _string_list((binding_field_usages.get(field) or {}).get("usages"))
+            }
+        if not requested_slots:
+            requested_slots = set(binding_slots)
         undefined_slots = sorted(slot for slot in requested_slots if slot not in slot_map)
         if undefined_slots:
             diagnostics.append(
@@ -944,7 +1254,7 @@ def _build_extension_queries(
                 )
             )
             continue
-        binding_fields = set(_string_list(binding_config.get("fields")))
+        binding_fields = set(_string_list(binding_config.get("fields")) or list(binding_field_usages))
         unknown_fields = sorted(field for field in fields if binding_fields and field not in binding_fields)
         if unknown_fields:
             diagnostics.append(
@@ -959,9 +1269,11 @@ def _build_extension_queries(
             continue
         binding = _find_provider_binding(
             manifest=manifest,
+            graph_catalog=graph_catalog,
             capability=capability,
             query_profile=str(item.get("query_profile") or binding_config.get("query_profile") or "").strip(),
             asset_type="stock",
+            provider_node=str(binding_config.get("provider_node") or "").strip(),
         )
         if binding is None:
             diagnostics.append(
@@ -991,8 +1303,11 @@ def _build_extension_queries(
                 )
             )
             continue
+        has_binding_field_map = isinstance(binding_config.get("field_map"), dict)
+        configured_field_map = _normalize_field_mapping(binding_config.get("field_map"))
+        base_field_map = configured_field_map if has_binding_field_map else binding.get("node_field_map") or binding.get("field_map") or {}
         requested_field_map, unmapped_fields = _select_requested_field_map(
-            binding.get("node_field_map") or binding.get("field_map") or {},
+            base_field_map,
             fields,
             allow_dynamic_fields=bool(binding.get("allow_dynamic_fields")),
         )
@@ -1018,6 +1333,17 @@ def _build_extension_queries(
                 "requested_field_map": requested_field_map,
                 "unmapped_fields": unmapped_fields,
                 "slots": sorted(requested_slots),
+                "field_usages": {
+                    field: {
+                        "usages": [
+                            slot
+                            for slot in _string_list((binding_field_usages.get(field) or {}).get("usages"))
+                            if slot in requested_slots
+                        ]
+                    }
+                    for field in fields
+                    if field in binding_field_usages
+                },
                 "slot_definitions": [
                     deepcopy(slot_map[slot])
                     for slot in sorted(requested_slots)
@@ -1039,18 +1365,77 @@ def _extension_binding_map(aiqb: dict[str, Any]) -> dict[str, dict[str, Any]]:
         capability = str(item.get("capability") or "").strip()
         if not capability:
             continue
-        current = rows.setdefault(capability, {"capability": capability, "fields": [], "slots": []})
-        current["fields"] = sorted(set(_string_list(current.get("fields")) + _string_list(item.get("fields"))))
+        current = rows.setdefault(capability, {"capability": capability, "fields": [], "slots": [], "field_usages": {}})
+        field_usages = _normalize_field_usages(item.get("field_usages"))
+        if field_usages:
+            merged_field_usages = _normalize_field_usages(current.get("field_usages"))
+            for field, usage_item in field_usages.items():
+                merged_field_usages[field] = {
+                    "usages": sorted(
+                        set(_string_list((merged_field_usages.get(field) or {}).get("usages")) + _string_list(usage_item.get("usages")))
+                    )
+                }
+            current["field_usages"] = merged_field_usages
+        current["fields"] = sorted(
+            set(
+                _string_list(current.get("fields"))
+                + _string_list(item.get("fields"))
+                + list(field_usages)
+            )
+        )
         current["slots"] = sorted(
             set(
                 _string_list(current.get("slots"))
                 + _string_list(item.get("slots") or item.get("allowed_slots"))
+                + [slot for usage_item in field_usages.values() for slot in _string_list(usage_item.get("usages"))]
             )
         )
         for key in ("query_profile", "query_template", "description"):
             value = str(item.get(key) or "").strip()
             if value and not current.get(key):
                 current[key] = value
+        provider_node = str(item.get("provider_node") or "").strip()
+        if provider_node and not current.get("provider_node"):
+            current["provider_node"] = provider_node
+        if "field_map" in item:
+            field_map = _normalize_field_mapping(item.get("field_map"))
+            current["field_map"] = {**_normalize_field_mapping(current.get("field_map")), **field_map}
+    return rows
+
+
+def _mode_capability_binding_map(aiqb: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    rows: dict[str, dict[str, Any]] = {}
+    if not isinstance(aiqb, dict):
+        return rows
+    for section in (
+        "required_capabilities",
+        "conditional_capabilities",
+        "optional_capabilities",
+        "extension_capability_bindings",
+    ):
+        raw = aiqb.get(section) or []
+        if not isinstance(raw, list):
+            continue
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            capability = str(item.get("capability") or "").strip()
+            if not capability:
+                continue
+            current = rows.setdefault(capability, {"capability": capability})
+            fields = _string_list(current.get("fields")) + _string_list(item.get("fields"))
+            if fields:
+                current["fields"] = _merge_unique([], fields)
+            provider_node = str(item.get("provider_node") or "").strip()
+            if provider_node and not current.get("provider_node"):
+                current["provider_node"] = provider_node
+            if "field_map" in item:
+                field_map = _normalize_field_mapping(item.get("field_map"))
+                current["field_map"] = {**_normalize_field_mapping(current.get("field_map")), **field_map}
+            for key in ("query_profile", "query_template", "description"):
+                value = str(item.get(key) or "").strip()
+                if value and not current.get(key):
+                    current[key] = value
     return rows
 
 
@@ -1144,9 +1529,11 @@ def _hhmm_boundary(value: Any, *, boundary: str) -> Any:
 def _find_provider_binding(
     *,
     manifest: dict[str, Any],
+    graph_catalog: dict[str, dict[str, Any]] | None = None,
     capability: str,
     query_profile: str,
     asset_type: str = "stock",
+    provider_node: str = "",
 ) -> dict[str, Any] | None:
     nodes = manifest.get("nodes") or {}
     if not isinstance(nodes, dict):
@@ -1154,6 +1541,8 @@ def _find_provider_binding(
     registry = _capability_registry_map(manifest)
     for node_name, node in nodes.items():
         if not isinstance(node, dict):
+            continue
+        if provider_node and str(node_name) != provider_node:
             continue
         semantics = node.get("semantics") or {}
         if not isinstance(semantics, dict) or capability not in semantics:
@@ -1165,11 +1554,13 @@ def _find_provider_binding(
         semantic = semantics.get(capability) or {}
         query_profiles = list(node.get("query_profiles") or [])
         allow_dynamic_fields = bool(semantic.get("allow_dynamic_fields")) if isinstance(semantic, dict) else False
+        graph_node = (graph_catalog or {}).get(str(node_name), {})
+        key_schema = _provider_key_schema(node, graph_node=graph_node, query_profile=query_profile)
         return {
             "node": node_name,
             "provider": manifest.get("provider") or "aiquantbase",
             "query_profile": query_profile or (query_profiles[0] if query_profiles else None),
-            "key_schema": deepcopy(node.get("keys") or {}),
+            "key_schema": key_schema,
             "filters": deepcopy(node.get("filters") or {}),
             "output_scope": deepcopy((registry.get(capability) or {}).get("output_scope") or {}),
             "field_map": deepcopy((semantic.get("fields") if isinstance(semantic, dict) else {}) or {}),
@@ -1177,6 +1568,19 @@ def _find_provider_binding(
             "allow_dynamic_fields": allow_dynamic_fields,
         }
     return None
+
+
+def _provider_key_schema(
+    node: dict[str, Any],
+    *,
+    graph_node: dict[str, Any] | None = None,
+    query_profile: str = "",
+) -> dict[str, Any]:
+    manifest_keys = deepcopy(node.get("keys") or {})
+    graph_keys = _keys_from_graph_node(graph_node or {}) if graph_node else {}
+    if str(query_profile or "").strip() == "interval_membership" and graph_keys.get("start") and graph_keys.get("end"):
+        return graph_keys
+    return manifest_keys or graph_keys
 
 
 def _collect_node_field_map(node: dict[str, Any]) -> dict[str, Any]:
@@ -1316,6 +1720,23 @@ def _boolish(value: Any) -> bool:
     if isinstance(value, (int, float)):
         return bool(value)
     return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _normalize_field_usages(value: Any) -> dict[str, dict[str, Any]]:
+    if not isinstance(value, dict):
+        return {}
+    rows: dict[str, dict[str, Any]] = {}
+    for field, item in value.items():
+        field_name = str(field or "").strip()
+        if not field_name:
+            continue
+        if isinstance(item, dict):
+            usages = _string_list(item.get("usages") or item.get("slots") or item.get("allowed_slots"))
+        else:
+            usages = _string_list(item)
+        if usages:
+            rows[field_name] = {"usages": usages}
+    return rows
 
 
 def _string_list(value: Any) -> list[str]:

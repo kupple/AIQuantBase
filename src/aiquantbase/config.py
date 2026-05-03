@@ -137,6 +137,8 @@ def _parse_node(item: dict[str, Any]) -> Node:
         table=item["table"],
         entity_keys=list(item.get("entity_keys", [])),
         time_key=item.get("time_key"),
+        time_key_mode=item.get("time_key_mode"),
+        interval_keys=dict(item.get("interval_keys") or {}),
         grain=item.get("grain"),
         fields=list(item.get("fields", [])),
         description=item.get("description"),

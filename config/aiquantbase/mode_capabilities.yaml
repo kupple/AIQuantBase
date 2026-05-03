@@ -3,12 +3,16 @@ status: managed_by_aiquantbase
 
 mode_config_files:
   - modes/research/factor_research.yaml
+  - ../../../AlphaBlocks/protocol_core/research/modes/rule_block_research/aiquantbase.yaml
+  - ../../../AlphaBlocks/protocol_core/research/modes/event_research/aiquantbase.yaml
+  - ../../../AlphaBlocks/protocol_core/research/modes/strategy_experiment_research/aiquantbase.yaml
   - modes/strategy/discrete_stock.yaml
 
 provider_manifest: manifest.yaml
 query_templates: query_templates.yaml
 
 note: >
-  Capability requirements are managed by AIQuantBase. AlphaBlocks consumes
-  these capabilities through the AIQuantBase SDK/API and should not be required
-  to expose local mode config paths in the Studio UI.
+  Capability requirements are managed by AIQuantBase. Research mode
+  definitions live with AlphaBlocks mode implementations, and Studio reads
+  those files directly so the capability workbench can display and maintain
+  the active research modes.

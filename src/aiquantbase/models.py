@@ -24,6 +24,8 @@ class Node:
     table: str
     entity_keys: list[str]
     time_key: str | None = None
+    time_key_mode: str | None = None
+    interval_keys: dict[str, Any] = field(default_factory=dict)
     grain: str | None = None
     fields: list[str] = field(default_factory=list)
     description: str | None = None

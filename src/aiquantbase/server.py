@@ -16,6 +16,8 @@ from flask import (
 from .capabilities import (
     build_capability_preview,
     load_capability_workspace,
+    resolve_mode_extension_contract,
+    set_capability_registry_enabled,
     upsert_mode_capability,
     upsert_provider_node_semantic,
     delete_mode_capability,
@@ -110,8 +112,10 @@ def create_app(
                     "/api/metadata/disabled-node-cleanup",
                     "/api/capabilities/workspace",
                     "/api/capabilities/provider-node",
+                    "/api/capabilities/registry-capability",
                     "/api/capabilities/mode-capability",
                     "/api/capabilities/mode-capability/delete",
+                    "/api/capabilities/mode-extension-contract",
                     "/api/capabilities/preview",
                     "/api/membership/workspace",
                     "/api/membership/domains",
@@ -603,6 +607,23 @@ def create_app(
         except Exception as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
 
+    @app.post("/api/capabilities/registry-capability")
+    def capabilities_set_registry_capability():
+        payload = request.get_json(force=True)
+        try:
+            result = set_capability_registry_enabled(payload)
+            workspace = load_capability_workspace(
+                capability_root=payload.get("capability_root") or None,
+                alphablocks_root=payload.get("alphablocks_root") or None,
+                provider_manifest_path=payload.get("provider_manifest_path") or None,
+                mode_registry_path=payload.get("mode_registry_path") or None,
+                query_templates_path=payload.get("query_templates_path") or None,
+                graph_path=payload.get("graph_path") or None,
+            )
+            return jsonify({"ok": True, "result": result, "workspace": workspace})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
     @app.post("/api/capabilities/mode-capability")
     def capabilities_upsert_mode_capability():
         payload = request.get_json(force=True)
@@ -634,6 +655,14 @@ def create_app(
                 graph_path=payload.get("graph_path") or None,
             )
             return jsonify({"ok": True, "result": result, "workspace": workspace})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+    @app.post("/api/capabilities/mode-extension-contract")
+    def capabilities_mode_extension_contract():
+        payload = request.get_json(force=True)
+        try:
+            return jsonify(resolve_mode_extension_contract(payload))
         except Exception as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
 

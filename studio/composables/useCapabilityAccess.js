@@ -72,6 +72,11 @@ export function useCapabilityAccess() {
           asset_types: splitList(form.assetTypes),
           query_profiles: splitList(form.queryProfiles || form.accessPatterns),
           keys: form.keys || undefined,
+          field_usages: form.fieldUsages || form.field_usages || undefined,
+          clear_default_slots: Boolean(form.clearDefaultSlots || form.clear_default_slots),
+          clear_field_usages: Boolean(form.clearFieldUsages || form.clear_field_usages),
+          replace_provider_nodes: Boolean(form.replaceProviderNodes || form.replace_provider_nodes),
+          replace_fields: Boolean(form.replaceFields || form.replace_fields),
           fields,
         }),
       })
@@ -100,9 +105,32 @@ export function useCapabilityAccess() {
           mode_id: form.modeId,
           section: sectionMap[form.section] || form.section,
           capability: form.capability,
-          fields: splitList(form.fieldsText),
+          fields: Array.isArray(form.fields) ? form.fields : splitList(form.fieldsText),
+          provider_node: form.providerNode || form.provider_node || undefined,
+          field_map: form.fieldMap || form.field_map || undefined,
           slots: form.slots || form.allowedSlots,
           allowed_slots: form.allowedSlots || form.slots,
+          field_usages: form.fieldUsages || form.field_usages || undefined,
+        }),
+      })
+      workspacePayload.value = payload.workspace
+      return payload
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function setCapabilityEnabled(form) {
+    saving.value = true
+    try {
+      if (!form.capability) {
+        throw new Error('请先选择扩展能力')
+      }
+      const payload = await api('/api/capabilities/registry-capability', {
+        method: 'POST',
+        body: JSON.stringify({
+          capability: form.capability,
+          enabled: Boolean(form.enabled),
         }),
       })
       workspacePayload.value = payload.workspace
@@ -138,6 +166,23 @@ export function useCapabilityAccess() {
     } finally {
       saving.value = false
     }
+  }
+
+  async function resolveModeExtensionContract(form) {
+    const payload = await api('/api/capabilities/mode-extension-contract', {
+      method: 'POST',
+      body: JSON.stringify({
+        mode_id: form.modeId,
+        capability: form.capability,
+        output_scope: form.outputScope || undefined,
+        default_slots: form.defaultSlots || [],
+        fields: form.fields || [],
+        default_field_usages: form.defaultFieldUsages || form.default_field_usages || undefined,
+        field_usages: form.fieldUsages || form.field_usages || undefined,
+        slots: form.slots || form.allowedSlots || [],
+      }),
+    })
+    return payload
   }
 
   function splitList(value) {
@@ -183,7 +228,9 @@ export function useCapabilityAccess() {
     loadWorkspace,
     saveProviderMapping,
     saveModeCapability,
+    setCapabilityEnabled,
     deleteModeCapability,
+    resolveModeExtensionContract,
     splitList,
     formatJson,
   }

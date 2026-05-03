@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from aiquantbase import load_capability_workspace
+import pytest
+
+from aiquantbase import build_capability_preview, load_capability_workspace
 from aiquantbase.config import dump_yaml, load_yaml
 from aiquantbase.runtime import GraphRuntime
 from aiquantbase.server import create_app
@@ -100,7 +102,6 @@ def _write_capability_workspace(tmp_path: Path) -> Path:
                         {"capability": "price.daily", "fields": ["open", "close"]},
                     ],
                     "conditional_capabilities": [],
-                    "optional_capabilities": [],
                     "extension_slots": [
                         {
                             "slot": "ranking_fields",
@@ -169,6 +170,7 @@ def test_capabilities_workspace_lists_provider_nodes_and_modes(tmp_path: Path):
         "filter_fields",
     ]
     assert payload["capability_registry"][0]["capability"] == "custom_factor_daily"
+    assert payload["capability_registry"][0]["enabled"] is True
     assert payload["capability_registry"][0]["name"] == "自定义日频因子"
     assert payload["capability_registry"][0]["output_scope"] == {
         "scope_type": "daily_panel",
@@ -202,6 +204,34 @@ def test_discrete_stock_valuation_snapshot_is_bound_through_extension_slots():
         "float_market_cap": "float_market_cap",
         "turnover_rate": "turnover_rate",
     }
+
+
+def test_factor_research_daily_query_maps_tradeable_fields_from_mode_config():
+    client = _client(Path(__file__).resolve().parents[1])
+
+    response = client.post(
+        "/api/capabilities/preview",
+        json={
+            "mode_id": "research_modes.factor_research",
+            "universe": "all_a",
+            "start": "2024-01-01",
+            "end": "2024-01-31",
+            "fields": ["close_adj", "dollar_volume", "is_st", "listed_days"],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    daily = next(item for item in payload["resolved_queries"] if item["id"] == "daily_market")
+    assert daily["provider_node"] == "stock_daily_real"
+    assert daily["requested_field_map"]["close_adj"] == "close_adj"
+    assert daily["requested_field_map"]["dollar_volume"] == "amount"
+    assert daily["requested_field_map"]["is_st"] == "is_st"
+    assert daily["requested_field_map"]["listed_days"] == {
+        "derive": "trade_date - list_date",
+        "depends_on": ["list_date"],
+    }
+    assert daily["unmapped_fields"] == []
 
 
 def test_stock_industry_provider_node_maps_standard_fields_to_physical_columns():
@@ -290,25 +320,63 @@ def test_discrete_stock_industry_classification_is_bound_as_linked_extension():
     }
 
 
+def test_discrete_stock_stock_pool_membership_is_bound_as_interval_extension():
+    workspace = load_capability_workspace()
+    mode = next(
+        item for item in workspace["mode_profiles"] if item["mode_id"] == "strategy_modes.discrete_stock"
+    )
+    binding = next(
+        item
+        for item in mode["extension_capability_bindings"]
+        if item["capability"] == "stock_pool_membership"
+    )
+    provider = next(
+        item
+        for item in workspace["capabilities"]
+        if item["capability"] == "stock_pool_membership"
+    )
+
+    assert binding["provider_node"] == "index_constituent_real"
+    assert binding["query_profile"] == "interval_membership"
+    assert binding["fields"] == ["index_constituent_code", "index_constituent_name", "index_name"]
+    assert binding["slots"] == ["universe_fields", "filter_fields", "report_fields"]
+    assert provider["provider_node"] == "index_constituent_real"
+    assert provider["query_profiles"] == ["interval_membership"]
+    assert provider["output_scope"] == {
+        "scope_type": "daily_panel",
+        "entity_type": "stock",
+        "keys": {"entity": "code", "time": "trade_time"},
+    }
+
+
 def test_industry_source_table_bindings_render_expected_sql_paths():
     runtime = GraphRuntime()
 
-    stock_sql = runtime.render_intent(
-        {
-            "from": "stock_daily_real",
-            "select": ["industry_level1_name", "industry_name"],
-            "time_range": {
-                "field": "trade_time",
-                "start": "2024-01-01",
-                "end": "2024-01-02",
-            },
-        }
-    )
-    assert "FROM (SELECT code, trade_time FROM starlight.stock_daily_real" in stock_sql
-    assert "LEFT JOIN starlight.ad_industry_constituent" in stock_sql
-    assert "(br2.out_date IS NULL OR toDate(b0.trade_time) < br2.out_date)" in stock_sql
-    assert "LEFT JOIN (SELECT * FROM starlight.ad_industry_base_info WHERE level_type = 3 AND is_pub = 1)" in stock_sql
-    assert "b0.index_code" not in stock_sql
+    with pytest.raises(ValueError):
+        runtime.render_intent(
+            {
+                "from": "stock_daily_real",
+                "select": ["industry_level1_name", "industry_name"],
+                "time_range": {
+                    "field": "trade_time",
+                    "start": "2024-01-01",
+                    "end": "2024-01-02",
+                },
+            }
+        )
+
+    with pytest.raises(ValueError):
+        runtime.render_intent(
+            {
+                "from": "stock_daily_real",
+                "select": ["index_constituent_code", "index_constituent_name"],
+                "time_range": {
+                    "field": "trade_time",
+                    "start": "2024-01-01",
+                    "end": "2024-01-02",
+                },
+            }
+        )
 
     industry_daily_sql = runtime.render_intent(
         {
@@ -327,6 +395,84 @@ def test_industry_source_table_bindings_render_expected_sql_paths():
     assert "t1.index_name AS industry_index_name" in industry_daily_sql
 
 
+def test_graph_registered_node_fields_are_not_blocked_by_legacy_asset_allowlist(tmp_path: Path):
+    graph_path = tmp_path / "graph.yaml"
+    fields_path = tmp_path / "fields.yaml"
+    graph_path.write_text(
+        dump_yaml(
+            {
+                "nodes": [
+                    {
+                        "name": "stock_daily_real",
+                        "table": "demo.stock_daily_real",
+                        "entity_keys": ["code"],
+                        "time_key": "trade_time",
+                        "grain": "daily",
+                        "asset_type": "stock",
+                        "query_freq": "1d",
+                        "fields": ["code", "trade_time", "close"],
+                    },
+                    {
+                        "name": "custom_sentiment_real",
+                        "table": "demo.custom_sentiment_real",
+                        "entity_keys": ["code"],
+                        "time_key": "trade_time",
+                        "grain": "daily",
+                        "asset_type": "stock",
+                        "query_freq": "1d",
+                        "fields": ["code", "trade_time", "signal_value"],
+                    },
+                ],
+                "edges": [
+                    {
+                        "name": "stock_daily_real_to_custom_sentiment_real",
+                        "from": "stock_daily_real",
+                        "to": "custom_sentiment_real",
+                        "from_node": "stock_daily_real",
+                        "to_node": "custom_sentiment_real",
+                        "relation_type": "direct",
+                        "join_keys": [{"base": "code", "source": "code"}],
+                        "time_binding": {
+                            "mode": "same_date",
+                            "base_time_field": "trade_time",
+                            "source_time_field": "trade_time",
+                            "base_time_cast": "date",
+                            "source_time_cast": "date",
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    fields_path.write_text(
+        dump_yaml(
+            {
+                "fields": [
+                    {
+                        "standard_field": "custom_sentiment_signal",
+                        "source_node": "custom_sentiment_real",
+                        "source_field": "signal_value",
+                        "field_role": "custom_field",
+                        "base_node": "stock_daily_real",
+                        "binding_mode": "source_node",
+                        "description_zh": "自定义情绪信号",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = GraphRuntime(graph_path=graph_path, fields_path=fields_path)
+
+    fields = {
+        item["name"]
+        for item in runtime.get_supported_fields(asset_type="stock", freq="1d", node="stock_daily_real")["fields"]
+    }
+    assert "custom_sentiment_signal" in fields
+
+
 def test_capabilities_provider_node_upsert_registers_custom_fields(tmp_path: Path):
     capability_root = _write_capability_workspace(tmp_path)
     client = _client(tmp_path)
@@ -340,6 +486,10 @@ def test_capabilities_provider_node_upsert_registers_custom_fields(tmp_path: Pat
             "capability_name": "自定义质量因子",
             "capability_description": "用于排序和过滤",
             "default_slots": ["ranking_fields", "filter_fields"],
+            "field_usages": {
+                "quality_score": {"usages": ["ranking_fields"]},
+                "roe_ttm": {"usages": ["filter_fields", "ranking_fields"]},
+            },
             "output_scope": {
                 "scope_type": "daily_panel",
                 "entity_type": "stock",
@@ -358,6 +508,10 @@ def test_capabilities_provider_node_upsert_registers_custom_fields(tmp_path: Pat
     assert registry["name"] == "自定义质量因子"
     assert registry["description"] == "用于排序和过滤"
     assert registry["default_slots"] == ["ranking_fields", "filter_fields"]
+    assert registry["field_usages"] == {
+        "quality_score": {"usages": ["ranking_fields"]},
+        "roe_ttm": {"usages": ["filter_fields", "ranking_fields"]},
+    }
     assert registry["output_scope"] == {
         "scope_type": "daily_panel",
         "entity_type": "stock",
@@ -365,6 +519,206 @@ def test_capabilities_provider_node_upsert_registers_custom_fields(tmp_path: Pat
     }
     fields = manifest["nodes"]["stock_daily_real"]["semantics"]["custom_factor_daily"]["fields"]
     assert fields == {"quality_score": "quality_score", "roe_ttm": "roe_ttm"}
+
+
+def test_capabilities_provider_node_upsert_can_replace_other_provider_nodes(tmp_path: Path):
+    capability_root = _write_capability_workspace(tmp_path)
+    manifest_path = capability_root / "manifest.yaml"
+    manifest = load_yaml(manifest_path)
+    manifest["nodes"]["old_factor_real"] = {
+        "description": "old factor node",
+        "asset_types": ["stock"],
+        "query_profiles": ["panel_time_series"],
+        "keys": {"symbol": "code", "time": "trade_time"},
+        "semantics": {
+            "custom_factor_daily": {
+                "fields": {"old_score": "old_score"},
+            },
+        },
+    }
+    manifest_path.write_text(dump_yaml(manifest), encoding="utf-8")
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/api/capabilities/provider-node",
+        json={
+            "capability_root": str(capability_root),
+            "node_name": "stock_daily_real",
+            "capability": "custom_factor_daily",
+            "replace_provider_nodes": True,
+            "fields": {"quality_score": "quality_score"},
+        },
+    )
+
+    assert response.status_code == 200
+    manifest = load_yaml(manifest_path)
+    assert "custom_factor_daily" in manifest["nodes"]["stock_daily_real"]["semantics"]
+    assert "semantics" not in manifest["nodes"]["old_factor_real"]
+
+
+def test_capabilities_provider_node_upsert_merges_fields_by_default(tmp_path: Path):
+    capability_root = _write_capability_workspace(tmp_path)
+    manifest_path = capability_root / "manifest.yaml"
+    manifest = load_yaml(manifest_path)
+    manifest["nodes"]["stock_daily_real"]["semantics"]["custom_factor_daily"] = {
+        "fields": {"old_score": "old_score"},
+    }
+    manifest_path.write_text(dump_yaml(manifest), encoding="utf-8")
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/api/capabilities/provider-node",
+        json={
+            "capability_root": str(capability_root),
+            "node_name": "stock_daily_real",
+            "capability": "custom_factor_daily",
+            "fields": {"quality_score": "quality_score"},
+        },
+    )
+
+    assert response.status_code == 200
+    fields = load_yaml(manifest_path)["nodes"]["stock_daily_real"]["semantics"]["custom_factor_daily"]["fields"]
+    assert fields == {"old_score": "old_score", "quality_score": "quality_score"}
+
+
+def test_capabilities_provider_node_upsert_can_replace_fields(tmp_path: Path):
+    capability_root = _write_capability_workspace(tmp_path)
+    manifest_path = capability_root / "manifest.yaml"
+    manifest = load_yaml(manifest_path)
+    manifest["nodes"]["stock_daily_real"]["semantics"]["custom_factor_daily"] = {
+        "fields": {"old_score": "old_score"},
+    }
+    manifest_path.write_text(dump_yaml(manifest), encoding="utf-8")
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/api/capabilities/provider-node",
+        json={
+            "capability_root": str(capability_root),
+            "node_name": "stock_daily_real",
+            "capability": "custom_factor_daily",
+            "replace_fields": True,
+            "fields": {"quality_score": "quality_score"},
+        },
+    )
+
+    assert response.status_code == 200
+    fields = load_yaml(manifest_path)["nodes"]["stock_daily_real"]["semantics"]["custom_factor_daily"]["fields"]
+    assert fields == {"quality_score": "quality_score"}
+
+
+def test_capabilities_mode_capability_upsert_stores_mode_field_map(tmp_path: Path):
+    capability_root = _write_capability_workspace(tmp_path)
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/api/capabilities/mode-capability",
+        json={
+            "capability_root": str(capability_root),
+            "mode_id": "strategy_modes.discrete_stock",
+            "section": "required_capabilities",
+            "capability": "price.daily",
+            "provider_node": "stock_daily_real",
+            "fields": ["open", "close"],
+            "field_map": {"open": "open_price", "close": "close_price"},
+        },
+    )
+
+    assert response.status_code == 200
+    mode_config = load_yaml(capability_root / "modes" / "strategy" / "discrete_stock.yaml")
+    binding = mode_config["aiquantbase"]["required_capabilities"][0]
+    assert binding["provider_node"] == "stock_daily_real"
+    assert binding["field_map"] == {"open": "open_price", "close": "close_price"}
+
+    manifest = load_yaml(capability_root / "manifest.yaml")
+    assert manifest["nodes"]["stock_daily_real"]["semantics"]["price.daily"]["fields"] == {
+        "open": "open",
+        "close": "close",
+    }
+
+
+def test_capabilities_preview_prefers_mode_field_map(tmp_path: Path):
+    capability_root = _write_capability_workspace(tmp_path)
+    client = _client(tmp_path)
+
+    mode_response = client.post(
+        "/api/capabilities/mode-capability",
+        json={
+            "capability_root": str(capability_root),
+            "mode_id": "strategy_modes.discrete_stock",
+            "section": "required_capabilities",
+            "capability": "price.daily",
+            "provider_node": "stock_daily_real",
+            "fields": ["open", "close"],
+            "field_map": {"open": "open_price", "close": "close_price", "high_limited": "high_limited"},
+        },
+    )
+    assert mode_response.status_code == 200
+
+    preview_response = client.post(
+        "/api/capabilities/preview",
+        json={
+            "capability_root": str(capability_root),
+            "mode_id": "strategy_modes.discrete_stock",
+            "symbols": ["603005.SH"],
+            "start": "2017-01-01",
+            "end": "2017-01-31",
+            "fields": ["open", "close", "high_limited"],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    payload = preview_response.get_json()
+    daily = payload["resolved_queries"][0]
+    assert daily["provider_node"] == "stock_daily_real"
+    assert daily["requested_field_map"] == {
+        "open": "open_price",
+        "close": "close_price",
+        "high_limited": "high_limited",
+    }
+    assert daily["unmapped_fields"] == []
+
+
+def test_capabilities_registry_capability_can_be_disabled_without_deleting_definition(tmp_path: Path):
+    capability_root = _write_capability_workspace(tmp_path)
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/api/capabilities/registry-capability",
+        json={
+            "capability_root": str(capability_root),
+            "capability": "custom_factor_daily",
+            "enabled": False,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["result"]["enabled"] is False
+    row = next(
+        item
+        for item in payload["workspace"]["capability_registry"]
+        if item["capability"] == "custom_factor_daily"
+    )
+    assert row["enabled"] is False
+
+    manifest = load_yaml(capability_root / "manifest.yaml")
+    registry = manifest["capability_registry"]["custom_factor_daily"]
+    assert registry["enabled"] is False
+    assert registry["name"] == "自定义日频因子"
+
+    enable_response = client.post(
+        "/api/capabilities/registry-capability",
+        json={
+            "capability_root": str(capability_root),
+            "capability": "custom_factor_daily",
+            "enabled": True,
+        },
+    )
+
+    assert enable_response.status_code == 200
+    assert enable_response.get_json()["result"]["enabled"] is True
+    assert load_yaml(capability_root / "manifest.yaml")["capability_registry"]["custom_factor_daily"]["enabled"] is True
 
 
 def test_capabilities_mode_upsert_and_preview_resolve_custom_field(tmp_path: Path):
@@ -392,6 +746,9 @@ def test_capabilities_mode_upsert_and_preview_resolve_custom_field(tmp_path: Pat
             "capability": "custom_factor_daily",
             "fields": ["quality_score"],
             "slots": ["ranking_fields"],
+            "field_usages": {
+                "quality_score": {"usages": ["ranking_fields"]},
+            },
         },
     )
     assert mode_response.status_code == 200
@@ -399,6 +756,7 @@ def test_capabilities_mode_upsert_and_preview_resolve_custom_field(tmp_path: Pat
     binding = mode_config["aiquantbase"]["extension_capability_bindings"][0]
     assert binding["capability"] == "custom_factor_daily"
     assert binding["slots"] == ["ranking_fields"]
+    assert binding["field_usages"] == {"quality_score": {"usages": ["ranking_fields"]}}
 
     preview_response = client.post(
         "/api/capabilities/preview",
@@ -435,6 +793,92 @@ def test_capabilities_mode_upsert_and_preview_resolve_custom_field(tmp_path: Pat
     }
     assert extension["requested_field_map"] == {"quality_score": "quality_score"}
     assert extension["slots"] == ["ranking_fields"]
+    assert extension["field_usages"] == {"quality_score": {"usages": ["ranking_fields"]}}
+
+
+def test_capabilities_preview_resolves_custom_factor_from_dedicated_provider_node(tmp_path: Path):
+    capability_root = _write_capability_workspace(tmp_path)
+    client = _client(tmp_path)
+
+    provider_response = client.post(
+        "/api/capabilities/provider-node",
+        json={
+            "capability_root": str(capability_root),
+            "node_name": "quality_factor_daily_real",
+            "capability": "custom_factor_daily",
+            "capability_name": "质量因子",
+            "capability_description": "来自独立自定义因子 real 表",
+            "asset_types": ["stock"],
+            "query_profiles": ["panel_time_series"],
+            "keys": {"symbol": "code", "time": "trade_time"},
+            "output_scope": {
+                "scope_type": "daily_panel",
+                "entity_type": "stock",
+                "keys": {"entity": "code", "time": "trade_time"},
+            },
+            "fields": {
+                "quality_score": "quality_score",
+                "alpha_score": "alpha_score",
+            },
+            "replace_provider_nodes": True,
+        },
+    )
+    assert provider_response.status_code == 200
+
+    mode_response = client.post(
+        "/api/capabilities/mode-capability",
+        json={
+            "capability_root": str(capability_root),
+            "mode_id": "strategy_modes.discrete_stock",
+            "section": "extension_capability_bindings",
+            "capability": "custom_factor_daily",
+            "fields": ["quality_score", "alpha_score"],
+            "slots": ["ranking_fields", "filter_fields"],
+            "field_usages": {
+                "quality_score": {"usages": ["ranking_fields"]},
+                "alpha_score": {"usages": ["filter_fields"]},
+            },
+        },
+    )
+    assert mode_response.status_code == 200
+
+    preview_response = client.post(
+        "/api/capabilities/preview",
+        json={
+            "capability_root": str(capability_root),
+            "mode_id": "strategy_modes.discrete_stock",
+            "symbols": ["603005.SH"],
+            "start": "2017-01-01",
+            "end": "2017-01-31",
+            "fields": ["open", "close"],
+            "optional_data": [
+                {
+                    "capability": "custom_factor_daily",
+                    "fields": ["quality_score", "alpha_score"],
+                    "slots": ["ranking_fields", "filter_fields"],
+                }
+            ],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    payload = preview_response.get_json()
+    assert payload["ok"] is True
+    extension = next(
+        item for item in payload["resolved_queries"] if item["id"] == "extension_custom_factor_daily"
+    )
+    assert extension["provider_node"] == "quality_factor_daily_real"
+    assert extension["query_profile"] == "panel_time_series"
+    assert extension["key_schema"] == {"symbol": "code", "time": "trade_time"}
+    assert extension["requested_field_map"] == {
+        "quality_score": "quality_score",
+        "alpha_score": "alpha_score",
+    }
+    assert extension["slots"] == ["filter_fields", "ranking_fields"]
+    assert extension["field_usages"] == {
+        "alpha_score": {"usages": ["filter_fields"]},
+        "quality_score": {"usages": ["ranking_fields"]},
+    }
 
 
 def test_capabilities_preview_resolves_industry_classification_extension():
@@ -472,6 +916,165 @@ def test_capabilities_preview_resolves_industry_classification_extension():
         "industry_name": "industry_name",
     }
     assert extension["slots"] == ["groupby_fields", "report_fields"]
+
+
+def test_capabilities_preview_resolves_stock_pool_membership_extension():
+    client = _client(Path(__file__).resolve().parents[1])
+
+    preview_response = client.post(
+        "/api/capabilities/preview",
+        json={
+            "mode_id": "strategy_modes.discrete_stock",
+            "symbols": ["000002.SZ", "600036.SH"],
+            "start": "2024-01-01",
+            "end": "2024-01-31",
+            "fields": ["open", "close"],
+            "optional_data": [
+                {
+                    "capability": "stock_pool_membership",
+                    "fields": ["index_constituent_code", "index_constituent_name"],
+                    "slots": ["filter_fields", "report_fields"],
+                }
+            ],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    payload = preview_response.get_json()
+    assert payload["ok"] is True
+    extension = next(
+        item for item in payload["resolved_queries"] if item["id"] == "extension_stock_pool_membership"
+    )
+    assert extension["provider_node"] == "index_constituent_real"
+    assert extension["query_profile"] == "interval_membership"
+    assert extension["key_schema"] == {"symbol": "con_code", "start": "in_date", "end": "out_date"}
+    assert extension["output_scope"] == {
+        "scope_type": "daily_panel",
+        "entity_type": "stock",
+        "keys": {"entity": "code", "time": "trade_time"},
+    }
+    assert extension["requested_field_map"] == {
+        "index_constituent_code": "index_code",
+        "index_constituent_name": "index_name",
+    }
+    assert extension["slots"] == ["filter_fields", "report_fields"]
+
+
+def test_capabilities_preview_uses_graph_interval_keys_for_interval_membership(tmp_path: Path):
+    graph_path = tmp_path / "graph.yaml"
+    graph_path.write_text(
+        dump_yaml(
+            {
+                "nodes": [
+                    {
+                        "name": "index_constituent_real",
+                        "table": "starlight.ad_index_constituent",
+                        "entity_keys": ["member_code"],
+                        "time_key": "effective_from",
+                        "time_key_mode": "range",
+                        "interval_keys": {
+                            "start": "effective_from",
+                            "end": "effective_to",
+                        },
+                        "grain": "daily",
+                        "fields": [
+                            "pool_code",
+                            "member_code",
+                            "effective_from",
+                            "effective_to",
+                            "pool_name",
+                        ],
+                    }
+                ],
+                "edges": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = build_capability_preview(
+        {
+            "mode_id": "strategy_modes.discrete_stock",
+            "graph_path": str(graph_path),
+            "symbols": ["000002.SZ", "600036.SH"],
+            "start": "2024-01-01",
+            "end": "2024-01-31",
+            "fields": ["open", "close"],
+            "optional_data": [
+                {
+                    "capability": "stock_pool_membership",
+                    "fields": ["index_constituent_code"],
+                    "slots": ["filter_fields"],
+                }
+            ],
+        }
+    )
+
+    extension = next(
+        item for item in payload["resolved_queries"] if item["id"] == "extension_stock_pool_membership"
+    )
+    assert extension["provider_node"] == "index_constituent_real"
+    assert extension["query_profile"] == "interval_membership"
+    assert extension["key_schema"] == {
+        "symbol": "member_code",
+        "start": "effective_from",
+        "end": "effective_to",
+    }
+
+
+def test_capabilities_mode_extension_contract_resolves_slots_and_scope(tmp_path: Path):
+    capability_root = _write_capability_workspace(tmp_path)
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/api/capabilities/mode-extension-contract",
+        json={
+            "capability_root": str(capability_root),
+            "mode_id": "strategy_modes.discrete_stock",
+            "capability": "custom_factor_daily",
+            "output_scope": {
+                "scope_type": "daily_panel",
+                "entity_type": "stock",
+            },
+            "default_slots": ["ranking_fields", "filter_fields"],
+            "fields": ["quality_score", "flag"],
+            "default_field_usages": {
+                "quality_score": {"usages": ["ranking_fields"]},
+                "flag": {"usages": ["filter_fields", "weighting_fields"]},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["ok"] is True
+    assert payload["mode_accepts_output_scope"] is True
+    assert payload["slots"] == ["filter_fields", "ranking_fields"]
+    assert payload["field_usages"] == {
+        "flag": {"usages": ["filter_fields"]},
+        "quality_score": {"usages": ["ranking_fields"]},
+    }
+    assert [item["slot"] for item in payload["slot_definitions"]] == ["filter_fields", "ranking_fields"]
+
+    rejected_response = client.post(
+        "/api/capabilities/mode-extension-contract",
+        json={
+            "capability_root": str(capability_root),
+            "mode_id": "strategy_modes.discrete_stock",
+            "capability": "index_factor_daily",
+            "output_scope": {
+                "scope_type": "daily_panel",
+                "entity_type": "index",
+            },
+            "default_slots": ["ranking_fields"],
+        },
+    )
+
+    assert rejected_response.status_code == 200
+    rejected = rejected_response.get_json()
+    assert rejected["ok"] is False
+    assert rejected["mode_accepts_output_scope"] is False
+    assert rejected["diagnostics"][0]["code"] == "extension_output_scope_not_accepted"
 
 
 def test_capabilities_preview_rejects_extension_output_scope_not_accepted(tmp_path: Path):

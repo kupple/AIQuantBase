@@ -130,7 +130,7 @@ const currentNodeSummary = computed(() => {
     { label: '主表', value: currentTableProfile.value.table ? `${currentTableProfile.value.database}.${currentTableProfile.value.table}` : '-' },
     { label: '粒度', value: nodeForm.value.grain || '-' },
     { label: '主键', value: (nodeForm.value.entity_keys || []).join(', ') || '-' },
-    { label: '时间键', value: nodeForm.value.time_key || '-' },
+    { label: '时间键', value: formatNodeTimeKey(nodeForm.value) },
     { label: '状态', value: nodeForm.value.status === 'enabled' ? '启用' : '停用' },
     { label: '资产类型', value: nodeForm.value.asset_type || '-' },
     { label: '查询频率', value: nodeForm.value.query_freq || '-' },
@@ -258,6 +258,11 @@ const selectedWideTable = computed(() =>
   wideTableDesigns.value.find((item) => item.id === selectedWideTableId.value)
   || null
 )
+
+const nodeTimeKeyModeOptions = [
+  { label: '单日时间', value: 'single' },
+  { label: '区间时间', value: 'range' },
+]
 
 const selectedWideTableSyncState = computed(() => {
   const item = selectedWideTable.value
@@ -696,6 +701,8 @@ function blankNodeDialogForm() {
     tableName: '',
     entity_keys: [],
     time_key: '',
+    time_key_mode: 'single',
+    interval_keys: blankIntervalKeys(),
     grain: 'daily',
     fields: [],
     description: '',
@@ -721,6 +728,8 @@ function cloneNodeDialogForm(source) {
     ...blankNodeDialogForm(),
     ...source,
     entity_keys: Array.isArray(source?.entity_keys) ? [...source.entity_keys] : [],
+    time_key_mode: inferDialogTimeKeyMode(source),
+    interval_keys: normalizeDialogIntervalKeys(source?.interval_keys),
     fields: Array.isArray(source?.fields) ? [...source.fields] : [],
     base_filters: Array.isArray(source?.base_filters)
       ? source.base_filters.map((item) => ({ ...item }))
@@ -751,12 +760,73 @@ function inferNodeDialogTimeKey(fields) {
   return candidates.find((item) => fields.includes(item)) || ''
 }
 
+function blankIntervalKeys() {
+  return {
+    start: '',
+    end: '',
+  }
+}
+
+function normalizeDialogIntervalKeys(value) {
+  const source = value && typeof value === 'object' ? value : {}
+  return {
+    start: String(source.start || source.start_time || '').trim(),
+    end: String(source.end || source.end_time || '').trim(),
+  }
+}
+
+function inferNodeDialogIntervalKeys(fields) {
+  const names = new Set((fields || []).map((item) => String(item || '').trim()).filter(Boolean))
+  const startCandidates = ['in_date', 'start_date', 'start_time', 'begin_date', 'effective_date']
+  const endCandidates = ['out_date', 'end_date', 'end_time', 'expire_date', 'expiry_date']
+  return {
+    start: startCandidates.find((item) => names.has(item)) || '',
+    end: endCandidates.find((item) => names.has(item)) || '',
+  }
+}
+
+function inferDialogTimeKeyMode(source) {
+  const explicit = String(source?.time_key_mode || '').trim()
+  if (explicit === 'single' || explicit === 'range') return explicit
+  const intervalKeys = normalizeDialogIntervalKeys(source?.interval_keys)
+  return intervalKeys.start && intervalKeys.end ? 'range' : 'single'
+}
+
+function formatNodeTimeKey(node) {
+  const mode = inferDialogTimeKeyMode(node)
+  if (mode === 'range') {
+    const intervalKeys = normalizeDialogIntervalKeys(node?.interval_keys)
+    return intervalKeys.start || intervalKeys.end
+      ? `区间：${intervalKeys.start || '-'} → ${intervalKeys.end || '-'}`
+      : '区间：未配置'
+  }
+  return node?.time_key || '-'
+}
+
 function syncNodeDialogSelectionDefaults() {
   const columnNames = nodeDialogSchema.value.columns.map((item) => item.name)
+  const intervalKeys = inferNodeDialogIntervalKeys(columnNames)
   if (!nodeDialogForm.value.entity_keys.length) {
     nodeDialogForm.value.entity_keys = inferNodeDialogEntityKeys(columnNames)
   }
-  if (!nodeDialogForm.value.time_key) {
+  if (
+    nodeDialogForm.value.time_key_mode !== 'range' &&
+    !nodeDialogForm.value.time_key &&
+    intervalKeys.start &&
+    intervalKeys.end
+  ) {
+    nodeDialogForm.value.time_key_mode = 'range'
+    nodeDialogForm.value.time_key = intervalKeys.start
+    nodeDialogForm.value.interval_keys = intervalKeys
+  }
+  if (nodeDialogForm.value.time_key_mode === 'range') {
+    const current = normalizeDialogIntervalKeys(nodeDialogForm.value.interval_keys)
+    nodeDialogForm.value.interval_keys = {
+      start: current.start || intervalKeys.start,
+      end: current.end || intervalKeys.end,
+    }
+    nodeDialogForm.value.time_key = nodeDialogForm.value.interval_keys.start || nodeDialogForm.value.time_key
+  } else if (!nodeDialogForm.value.time_key) {
     nodeDialogForm.value.time_key = inferNodeDialogTimeKey(columnNames)
   }
   if (!nodeDialogForm.value.grain) {
@@ -823,6 +893,21 @@ function applyNodeDialogFormToWorkbench() {
   schema.value.columns = [...nodeDialogSchema.value.columns]
 }
 
+function nodeDefaultKeyFields(node) {
+  const intervalKeys = normalizeDialogIntervalKeys(node?.interval_keys)
+  const timeKeys = inferDialogTimeKeyMode(node) === 'range'
+    ? [intervalKeys.start, intervalKeys.end]
+    : [node?.time_key || '']
+  return [
+    ...new Set(
+      [
+        ...(Array.isArray(node?.entity_keys) ? node.entity_keys : []),
+        ...timeKeys,
+      ].filter(Boolean)
+    ),
+  ]
+}
+
 function blankWideTable() {
   return {
     id: '',
@@ -848,7 +933,7 @@ function buildWideTableDesignFromNode(node) {
   const { database, tableName } = splitTableRef(node.table)
   const keyFields = Array.isArray(meta.key_fields) && meta.key_fields.length
     ? [...meta.key_fields]
-    : [...new Set([...(node.entity_keys || []), node.time_key || ''].filter(Boolean))]
+    : nodeDefaultKeyFields(node)
 
   return {
     id: meta.id || `wide::${node.name}`,
@@ -1062,12 +1147,7 @@ function openWideTableCreateDialog() {
   const targetTable = currentTableProfile.value.table || nodeForm.value.tableName || ''
   const copiedFields = [...wideTableFieldOptions.value]
   const copiedKeyFields = [
-    ...new Set(
-      [
-        ...(Array.isArray(nodeForm.value.entity_keys) ? nodeForm.value.entity_keys : []),
-        nodeForm.value.time_key || '',
-      ].filter(Boolean)
-    ),
+    ...nodeDefaultKeyFields(nodeForm.value),
   ]
   wideTableForm.value = {
     ...blankWideTable(),
@@ -1578,14 +1658,45 @@ async function handleNodeDatabaseChange(value) {
   nodeDialogForm.value.tableName = ''
   nodeDialogForm.value.entity_keys = []
   nodeDialogForm.value.time_key = ''
+  nodeDialogForm.value.time_key_mode = 'single'
+  nodeDialogForm.value.interval_keys = blankIntervalKeys()
   nodeDialogForm.value.fields = []
   await notifyAction('', () => loadNodeDialogTables(value))
 }
 
 async function handleNodeTableChange(value) {
   nodeDialogForm.value.tableName = value || ''
+  nodeDialogForm.value.entity_keys = []
+  nodeDialogForm.value.time_key = ''
+  nodeDialogForm.value.time_key_mode = 'single'
+  nodeDialogForm.value.interval_keys = blankIntervalKeys()
   nodeDialogForm.value.fields = []
   await notifyAction('', () => loadNodeDialogColumns(value))
+}
+
+function handleNodeTimeKeyModeChange(value) {
+  nodeDialogForm.value.time_key_mode = value || 'single'
+  if (nodeDialogForm.value.time_key_mode === 'range') {
+    const columnNames = nodeDialogSchema.value.columns.map((item) => item.name)
+    const inferred = inferNodeDialogIntervalKeys(columnNames)
+    const current = normalizeDialogIntervalKeys(nodeDialogForm.value.interval_keys)
+    nodeDialogForm.value.interval_keys = {
+      start: current.start || inferred.start,
+      end: current.end || inferred.end,
+    }
+    nodeDialogForm.value.time_key = nodeDialogForm.value.interval_keys.start || nodeDialogForm.value.time_key
+  } else {
+    nodeDialogForm.value.interval_keys = blankIntervalKeys()
+    if (!nodeDialogForm.value.time_key) {
+      nodeDialogForm.value.time_key = inferNodeDialogTimeKey(nodeDialogSchema.value.columns.map((item) => item.name))
+    }
+  }
+}
+
+function syncIntervalStartToTimeKey() {
+  if (nodeDialogForm.value.time_key_mode === 'range') {
+    nodeDialogForm.value.time_key = nodeDialogForm.value.interval_keys?.start || ''
+  }
 }
 
 async function handleAttachDatabaseChange(value) {
@@ -2093,15 +2204,47 @@ function normalizeRouteQueryValue(value) {
               <el-option v-for="column in nodeDialogColumnOptions" :key="column.name" :label="column.name" :value="column.name" />
             </el-select>
           </el-form-item>
-          <el-form-item label="时间键字段 time_key">
-            <el-select v-model="nodeDialogForm.time_key" style="width: 100%" placeholder="选择时间键字段" clearable>
-              <el-option v-for="column in nodeDialogColumnOptions" :key="column.name" :label="column.name" :value="column.name" />
-            </el-select>
+          <el-form-item label="时间键类型">
+            <el-segmented
+              v-model="nodeDialogForm.time_key_mode"
+              :options="nodeTimeKeyModeOptions"
+              style="width: 100%"
+              @change="handleNodeTimeKeyModeChange"
+            />
           </el-form-item>
           <el-form-item label="粒度 grain">
             <el-select v-model="nodeDialogForm.grain" style="width: 100%">
               <el-option v-for="option in grainOptions" :key="option.value" :label="option.label" :value="option.value" />
             </el-select>
+          </el-form-item>
+        </div>
+
+        <div v-if="nodeDialogForm.time_key_mode === 'single'" class="three-col-form">
+          <el-form-item label="单日时间字段 time_key">
+            <el-select v-model="nodeDialogForm.time_key" style="width: 100%" placeholder="选择单日时间字段" clearable>
+              <el-option v-for="column in nodeDialogColumnOptions" :key="column.name" :label="column.name" :value="column.name" />
+            </el-select>
+          </el-form-item>
+        </div>
+
+        <div v-else class="three-col-form">
+          <el-form-item label="区间开始字段 start">
+            <el-select
+              v-model="nodeDialogForm.interval_keys.start"
+              style="width: 100%"
+              placeholder="例如 in_date"
+              @change="syncIntervalStartToTimeKey"
+            >
+              <el-option v-for="column in nodeDialogColumnOptions" :key="column.name" :label="column.name" :value="column.name" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="区间结束字段 end">
+            <el-select v-model="nodeDialogForm.interval_keys.end" style="width: 100%" placeholder="例如 out_date" clearable>
+              <el-option v-for="column in nodeDialogColumnOptions" :key="column.name" :label="column.name" :value="column.name" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="兼容 time_key">
+            <el-input :model-value="nodeDialogForm.interval_keys.start || nodeDialogForm.time_key || '-'" disabled />
           </el-form-item>
         </div>
 
