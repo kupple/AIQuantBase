@@ -55,6 +55,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--runtime", default=str(DEFAULT_RUNTIME), help="runtime.local.yaml path")
     parser.add_argument("--max-rows", type=int, default=80, help="Max rows to print per section")
     parser.add_argument("--skip-db", action="store_true", help="Only print SDK raw and mapped rows")
+    parser.add_argument(
+        "--close-sdk",
+        action="store_true",
+        help="Call provider.close() before exit. Disabled by default because some SDK environments hang during logout.",
+    )
     return parser.parse_args()
 
 
@@ -249,19 +254,27 @@ def main() -> int:
 
     sdk_config = AmazingDataSDKConfig.from_env(runtime_path=runtime_path)
     provider = AmazingDataSDKProvider(sdk_config)
+    raw_result = None
     try:
+        print("\n-- fetching SDK raw get_long_hu_bang ...", flush=True)
         raw_result, raw_df = fetch_sdk_raw(provider, args.code, trade_date)
-        mapped_df = map_sdk_result(raw_result)
-    finally:
-        provider.close()
+        print(f"-- SDK raw fetched result_type={type(raw_result).__name__} rows={_count_sdk_result_rows(raw_result)}", flush=True)
+        print_frame("SDK raw get_long_hu_bang result", raw_df, args.max_rows)
 
-    print_frame("SDK raw get_long_hu_bang result", raw_df, args.max_rows)
-    print_frame("SDK mapped LongHuBangRow fields", mapped_df, args.max_rows)
+        print("\n-- mapping SDK raw result to LongHuBangRow fields ...", flush=True)
+        mapped_df = map_sdk_result(raw_result)
+        print_frame("SDK mapped LongHuBangRow fields", mapped_df, args.max_rows)
+    finally:
+        if args.close_sdk:
+            print("\n-- closing SDK provider ...", flush=True)
+            provider.close()
+            print("-- SDK provider closed", flush=True)
 
     if args.skip_db:
         print_summary(raw_result, raw_df, mapped_df, pd.DataFrame())
         return 0
 
+    print("\n-- querying ClickHouse starlight.ad_long_hu_bang ...", flush=True)
     db_df = fetch_db_rows(runtime_path, args.code, trade_date)
     print_frame("ClickHouse starlight.ad_long_hu_bang rows", db_df, args.max_rows)
     print_summary(raw_result, raw_df, mapped_df, db_df)
