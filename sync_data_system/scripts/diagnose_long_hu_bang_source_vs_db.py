@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import math
 import sys
-from dataclasses import asdict
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -34,7 +33,13 @@ from aiquantbase.runtime_config import load_runtime_config
 from sync_data_system.amazingdata_sdk_provider import (
     AmazingDataSDKConfig,
     AmazingDataSDKProvider,
+    _as_date,
+    _as_float,
+    _as_int,
+    _as_str,
     _count_sdk_result_rows,
+    _iter_records_from_sdk_result,
+    _record_get,
 )
 
 
@@ -49,6 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--date", default="2023-02-27", help="Trade date in YYYY-MM-DD or YYYYMMDD")
     parser.add_argument("--runtime", default=str(DEFAULT_RUNTIME), help="runtime.local.yaml path")
     parser.add_argument("--max-rows", type=int, default=80, help="Max rows to print per section")
+    parser.add_argument("--skip-db", action="store_true", help="Only print SDK raw and mapped rows")
     return parser.parse_args()
 
 
@@ -104,11 +110,32 @@ def fetch_sdk_raw(provider: AmazingDataSDKProvider, code: str, trade_date: date)
     return raw, flatten_sdk_result(raw)
 
 
-def fetch_sdk_mapped(provider: AmazingDataSDKProvider, code: str, trade_date: date) -> pd.DataFrame:
-    rows = list(provider.fetch_long_hu_bang([code], start_date=trade_date, end_date=trade_date) or [])
+def map_sdk_result(raw_result: Any) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for record in _iter_records_from_sdk_result(raw_result, action="get_long_hu_bang"):
+        market_code = _as_str(_record_get(record, "MARKETCODE", "MARKET_CODE", "market_code", "marketcode"))
+        trade_date = _as_date(_record_get(record, "TRADEDATE", "TRADE_DATE", "trade_date"))
+        if not market_code or trade_date is None:
+            continue
+        rows.append(
+            {
+                "market_code": market_code,
+                "trade_date": trade_date,
+                "security_name": _as_str(_record_get(record, "SECURITYNAME", "security_name")),
+                "reason_type": _as_str(_record_get(record, "REASONTYPE", "reason_type")),
+                "reason_type_name": _as_str(_record_get(record, "REASON_TYPE_NAME", "reason_type_name")),
+                "change_range": _as_float(_record_get(record, "CHANGE_RANGE", "change_range")),
+                "trader_name": _as_str(_record_get(record, "TRADER_NAME", "trader_name")),
+                "buy_amount": _as_float(_record_get(record, "BUY_AMOUNT", "buy_amount")),
+                "sell_amount": _as_float(_record_get(record, "SELL_AMOUNT", "sell_amount")),
+                "flow_mark": _as_int(_record_get(record, "FLOW_MARK", "flow_mark")),
+                "total_amount": _as_float(_record_get(record, "TOTAL_AMOUNT", "total_amount")),
+                "total_volume": _as_float(_record_get(record, "TOTAL_VOLUME", "total_volume")),
+            }
+        )
     if not rows:
         return pd.DataFrame()
-    return pd.DataFrame([asdict(row) for row in rows])
+    return pd.DataFrame(rows)
 
 
 def quote_sql(value: str) -> str:
@@ -163,10 +190,10 @@ def same_number(left: float | None, right: float | None) -> bool:
 
 
 def print_frame(title: str, df: pd.DataFrame, max_rows: int) -> None:
-    print(f"\n== {title} ==")
-    print(f"rows={len(df)}")
+    print(f"\n== {title} ==", flush=True)
+    print(f"rows={len(df)}", flush=True)
     if df.empty:
-        print("<EMPTY>")
+        print("<EMPTY>", flush=True)
         return
     with pd.option_context(
         "display.max_columns",
@@ -176,7 +203,7 @@ def print_frame(title: str, df: pd.DataFrame, max_rows: int) -> None:
         "display.max_colwidth",
         80,
     ):
-        print(df.head(max_rows).to_string(index=False))
+        print(df.head(max_rows).to_string(index=False), flush=True)
 
 
 def print_summary(raw_result: Any, raw_df: pd.DataFrame, mapped_df: pd.DataFrame, db_df: pd.DataFrame) -> None:
@@ -187,13 +214,13 @@ def print_summary(raw_result: Any, raw_df: pd.DataFrame, mapped_df: pd.DataFrame
     db_buy_sum = numeric_sum(db_df, "buy_amount")
     db_sell_sum = numeric_sum(db_df, "sell_amount")
 
-    print("\n== Summary ==")
-    print(f"sdk_result_type={type(raw_result).__name__}")
-    print(f"sdk_result_rows={_count_sdk_result_rows(raw_result)}")
-    print(f"raw_buy_like_columns={raw_buy_columns}")
-    print(f"raw_sell_like_columns={raw_sell_columns}")
-    print(f"sdk_mapped_rows={len(mapped_df)} mapped_buy_sum={mapped_buy_sum} mapped_sell_sum={mapped_sell_sum}")
-    print(f"db_rows={len(db_df)} db_buy_sum={db_buy_sum} db_sell_sum={db_sell_sum}")
+    print("\n== Summary ==", flush=True)
+    print(f"sdk_result_type={type(raw_result).__name__}", flush=True)
+    print(f"sdk_result_rows={_count_sdk_result_rows(raw_result)}", flush=True)
+    print(f"raw_buy_like_columns={raw_buy_columns}", flush=True)
+    print(f"raw_sell_like_columns={raw_sell_columns}", flush=True)
+    print(f"sdk_mapped_rows={len(mapped_df)} mapped_buy_sum={mapped_buy_sum} mapped_sell_sum={mapped_sell_sum}", flush=True)
+    print(f"db_rows={len(db_df)} db_buy_sum={db_buy_sum} db_sell_sum={db_sell_sum}", flush=True)
 
     if has_positive(mapped_df, "buy_amount") and not has_positive(db_df, "buy_amount"):
         verdict = "DB_SYNC_OR_PERSISTENCE_GAP: SDK mapped rows have positive buy_amount, but DB does not."
@@ -206,7 +233,7 @@ def print_summary(raw_result: Any, raw_df: pd.DataFrame, mapped_df: pd.DataFrame
         verdict = "DB_DIFFERS_FROM_SDK_MAPPING: mapped SDK rows and DB rows differ."
     else:
         verdict = "SDK_MAPPING_AND_DB_MATCH: persisted rows match the SDK mapping."
-    print(f"verdict={verdict}")
+    print(f"verdict={verdict}", flush=True)
 
 
 def main() -> int:
@@ -214,24 +241,28 @@ def main() -> int:
     trade_date = parse_date(args.date)
     runtime_path = Path(args.runtime).expanduser().resolve()
 
-    print("long_hu_bang diagnostic")
-    print(f"repo={REPO_ROOT}")
-    print(f"runtime={runtime_path}")
-    print(f"code={args.code}")
-    print(f"date={trade_date.isoformat()}")
+    print("long_hu_bang diagnostic", flush=True)
+    print(f"repo={REPO_ROOT}", flush=True)
+    print(f"runtime={runtime_path}", flush=True)
+    print(f"code={args.code}", flush=True)
+    print(f"date={trade_date.isoformat()}", flush=True)
 
     sdk_config = AmazingDataSDKConfig.from_env(runtime_path=runtime_path)
     provider = AmazingDataSDKProvider(sdk_config)
     try:
         raw_result, raw_df = fetch_sdk_raw(provider, args.code, trade_date)
-        mapped_df = fetch_sdk_mapped(provider, args.code, trade_date)
+        mapped_df = map_sdk_result(raw_result)
     finally:
         provider.close()
 
-    db_df = fetch_db_rows(runtime_path, args.code, trade_date)
-
     print_frame("SDK raw get_long_hu_bang result", raw_df, args.max_rows)
     print_frame("SDK mapped LongHuBangRow fields", mapped_df, args.max_rows)
+
+    if args.skip_db:
+        print_summary(raw_result, raw_df, mapped_df, pd.DataFrame())
+        return 0
+
+    db_df = fetch_db_rows(runtime_path, args.code, trade_date)
     print_frame("ClickHouse starlight.ad_long_hu_bang rows", db_df, args.max_rows)
     print_summary(raw_result, raw_df, mapped_df, db_df)
     return 0
