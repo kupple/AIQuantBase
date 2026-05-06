@@ -162,6 +162,54 @@ nodes:
           volume: volume
           amount: amount
           money: amount
+  index_daily_real:
+    description: 指数日线行情节点表
+    asset_types:
+    - index
+    query_profiles:
+    - panel_time_series
+    keys:
+      symbol: code
+      time: trade_time
+    filters:
+      security_type:
+        field: security_type
+        value: EXTRA_INDEX_A
+    semantics:
+      price.daily:
+        description: 指数日线行情字段
+        fields:
+          open: open
+          high: high
+          low: low
+          close: close
+          volume: volume
+          amount: amount
+          security_type: security_type
+  etf_daily_real:
+    description: ETF日线行情节点表
+    asset_types:
+    - etf
+    query_profiles:
+    - panel_time_series
+    keys:
+      symbol: code
+      time: trade_time
+    filters:
+      security_type:
+        field: security_type
+        value: EXTRA_ETF
+    semantics:
+      price.daily:
+        description: ETF日线行情字段
+        fields:
+          open: open
+          high: high
+          low: low
+          close: close
+          volume: volume
+          amount: amount
+          security_type: security_type
   stock_industry_daily_real:
     description: 行业日线行情节点表
     asset_types:

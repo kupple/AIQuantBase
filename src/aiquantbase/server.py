@@ -23,6 +23,7 @@ from .capabilities import (
     delete_mode_capability,
 )
 from .config import dump_yaml, load_field_catalog, load_nodes_and_edges, load_yaml
+from .data_assets import delete_data_asset, load_data_assets, upsert_data_asset
 from .discovery import SchemaDiscoveryService
 from .executor import ClickHouseExecutor
 from .llm import DeepSeekClient
@@ -48,6 +49,7 @@ from .membership import (
     upsert_source,
     upsert_taxonomy,
 )
+from .mode_data_access import load_mode_data_access, upsert_mode_data_access
 from .nl_intent import enrich_query_intent_with_aliases, normalize_query_intent_defaults, validate_query_intent_fields
 from .planner import GraphRegistry, QueryPlanner
 from .runtime import GraphRuntime
@@ -117,6 +119,9 @@ def create_app(
                     "/api/capabilities/mode-capability/delete",
                     "/api/capabilities/mode-extension-contract",
                     "/api/capabilities/preview",
+                    "/api/data-assets",
+                    "/api/data-assets/delete",
+                    "/api/mode-data-access",
                     "/api/membership/workspace",
                     "/api/membership/domains",
                     "/api/membership/sources",
@@ -413,7 +418,7 @@ def create_app(
                     "runtime_state": asdict(runtime.runtime_state),
                 },
                 "graph": {
-                    "nodes": [asdict(node) for node in nodes],
+                    "nodes": [_node_to_workspace_item(node) for node in nodes],
                     "edges": [asdict(edge) for edge in edges],
                 },
                 "fields": [asdict(field) for field in fields],
@@ -587,6 +592,7 @@ def create_app(
                 mode_registry_path=request.args.get("mode_registry_path") or None,
                 query_templates_path=request.args.get("query_templates_path") or None,
                 graph_path=request.args.get("graph_path") or None,
+                fields_path=request.args.get("fields_path") or None,
             )
         )
 
@@ -602,6 +608,7 @@ def create_app(
                 mode_registry_path=payload.get("mode_registry_path") or None,
                 query_templates_path=payload.get("query_templates_path") or None,
                 graph_path=payload.get("graph_path") or None,
+                fields_path=payload.get("fields_path") or None,
             )
             return jsonify({"ok": True, "result": result, "workspace": workspace})
         except Exception as exc:
@@ -619,6 +626,7 @@ def create_app(
                 mode_registry_path=payload.get("mode_registry_path") or None,
                 query_templates_path=payload.get("query_templates_path") or None,
                 graph_path=payload.get("graph_path") or None,
+                fields_path=payload.get("fields_path") or None,
             )
             return jsonify({"ok": True, "result": result, "workspace": workspace})
         except Exception as exc:
@@ -636,6 +644,7 @@ def create_app(
                 mode_registry_path=payload.get("mode_registry_path") or None,
                 query_templates_path=payload.get("query_templates_path") or None,
                 graph_path=payload.get("graph_path") or None,
+                fields_path=payload.get("fields_path") or None,
             )
             return jsonify({"ok": True, "result": result, "workspace": workspace})
         except Exception as exc:
@@ -653,6 +662,7 @@ def create_app(
                 mode_registry_path=payload.get("mode_registry_path") or None,
                 query_templates_path=payload.get("query_templates_path") or None,
                 graph_path=payload.get("graph_path") or None,
+                fields_path=payload.get("fields_path") or None,
             )
             return jsonify({"ok": True, "result": result, "workspace": workspace})
         except Exception as exc:
@@ -673,6 +683,44 @@ def create_app(
             return jsonify(build_capability_preview(payload))
         except Exception as exc:
             return jsonify({"ok": False, "error": str(exc), "resolved_queries": []}), 400
+
+    @app.get("/api/data-assets")
+    def data_assets_workspace():
+        try:
+            return jsonify(load_data_assets(request.args.get("data_assets_path") or None))
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc), "assets": []}), 400
+
+    @app.post("/api/data-assets")
+    def data_assets_upsert():
+        payload = request.get_json(force=True)
+        try:
+            return jsonify(upsert_data_asset(payload))
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+    @app.post("/api/data-assets/delete")
+    def data_assets_delete():
+        payload = request.get_json(force=True)
+        try:
+            return jsonify(delete_data_asset(payload))
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+    @app.get("/api/mode-data-access")
+    def mode_data_access_workspace():
+        try:
+            return jsonify(load_mode_data_access(request.args.get("mode_data_access_path") or None))
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc), "modes": {}}), 400
+
+    @app.post("/api/mode-data-access")
+    def mode_data_access_upsert():
+        payload = request.get_json(force=True)
+        try:
+            return jsonify(upsert_mode_data_access(payload))
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
 
     @app.post("/api/fields/ai-notes")
     def ai_field_notes():
@@ -807,6 +855,15 @@ def _safe_load_fields(path: Path):
     if not resolved.exists():
         return []
     return load_field_catalog(resolved)
+
+
+def _node_to_workspace_item(node) -> dict[str, Any]:
+    item = asdict(node)
+    if not item.get("business_type"):
+        item.pop("business_type", None)
+    if not item.get("field_facts"):
+        item.pop("field_facts", None)
+    return item
 
 
 def _run_nl_query(

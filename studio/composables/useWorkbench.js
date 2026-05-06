@@ -383,6 +383,8 @@ export function useWorkbench() {
     nodeForm.value.time_key_mode = 'single'
     nodeForm.value.interval_keys = blankIntervalKeys()
     nodeForm.value.fields = []
+    nodeForm.value.business_type = ''
+    nodeForm.value.field_facts = {}
 
     schema.value.selectedDatabase = value || ''
     schema.value.tables = []
@@ -404,6 +406,8 @@ export function useWorkbench() {
     nodeForm.value.time_key = ''
     nodeForm.value.time_key_mode = 'single'
     nodeForm.value.interval_keys = blankIntervalKeys()
+    nodeForm.value.business_type = ''
+    nodeForm.value.field_facts = {}
     schema.value.selectedTable = name || ''
     schema.value.columns = []
 
@@ -451,21 +455,9 @@ export function useWorkbench() {
   function inferNodeTemplate() {
     const selectedTable = String(nodeForm.value.tableName || '')
     const allFields = schema.value.columns.map((item) => item.name)
-    const intervalKeys = inferIntervalKeys(allFields)
 
     if (!nodeForm.value.name) {
       nodeForm.value.name = selectedTable.replace(/^ad_/, '')
-    }
-    nodeForm.value.grain = inferGrain(selectedTable)
-    nodeForm.value.entity_keys = nodeForm.value.entity_keys.length ? nodeForm.value.entity_keys : inferEntityKeys(allFields)
-    if (!nodeForm.value.time_key && intervalKeys.start && intervalKeys.end) {
-      nodeForm.value.time_key_mode = 'range'
-      nodeForm.value.time_key = intervalKeys.start
-      nodeForm.value.interval_keys = intervalKeys
-    } else {
-      nodeForm.value.time_key_mode = nodeForm.value.time_key_mode || 'single'
-      nodeForm.value.time_key = nodeForm.value.time_key || inferTimeKey(allFields)
-      nodeForm.value.interval_keys = nodeForm.value.interval_keys || blankIntervalKeys()
     }
     nodeForm.value.fields = nodeForm.value.fields.length ? nodeForm.value.fields : allFields
 
@@ -501,7 +493,7 @@ export function useWorkbench() {
       time_key: target.time_key || '',
       time_key_mode: inferTimeKeyMode(target),
       interval_keys: normalizeIntervalKeys(target.interval_keys),
-      grain: target.grain || inferGrain(tableName),
+      grain: target.grain || '',
       fields: Array.isArray(target.fields) ? [...target.fields] : [],
       description: target.description || target.description_zh || '',
       node_role: target.node_role || 'real',
@@ -509,6 +501,8 @@ export function useWorkbench() {
       asset_type: target.asset_type || '',
       query_freq: target.query_freq || '',
       base_filters: normalizeBaseFilters(target.base_filters),
+      business_type: target.business_type || '',
+      field_facts: normalizeFieldFacts(target.field_facts),
     })
     selectedNodeName.value = target.name || ''
     syncBindingDefaults()
@@ -555,7 +549,7 @@ export function useWorkbench() {
       time_key: target.time_key || '',
       time_key_mode: inferTimeKeyMode(target),
       interval_keys: normalizeIntervalKeys(target.interval_keys),
-      grain: target.grain || inferGrain(tableName),
+      grain: target.grain || '',
       fields: Array.isArray(target.fields) ? [...target.fields] : [],
       description: target.description || target.description_zh || '',
       node_role: target.node_role || 'real',
@@ -563,6 +557,8 @@ export function useWorkbench() {
       asset_type: target.asset_type || '',
       query_freq: target.query_freq || '',
       base_filters: normalizeBaseFilters(target.base_filters),
+      business_type: target.business_type || '',
+      field_facts: normalizeFieldFacts(target.field_facts),
     })
 
     selectedNodeName.value = target.name || ''
@@ -586,16 +582,15 @@ export function useWorkbench() {
     const existingNode = graph.value.nodes.find((item, index) =>
       String(index) === String(nodeForm.value.editIndex || '') || item.name === name
     )
+    const hiddenNodeSemantics = existingNode || {}
     const payload = {
       name,
       table: `${database}.${tableName}`,
-      entity_keys: uniqueList(nodeForm.value.entity_keys),
-      time_key: normalizedTimeKey(nodeForm.value),
-      time_key_mode: normalizedTimeKeyMode(nodeForm.value),
-      interval_keys: normalizedTimeKeyMode(nodeForm.value) === 'range'
-        ? normalizeIntervalKeys(nodeForm.value.interval_keys)
-        : null,
-      grain: nodeForm.value.grain || inferGrain(tableName),
+      entity_keys: uniqueList(hiddenNodeSemantics.entity_keys || []),
+      time_key: hiddenNodeSemantics.time_key || null,
+      time_key_mode: hiddenNodeSemantics.time_key_mode || null,
+      interval_keys: hiddenNodeSemantics.interval_keys ? normalizeIntervalKeys(hiddenNodeSemantics.interval_keys) : null,
+      grain: hiddenNodeSemantics.grain || null,
       fields: uniqueList(nodeForm.value.fields),
       description: String(nodeForm.value.description || '').trim() || null,
       node_role: nodeForm.value.node_role || 'real',
@@ -603,6 +598,8 @@ export function useWorkbench() {
       asset_type: String(nodeForm.value.asset_type || '').trim() || null,
       query_freq: String(nodeForm.value.query_freq || '').trim() || null,
       base_filters: normalizeBaseFilters(nodeForm.value.base_filters),
+      business_type: hiddenNodeSemantics.business_type || null,
+      field_facts: normalizeFieldFacts(hiddenNodeSemantics.field_facts),
       ...(existingNode?.wide_table ? { wide_table: { ...existingNode.wide_table } } : {}),
     }
 
@@ -757,7 +754,7 @@ export function useWorkbench() {
       join_keys: [],
       time_binding: null,
       bridge_steps: [],
-      field_role: bindingForm.value.field_role || 'direct_field',
+      field_role: 'base_field',
       resolver_type: bindingForm.value.resolver_type || 'direct',
       depends_on: [],
       formula: null,
@@ -927,6 +924,8 @@ export function useWorkbench() {
       entity_keys: Array.isArray(original.entity_keys) ? [...original.entity_keys] : [],
       interval_keys: normalizeIntervalKeys(original.interval_keys),
       base_filters: Array.isArray(original.base_filters) ? original.base_filters.map((item) => ({ ...item })) : [],
+      business_type: original.business_type || null,
+      field_facts: normalizeFieldFacts(original.field_facts),
     }
     delete clonedNode.wide_table
     graph.value.nodes.push(clonedNode)
@@ -1051,6 +1050,23 @@ export function useWorkbench() {
     )
   }
 
+  function removeNodeSourceField(nodeName, fieldName) {
+    const targetNodeName = String(nodeName || '').trim()
+    const targetFieldName = String(fieldName || '').trim()
+    if (!targetNodeName || !targetFieldName) return
+
+    const node = graph.value.nodes.find((item) => item.name === targetNodeName)
+    if (node && Array.isArray(node.fields)) {
+      node.fields = node.fields.filter((item) => String(item || '').trim() !== targetFieldName)
+    }
+    if (node && node.wide_table && Array.isArray(node.wide_table.fields)) {
+      node.wide_table.fields = node.wide_table.fields.filter((item) => String(item || '').trim() !== targetFieldName)
+    }
+    if (nodeForm.value.name === targetNodeName && Array.isArray(nodeForm.value.fields)) {
+      nodeForm.value.fields = nodeForm.value.fields.filter((item) => String(item || '').trim() !== targetFieldName)
+    }
+  }
+
   function cleanupSupportNodeIfUnused(nodeName) {
     if (!String(nodeName || '').startsWith(SUPPORT_NODE_PREFIX)) return
     const stillReferenced = fields.value.some((field) => field.source_node === nodeName)
@@ -1060,6 +1076,13 @@ export function useWorkbench() {
   }
 
   function removeFieldBinding(fieldEntry) {
+    const isNodeSourceField = fieldEntry?.__isRawOnly || fieldEntry?.binding_type === 'base'
+    if (isNodeSourceField) {
+      removeNodeSourceField(
+        fieldEntry.base_node || selectedNodeName.value || nodeForm.value.name,
+        fieldEntry.source_field || fieldEntry.standard_field,
+      )
+    }
     removeFieldBindingByKey(
       fieldEntry.standard_field,
       fieldEntry.base_node,
@@ -1289,6 +1312,8 @@ function blankNode() {
     asset_type: '',
     query_freq: '',
     base_filters: [],
+    business_type: '',
+    field_facts: {},
   }
 }
 
@@ -1508,6 +1533,24 @@ function inferEntityKeys(fields) {
 function inferTimeKey(fields) {
   const candidates = ['trade_time', 'trade_date', 'date', 'change_date', 'ann_date', 'report_date', 'end_date']
   return candidates.find((item) => fields.includes(item)) || ''
+}
+
+function normalizeFieldFacts(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([fieldName, fact]) => {
+        const field = String(fieldName || '').trim()
+        if (!field || !fact || typeof fact !== 'object' || Array.isArray(fact)) return null
+        const normalized = {}
+        const dbType = String(fact.db_type || fact.database_type || '').trim()
+        const role = String(fact.role || fact.field_role || '').trim()
+        if (dbType) normalized.db_type = dbType
+        if (role) normalized.role = role
+        return Object.keys(normalized).length ? [field, normalized] : null
+      })
+      .filter(Boolean)
+  )
 }
 
 function inferDefaultTimeMode(grain) {

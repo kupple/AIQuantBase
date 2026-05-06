@@ -5,6 +5,8 @@ export function useCapabilityAccess() {
   const loading = useState('capability-access-loading', () => false)
   const saving = useState('capability-access-saving', () => false)
   const workspacePayload = useState('capability-access-workspace', () => null)
+  const dataAssetsPayload = useState('capability-access-data-assets', () => null)
+  const modeDataAccessPayload = useState('capability-access-mode-data-access', () => null)
 
   const workspaceInfo = computed(() => workspacePayload.value?.workspace || {})
   const providerNodes = computed(() => workspacePayload.value?.provider_nodes || [])
@@ -13,6 +15,8 @@ export function useCapabilityAccess() {
   const modeProfiles = computed(() => workspacePayload.value?.mode_profiles || [])
   const queryTemplates = computed(() => workspacePayload.value?.query_templates || [])
   const diagnostics = computed(() => workspacePayload.value?.diagnostics || [])
+  const dataAssets = computed(() => dataAssetsPayload.value?.assets || [])
+  const modeDataAccess = computed(() => modeDataAccessPayload.value?.modes || {})
   const modeOptions = computed(() =>
     modeProfiles.value.map((item) => ({
       label: `${item.mode_kind}.${item.mode_name}`,
@@ -43,6 +47,66 @@ export function useCapabilityAccess() {
       return payload
     } finally {
       loading.value = false
+    }
+  }
+
+  async function loadDataAssets() {
+    const payload = await api('/api/data-assets')
+    dataAssetsPayload.value = payload
+    return payload
+  }
+
+  async function loadModeDataAccess() {
+    const payload = await api('/api/mode-data-access')
+    modeDataAccessPayload.value = payload
+    return payload
+  }
+
+  async function saveDataAsset(asset, options = {}) {
+    saving.value = true
+    try {
+      const payload = await api('/api/data-assets', {
+        method: 'POST',
+        body: JSON.stringify({
+          asset,
+          replace_asset_id: options.replaceAssetId || options.replace_asset_id || undefined,
+        }),
+      })
+      dataAssetsPayload.value = payload.workspace
+      return payload
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function deleteDataAsset(assetId) {
+    saving.value = true
+    try {
+      const payload = await api('/api/data-assets/delete', {
+        method: 'POST',
+        body: JSON.stringify({ capability: assetId }),
+      })
+      dataAssetsPayload.value = payload.workspace
+      return payload
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function saveModeDataAccess(mode) {
+    saving.value = true
+    try {
+      if (!mode?.mode_id) {
+        throw new Error('请先选择模式')
+      }
+      const payload = await api('/api/mode-data-access', {
+        method: 'POST',
+        body: JSON.stringify({ mode }),
+      })
+      modeDataAccessPayload.value = payload.workspace
+      return payload
+    } finally {
+      saving.value = false
     }
   }
 
@@ -217,6 +281,8 @@ export function useCapabilityAccess() {
     loading,
     saving,
     workspacePayload,
+    dataAssetsPayload,
+    modeDataAccessPayload,
     workspaceInfo,
     providerNodes,
     capabilityRegistry,
@@ -224,8 +290,15 @@ export function useCapabilityAccess() {
     modeProfiles,
     queryTemplates,
     diagnostics,
+    dataAssets,
+    modeDataAccess,
     modeOptions,
     loadWorkspace,
+    loadDataAssets,
+    loadModeDataAccess,
+    saveDataAsset,
+    deleteDataAsset,
+    saveModeDataAccess,
     saveProviderMapping,
     saveModeCapability,
     setCapabilityEnabled,

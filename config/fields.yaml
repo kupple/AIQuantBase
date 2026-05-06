@@ -22,6 +22,56 @@ fields:
   time_binding: null
   time_semantics: null
   via_node: null
+- applies_to_grain: daily
+  base_node: index_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: 指数证券类型
+  field_role: code_info_field
+  formula: null
+  join_keys:
+  - base: code
+    source: code
+  lookahead_category: none
+  notes:
+  - Mapped from starlight.ad_code_info for index daily node
+  path_domain: security
+  path_group: code_info
+  relation_type: direct
+  resolver_type: direct
+  source_field: security_type
+  source_node: null
+  source_table: starlight.ad_code_info
+  standard_field: security_type
+  time_binding: null
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: etf_daily_real
+  binding_mode: source_table
+  bridge_steps: []
+  depends_on: []
+  description_zh: ETF证券类型
+  field_role: code_info_field
+  formula: null
+  join_keys:
+  - base: code
+    source: code
+  lookahead_category: none
+  notes:
+  - Mapped from starlight.ad_code_info for ETF daily node
+  path_domain: security
+  path_group: code_info
+  relation_type: direct
+  resolver_type: direct
+  source_field: security_type
+  source_node: null
+  source_table: starlight.ad_code_info
+  standard_field: security_type
+  time_binding: null
+  time_semantics: null
+  via_node: null
 - applies_to_grain: minute
   base_node: stock_minute_real
   binding_mode: source_node
@@ -439,6 +489,192 @@ fields:
   time_binding: null
   time_semantics: null
   via_node: null
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps:
+  - join_keys:
+    - base: code
+      source: con_code
+    table: starlight.ad_industry_constituent
+    time_binding:
+      allow_equal: true
+      available_time_field: null
+      base_time_cast: date
+      base_time_field: trade_time
+      lookahead_safe: true
+      mode: effective_range
+      source_end_field: out_date
+      source_start_field: in_date
+      source_time_cast: date
+      source_time_field: null
+  depends_on: []
+  description_zh: 股票所属行业代码
+  field_role: industry_field
+  formula: null
+  join_keys:
+  - base: index_code
+    source: index_code
+  lookahead_category: none
+  notes:
+  - 通过行业成分区间表和行业基础信息表取得股票所属行业代码
+  path_domain: industry
+  path_group: stock_constituent
+  relation_type: bridge
+  resolver_type: direct
+  source_field: industry_code
+  source_node: null
+  source_table: starlight.ad_industry_base_info
+  standard_field: industry_code
+  time_binding: null
+  time_semantics: effective_range
+  via_node: industry_constituent_real
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps:
+  - join_keys:
+    - base: code
+      source: con_code
+    table: starlight.ad_industry_constituent
+    time_binding:
+      allow_equal: true
+      available_time_field: null
+      base_time_cast: date
+      base_time_field: trade_time
+      lookahead_safe: true
+      mode: effective_range
+      source_end_field: out_date
+      source_start_field: in_date
+      source_time_cast: date
+      source_time_field: null
+  depends_on: []
+  description_zh: 股票所属一级行业名称
+  field_role: industry_field
+  formula: null
+  join_keys:
+  - base: index_code
+    source: index_code
+  lookahead_category: none
+  notes:
+  - 通过行业成分区间表和行业基础信息表取得股票所属一级行业
+  path_domain: industry
+  path_group: stock_constituent
+  relation_type: bridge
+  resolver_type: direct
+  source_field: level1_name
+  source_node: null
+  source_table: starlight.ad_industry_base_info
+  standard_field: industry_level1_name
+  time_binding: null
+  time_semantics: effective_range
+  via_node: industry_constituent_real
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps:
+  - join_keys:
+    - base: code
+      source: con_code
+    table: starlight.ad_industry_constituent
+    time_binding:
+      allow_equal: true
+      available_time_field: null
+      base_time_cast: date
+      base_time_field: trade_time
+      lookahead_safe: true
+      mode: effective_range
+      source_end_field: out_date
+      source_start_field: in_date
+      source_time_cast: date
+      source_time_field: null
+  depends_on: []
+  description_zh: 股票所属二级行业名称
+  field_role: industry_field
+  formula: null
+  join_keys:
+  - base: index_code
+    source: index_code
+  lookahead_category: none
+  notes:
+  - 通过行业成分区间表和行业基础信息表取得股票所属二级行业
+  path_domain: industry
+  path_group: stock_constituent
+  relation_type: bridge
+  resolver_type: direct
+  source_field: level2_name
+  source_node: null
+  source_table: starlight.ad_industry_base_info
+  standard_field: industry_level2_name
+  time_binding: null
+  time_semantics: effective_range
+  via_node: industry_constituent_real
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: source_table
+  bridge_steps:
+  - join_keys:
+    - base: code
+      source: con_code
+    table: starlight.ad_industry_constituent
+    time_binding:
+      allow_equal: true
+      available_time_field: null
+      base_time_cast: date
+      base_time_field: trade_time
+      lookahead_safe: true
+      mode: effective_range
+      source_end_field: out_date
+      source_start_field: in_date
+      source_time_cast: date
+      source_time_field: null
+  depends_on: []
+  description_zh: 股票所属三级行业名称
+  field_role: industry_field
+  formula: null
+  join_keys:
+  - base: index_code
+    source: index_code
+  lookahead_category: none
+  notes:
+  - 通过行业成分区间表和行业基础信息表取得股票所属三级行业
+  path_domain: industry
+  path_group: stock_constituent
+  relation_type: bridge
+  resolver_type: direct
+  source_field: level3_name
+  source_node: null
+  source_table: starlight.ad_industry_base_info
+  standard_field: industry_level3_name
+  time_binding: null
+  time_semantics: effective_range
+  via_node: industry_constituent_real
+- applies_to_grain: daily
+  base_node: stock_daily_real
+  binding_mode: derived
+  bridge_steps: []
+  depends_on:
+  - industry_level3_name
+  - industry_level2_name
+  - industry_level1_name
+  description_zh: 股票所属行业名称
+  field_role: derived_field
+  formula: coalesce({industry_level3_name}, {industry_level2_name}, {industry_level1_name})
+  join_keys: []
+  lookahead_category: none
+  notes:
+  - 股票所属行业展示名称
+  path_domain: industry
+  path_group: stock_constituent
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: industry_name
+  time_binding: null
+  time_semantics: effective_range
+  via_node: industry_constituent_real
 - applies_to_grain: daily
   base_node: stock_daily_real
   binding_mode: source_table
@@ -1031,5 +1267,28 @@ fields:
     source_start_field: null
     source_time_cast: null
     source_time_field: change_date
+  time_semantics: null
+  via_node: null
+- applies_to_grain: daily
+  base_node: industry_constituent_real
+  binding_mode: derived
+  bridge_steps: []
+  depends_on:
+  - index_name
+  description_zh: null
+  field_role: direct_field
+  formula: '{index_name} + "123"'
+  join_keys: []
+  lookahead_category: null
+  notes: []
+  path_domain: null
+  path_group: null
+  relation_type: null
+  resolver_type: derived
+  source_field: null
+  source_node: null
+  source_table: null
+  standard_field: sdasd
+  time_binding: null
   time_semantics: null
   via_node: null

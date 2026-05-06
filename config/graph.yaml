@@ -96,6 +96,62 @@ nodes:
   time_key: trade_time
   time_key_mode: null
   wide_table: null
+- asset_type: index
+  base_filters:
+  - field: security_type
+    op: '='
+    value: EXTRA_INDEX_A
+  description: null
+  description_zh: 指数日线行情节点表
+  entity_keys:
+  - code
+  fields:
+  - code
+  - trade_time
+  - open
+  - high
+  - low
+  - close
+  - volume
+  - amount
+  grain: daily
+  interval_keys: {}
+  name: index_daily_real
+  node_role: query_entry
+  query_freq: 1d
+  status: enabled
+  table: starlight.ad_market_kline_daily
+  time_key: trade_time
+  time_key_mode: single
+  wide_table: null
+- asset_type: etf
+  base_filters:
+  - field: security_type
+    op: '='
+    value: EXTRA_ETF
+  description: null
+  description_zh: ETF日线行情节点表
+  entity_keys:
+  - code
+  fields:
+  - code
+  - trade_time
+  - open
+  - high
+  - low
+  - close
+  - volume
+  - amount
+  grain: daily
+  interval_keys: {}
+  name: etf_daily_real
+  node_role: query_entry
+  query_freq: 1d
+  status: enabled
+  table: starlight.ad_market_kline_daily
+  time_key: trade_time
+  time_key_mode: single
+  wide_table: null
 - asset_type: null
   base_filters: []
   description: null
@@ -228,16 +284,14 @@ nodes:
   wide_table: null
 - asset_type: null
   base_filters: []
-  description: null
-  description_zh: 行业成分关系表
+  description: 行业成分关系表
+  description_zh: null
   entity_keys:
   - con_code
   fields:
-  - index_code
   - con_code
   - in_date
   - out_date
-  - index_name
   grain: daily
   interval_keys:
     end: out_date
@@ -307,18 +361,3 @@ edges:
   to_node: industry_constituent_real
   from: stock_daily_real
   to: industry_constituent_real
-- bridge_steps: []
-  description: null
-  description_zh: industry_constituent_real 到三级行业基础信息，按行业指数代码关联
-  from_node: industry_constituent_real
-  join_keys:
-  - base: index_code
-    source: index_code
-  name: industry_constituent_real_to_industry_level3_base_info_real
-  priority: 100
-  relation_type: any
-  source_table: null
-  time_binding: null
-  to_node: industry_level3_base_info_real
-  from: industry_constituent_real
-  to: industry_level3_base_info_real

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, h, onMounted, ref, watch } from 'vue'
-import { ElButton, ElCheckbox, ElEmpty, ElMessageBox, ElSwitch, ElTag } from 'element-plus'
+import { ElButton, ElCheckbox, ElEmpty, ElMessageBox, ElOption, ElSelect, ElSwitch, ElTag } from 'element-plus'
 import { useRoute } from '#imports'
 import { formatDateTime } from '~/composables/useDateTimeFormat'
 import { useWorkbench } from '~/composables/useWorkbench'
@@ -32,6 +32,7 @@ const wideTableStateLoading = ref(false)
 const nodeDialogForm = ref(blankNodeDialogForm())
 const nodeDialogSchema = ref(blankNodeDialogSchema())
 const nodeDialogLoading = ref(false)
+const tableColumnTypeCache = ref({})
 
 const {
   workspace,
@@ -91,6 +92,33 @@ const currentNodeWideTable = computed(() =>
   nodeForm.value.name ? (wideTableByName.value.get(nodeForm.value.name) || null) : null
 )
 
+const graphNodeByName = computed(() =>
+  new Map(graph.value.nodes.map((node) => [String(node.name || ''), node]))
+)
+
+const graphNodeByTable = computed(() => {
+  const map = new Map()
+  for (const node of graph.value.nodes) {
+    const tableRef = String(node.table || '').trim()
+    if (tableRef && !map.has(tableRef)) {
+      map.set(tableRef, node)
+    }
+    const { tableName } = splitTableRef(tableRef)
+    if (tableName && !map.has(tableName)) {
+      map.set(tableName, node)
+    }
+  }
+  return map
+})
+
+const currentColumnTypeByName = computed(() =>
+  new Map(
+    schema.value.columns
+      .map((column) => [String(column.name || '').trim(), String(column.type || '').trim()])
+      .filter(([name]) => Boolean(name))
+  )
+)
+
 const wideTableStateByName = computed(() => {
   const map = new Map()
   for (const item of wideTableSyncStates.value || []) {
@@ -128,11 +156,7 @@ const currentNodeSummary = computed(() => {
   const syncStatus = currentNodeWideTableStatus.value
   return [
     { label: '主表', value: currentTableProfile.value.table ? `${currentTableProfile.value.database}.${currentTableProfile.value.table}` : '-' },
-    { label: '粒度', value: nodeForm.value.grain || '-' },
-    { label: '主键', value: (nodeForm.value.entity_keys || []).join(', ') || '-' },
-    { label: '时间键', value: formatNodeTimeKey(nodeForm.value) },
     { label: '状态', value: nodeForm.value.status === 'enabled' ? '启用' : '停用' },
-    { label: '资产类型', value: nodeForm.value.asset_type || '-' },
     { label: '查询频率', value: nodeForm.value.query_freq || '-' },
     ...(wideTable
       ? [
@@ -204,7 +228,6 @@ const filteredFieldBindings = computed(() => {
         item.source_table,
         item.source_field,
         item.source_node,
-        item.field_role,
         item.relation_mode,
         item.join_keys_text,
         ...(item.notes || []),
@@ -215,11 +238,15 @@ const filteredFieldBindings = computed(() => {
 
       return haystack.includes(keyword)
     })
-    .map((item) => ({
-      ...item,
-      __rowKey: `${item.base_node}__${item.standard_field}__${item.source_node}__${item.source_table}__${item.source_field}`,
-      __bindingOrder: item.binding_type === 'base' ? 0 : (item.binding_type === 'derived' ? 1 : 2)
-    }))
+    .map((item) => {
+      const sourceNode = sourceNodeForBindingRow(item)
+      return {
+        ...item,
+        db_type: simplifyDatabaseType(resolveBindingDbType(item, sourceNode), item),
+        __rowKey: `${item.base_node}__${item.standard_field}__${item.source_node}__${item.source_table}__${item.source_field}`,
+        __bindingOrder: item.binding_type === 'base' ? 0 : (item.binding_type === 'derived' ? 1 : 2)
+      }
+    })
     .sort((a, b) => {
       if (a.__bindingOrder !== b.__bindingOrder) {
         return a.__bindingOrder - b.__bindingOrder
@@ -259,11 +286,6 @@ const selectedWideTable = computed(() =>
   || null
 )
 
-const nodeTimeKeyModeOptions = [
-  { label: '单日时间', value: 'single' },
-  { label: '区间时间', value: 'range' },
-]
-
 const selectedWideTableSyncState = computed(() => {
   const item = selectedWideTable.value
   if (!item) return null
@@ -288,7 +310,6 @@ const workbenchRows = computed(() => {
           item.source_field,
           item.source_table,
           item.source_node,
-          item.field_role,
           ...(item.notes || []),
         ])
         .filter(Boolean)
@@ -510,6 +531,7 @@ const bindingTableColumns = [
     dataKey: 'selected',
     title: '选择',
     width: 72,
+    fixed: true,
     headerCellRenderer: () =>
       h(ElCheckbox, {
         modelValue: allSelectableRowsChecked.value,
@@ -527,6 +549,14 @@ const bindingTableColumns = [
     dataKey: 'standard_field',
     title: '标准字段',
     width: 220,
+    fixed: true,
+  },
+  {
+    key: 'db_type',
+    dataKey: 'db_type',
+    title: '数据库类型',
+    width: 110,
+    cellRenderer: ({ cellData }) => cellData || '-',
   },
   {
     key: 'binding_type',
@@ -582,12 +612,6 @@ const bindingTableColumns = [
     dataKey: 'source_field',
     title: '来源字段',
     width: 180,
-  },
-  {
-    key: 'field_role',
-    dataKey: 'field_role',
-    title: '字段角色',
-    width: 150,
   },
   {
     key: 'relation_mode',
@@ -711,6 +735,8 @@ function blankNodeDialogForm() {
     asset_type: '',
     query_freq: '',
     base_filters: [],
+    business_type: '',
+    field_facts: {},
   }
 }
 
@@ -731,6 +757,8 @@ function cloneNodeDialogForm(source) {
     time_key_mode: inferDialogTimeKeyMode(source),
     interval_keys: normalizeDialogIntervalKeys(source?.interval_keys),
     fields: Array.isArray(source?.fields) ? [...source.fields] : [],
+    business_type: source?.business_type || '',
+    field_facts: normalizeFieldFacts(source?.field_facts),
     base_filters: Array.isArray(source?.base_filters)
       ? source.base_filters.map((item) => ({ ...item }))
       : [],
@@ -741,23 +769,181 @@ function resetNodeDialogSchema() {
   nodeDialogSchema.value = blankNodeDialogSchema()
 }
 
-function inferNodeDialogGrain(tableName) {
-  const table = String(tableName || '')
-  if (table.includes('minute')) return 'minute'
-  if (table.includes('daily')) return 'daily'
-  if (table.includes('factor')) return 'daily_factor'
-  return 'daily'
+function normalizeFieldFacts(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([fieldName, fact]) => {
+        const field = String(fieldName || '').trim()
+        if (!field || !fact || typeof fact !== 'object' || Array.isArray(fact)) return null
+        return [field, { ...fact }]
+      })
+      .filter(Boolean)
+  )
 }
 
-function inferNodeDialogEntityKeys(fields) {
-  const candidates = ['code', 'symbol', 'ts_code', 'market_code', 'index_code', 'fund_code', 'industry_code']
-  const hit = candidates.find((item) => fields.includes(item))
-  return hit ? [hit] : []
+function sourceNodeForBindingRow(row) {
+  if (row?.binding_type === 'base' || row?.source_node === nodeForm.value.name) {
+    return nodeForm.value
+  }
+  const sourceNodeName = String(row?.source_node || '').trim()
+  if (sourceNodeName && graphNodeByName.value.has(sourceNodeName)) {
+    return graphNodeByName.value.get(sourceNodeName)
+  }
+  const sourceTable = String(row?.source_table || '').trim()
+  if (sourceTable && graphNodeByTable.value.has(sourceTable)) {
+    return graphNodeByTable.value.get(sourceTable)
+  }
+  const { tableName } = splitTableRef(sourceTable)
+  if (tableName && graphNodeByTable.value.has(tableName)) {
+    return graphNodeByTable.value.get(tableName)
+  }
+  return null
 }
 
-function inferNodeDialogTimeKey(fields) {
-  const candidates = ['trade_time', 'trade_date', 'date', 'change_date', 'ann_date', 'report_date', 'end_date']
-  return candidates.find((item) => fields.includes(item)) || ''
+function sourceFieldForBindingRow(row) {
+  return String(row?.source_field || row?.standard_field || '').trim()
+}
+
+function resolveBindingDbType(row, sourceNode, visited = new Set()) {
+  if (row?.binding_type === 'derived' || row?.binding_mode === 'derived' || row?.resolver_type === 'derived') {
+    return resolveDerivedDbType(row, visited)
+  }
+
+  const sourceField = sourceFieldForBindingRow(row)
+  const facts = normalizeFieldFacts(sourceNode?.field_facts)
+  const factType = String(facts[sourceField]?.db_type || facts[sourceField]?.database_type || '').trim()
+  if (factType) return factType
+  if ((row?.binding_type === 'base' || sourceNode === nodeForm.value) && currentColumnTypeByName.value.has(sourceField)) {
+    return currentColumnTypeByName.value.get(sourceField)
+  }
+  const tableType = resolveCachedTableFieldType(row, sourceNode, sourceField)
+  if (tableType) return tableType
+  const tableRef = tableRefForBindingRow(row, sourceNode)
+  const cacheKey = tableColumnCacheKey(tableRef.database, tableRef.tableName)
+  if (cacheKey && !Object.prototype.hasOwnProperty.call(tableColumnTypeCache.value, cacheKey)) return '加载中'
+  return ''
+}
+
+function resolveDerivedDbType(row, visited = new Set()) {
+  const key = String(row?.standard_field || '').trim()
+  if (key && visited.has(key)) return 'Float'
+  if (key) visited.add(key)
+
+  const dependencyTypes = (Array.isArray(row?.depends_on) ? row.depends_on : [])
+    .map((fieldName) => resolveStandardFieldDbType(fieldName, visited))
+    .filter(Boolean)
+    .filter((value) => value !== '加载中')
+
+  if (dependencyTypes.length) {
+    if (dependencyTypes.some(isNumericDbType)) return 'Float'
+    const firstType = dependencyTypes[0]
+    if (dependencyTypes.every((item) => item === firstType)) return simplifyDatabaseType(firstType)
+  }
+
+  return row?.formula ? 'Float' : '-'
+}
+
+function resolveStandardFieldDbType(fieldName, visited = new Set()) {
+  const standardField = String(fieldName || '').trim()
+  if (!standardField) return ''
+  const row = currentNodeFieldBindings.value.find((item) => String(item.standard_field || '').trim() === standardField)
+  if (!row) return ''
+  const sourceNode = sourceNodeForBindingRow(row)
+  return resolveBindingDbType(row, sourceNode, new Set(visited))
+}
+
+function isNumericDbType(value) {
+  return /(?:^|\W)(?:u?int(?:\d+)?|float(?:\d+)?|decimal|numeric)(?:\W|$)/i.test(String(value || ''))
+}
+
+function simplifyDatabaseType(value, row = null) {
+  let text = String(value || '').trim()
+  if (!text || text === '-' || text === '加载中') return text
+
+  let changed = true
+  while (changed) {
+    changed = false
+    const wrapped = text.match(/^(?:Nullable|LowCardinality)\((.*)\)$/i)
+    if (wrapped) {
+      text = wrapped[1].trim()
+      changed = true
+    }
+  }
+
+  const fieldName = String(row?.standard_field || row?.source_field || '').trim().toLowerCase()
+  if (/^bool(?:ean)?$/i.test(text)) return 'Bool'
+  if (/^(is_|has_|can_|should_)/.test(fieldName) && /u?int(?:8|16|32|64)?/i.test(text)) return 'Bool'
+  if (/^array\(/i.test(text)) return 'Array'
+  if (/^map\(/i.test(text) || /^tuple\(/i.test(text) || /^object/i.test(text)) return 'Object'
+  if (/datetime/i.test(text)) return 'DateTime'
+  if (/^date/i.test(text)) return 'Date'
+  if (/string|fixedstring|uuid|enum/i.test(text)) return 'String'
+  if (/float|decimal|numeric/i.test(text)) return 'Float'
+  if (/u?int/i.test(text)) return 'Int'
+  return text
+}
+
+function tableRefForBindingRow(row, sourceNode) {
+  const tableRef = String(sourceNode?.table || row?.source_table || '').trim()
+  const parsed = splitTableRef(tableRef)
+  return {
+    database: parsed.database || currentTableProfile.value.database || nodeForm.value.database || '',
+    tableName: parsed.tableName,
+  }
+}
+
+function tableColumnCacheKey(database, tableName) {
+  const db = String(database || '').trim()
+  const table = String(tableName || '').trim()
+  return db && table ? `${db}.${table}` : ''
+}
+
+function resolveCachedTableFieldType(row, sourceNode, fieldName) {
+  const ref = tableRefForBindingRow(row, sourceNode)
+  const key = tableColumnCacheKey(ref.database, ref.tableName)
+  if (!key) return ''
+  return tableColumnTypeCache.value[key]?.[fieldName] || ''
+}
+
+async function loadTableColumnTypeCache(database, tableName) {
+  const key = tableColumnCacheKey(database, tableName)
+  if (!key || tableColumnTypeCache.value[key]) return
+  tableColumnTypeCache.value = {
+    ...tableColumnTypeCache.value,
+    [key]: {},
+  }
+  if (!hasDatasourceConfigured.value) return
+  const payload = await callJson(
+    `/api/schema/columns?runtime_path=${encodeURIComponent(workspace.value.runtimePath)}&database=${encodeURIComponent(database)}&table=${encodeURIComponent(tableName)}`
+  )
+  const typeMap = Object.fromEntries(
+    (payload.items || [])
+      .map((column) => [String(column.name || '').trim(), String(column.type || '').trim()])
+      .filter(([name]) => Boolean(name))
+  )
+  tableColumnTypeCache.value = {
+    ...tableColumnTypeCache.value,
+    [key]: typeMap,
+  }
+}
+
+async function hydrateBindingColumnTypes() {
+  const targets = new Map()
+  for (const row of currentNodeFieldBindings.value) {
+    if (row.binding_type === 'derived' || row.binding_mode === 'derived' || row.resolver_type === 'derived') continue
+    const sourceNode = sourceNodeForBindingRow(row)
+    const ref = tableRefForBindingRow(row, sourceNode)
+    const key = tableColumnCacheKey(ref.database, ref.tableName)
+    if (key && !tableColumnTypeCache.value[key]) {
+      targets.set(key, ref)
+    }
+  }
+  await Promise.all(
+    [...targets.values()].map((item) =>
+      loadTableColumnTypeCache(item.database, item.tableName).catch(() => {})
+    )
+  )
 }
 
 function blankIntervalKeys() {
@@ -792,46 +978,8 @@ function inferDialogTimeKeyMode(source) {
   return intervalKeys.start && intervalKeys.end ? 'range' : 'single'
 }
 
-function formatNodeTimeKey(node) {
-  const mode = inferDialogTimeKeyMode(node)
-  if (mode === 'range') {
-    const intervalKeys = normalizeDialogIntervalKeys(node?.interval_keys)
-    return intervalKeys.start || intervalKeys.end
-      ? `区间：${intervalKeys.start || '-'} → ${intervalKeys.end || '-'}`
-      : '区间：未配置'
-  }
-  return node?.time_key || '-'
-}
-
 function syncNodeDialogSelectionDefaults() {
   const columnNames = nodeDialogSchema.value.columns.map((item) => item.name)
-  const intervalKeys = inferNodeDialogIntervalKeys(columnNames)
-  if (!nodeDialogForm.value.entity_keys.length) {
-    nodeDialogForm.value.entity_keys = inferNodeDialogEntityKeys(columnNames)
-  }
-  if (
-    nodeDialogForm.value.time_key_mode !== 'range' &&
-    !nodeDialogForm.value.time_key &&
-    intervalKeys.start &&
-    intervalKeys.end
-  ) {
-    nodeDialogForm.value.time_key_mode = 'range'
-    nodeDialogForm.value.time_key = intervalKeys.start
-    nodeDialogForm.value.interval_keys = intervalKeys
-  }
-  if (nodeDialogForm.value.time_key_mode === 'range') {
-    const current = normalizeDialogIntervalKeys(nodeDialogForm.value.interval_keys)
-    nodeDialogForm.value.interval_keys = {
-      start: current.start || intervalKeys.start,
-      end: current.end || intervalKeys.end,
-    }
-    nodeDialogForm.value.time_key = nodeDialogForm.value.interval_keys.start || nodeDialogForm.value.time_key
-  } else if (!nodeDialogForm.value.time_key) {
-    nodeDialogForm.value.time_key = inferNodeDialogTimeKey(columnNames)
-  }
-  if (!nodeDialogForm.value.grain) {
-    nodeDialogForm.value.grain = inferNodeDialogGrain(nodeDialogForm.value.tableName)
-  }
   if (!nodeDialogForm.value.name && nodeDialogForm.value.tableName) {
     nodeDialogForm.value.name = String(nodeDialogForm.value.tableName).replace(/^ad_/, '')
   }
@@ -1348,7 +1496,7 @@ async function handleEditField(row) {
       binding_mode: row.binding_mode || 'source_table',
       base_source_field: row.source_field || '',
       standard_field: row.standard_field || '',
-      field_role: row.field_role === 'base_field' ? 'direct_field' : (row.field_role || 'direct_field'),
+      field_role: 'direct_field',
       resolver_type: row.resolver_type || 'direct',
       notes: editableNotes(row.notes),
       edit_mode: true,
@@ -1436,27 +1584,12 @@ const baseFieldOptions = computed(() => {
   }))
 })
 
-const grainOptions = [
-  { label: '日线 daily', value: 'daily' },
-  { label: '分钟 minute', value: 'minute' },
-  { label: '日频因子 daily_factor', value: 'daily_factor' },
-]
-
 const timeModeOptions = [
   { label: '不配置时间绑定', value: 'none' },
   { label: '同日 same_date', value: 'same_date' },
   { label: '同刻 same_timestamp', value: 'same_timestamp' },
   { label: '向前对齐 asof', value: 'asof' },
   { label: '生效区间 effective_range', value: 'effective_range' },
-]
-
-const assetTypeOptions = [
-  { label: '股票 stock', value: 'stock' },
-  { label: 'ETF etf', value: 'etf' },
-  { label: '指数 index', value: 'index' },
-  { label: '基金 fund', value: 'fund' },
-  { label: '宏观 macro', value: 'macro' },
-  { label: '可转债 kzz', value: 'kzz' },
 ]
 
 const queryFreqOptions = [
@@ -1525,6 +1658,23 @@ watch(
   () => {
     selectNodeFromRoute().catch(() => {})
   }
+)
+
+watch(
+  () => currentNodeFieldBindings.value
+    .map((row) => [
+      row.standard_field,
+      row.source_table,
+      row.source_node,
+      row.source_field,
+      row.binding_type,
+      row.binding_mode,
+    ].join('|'))
+    .join(';;'),
+  () => {
+    hydrateBindingColumnTypes().catch(() => {})
+  },
+  { immediate: true }
 )
 
 watch(
@@ -1661,6 +1811,8 @@ async function handleNodeDatabaseChange(value) {
   nodeDialogForm.value.time_key_mode = 'single'
   nodeDialogForm.value.interval_keys = blankIntervalKeys()
   nodeDialogForm.value.fields = []
+  nodeDialogForm.value.business_type = ''
+  nodeDialogForm.value.field_facts = {}
   await notifyAction('', () => loadNodeDialogTables(value))
 }
 
@@ -1671,32 +1823,9 @@ async function handleNodeTableChange(value) {
   nodeDialogForm.value.time_key_mode = 'single'
   nodeDialogForm.value.interval_keys = blankIntervalKeys()
   nodeDialogForm.value.fields = []
+  nodeDialogForm.value.business_type = ''
+  nodeDialogForm.value.field_facts = {}
   await notifyAction('', () => loadNodeDialogColumns(value))
-}
-
-function handleNodeTimeKeyModeChange(value) {
-  nodeDialogForm.value.time_key_mode = value || 'single'
-  if (nodeDialogForm.value.time_key_mode === 'range') {
-    const columnNames = nodeDialogSchema.value.columns.map((item) => item.name)
-    const inferred = inferNodeDialogIntervalKeys(columnNames)
-    const current = normalizeDialogIntervalKeys(nodeDialogForm.value.interval_keys)
-    nodeDialogForm.value.interval_keys = {
-      start: current.start || inferred.start,
-      end: current.end || inferred.end,
-    }
-    nodeDialogForm.value.time_key = nodeDialogForm.value.interval_keys.start || nodeDialogForm.value.time_key
-  } else {
-    nodeDialogForm.value.interval_keys = blankIntervalKeys()
-    if (!nodeDialogForm.value.time_key) {
-      nodeDialogForm.value.time_key = inferNodeDialogTimeKey(nodeDialogSchema.value.columns.map((item) => item.name))
-    }
-  }
-}
-
-function syncIntervalStartToTimeKey() {
-  if (nodeDialogForm.value.time_key_mode === 'range') {
-    nodeDialogForm.value.time_key = nodeDialogForm.value.interval_keys?.start || ''
-  }
 }
 
 async function handleAttachDatabaseChange(value) {
@@ -1957,7 +2086,6 @@ function normalizeRouteQueryValue(value) {
                   <el-tag v-if="row.__wideTable?.engine" size="small" effect="plain" type="success" disable-transitions>
                     {{ row.__wideTable.engine }}
                   </el-tag>
-                  <el-tag v-if="row.__rowType === 'node' && row.asset_type" size="small" effect="plain" type="success" disable-transitions>{{ row.asset_type }}</el-tag>
                   <el-tag v-if="row.__rowType === 'node' && row.query_freq" size="small" effect="plain" disable-transitions>{{ row.query_freq }}</el-tag>
                 </div>
               </div>
@@ -2165,10 +2293,18 @@ function normalizeRouteQueryValue(value) {
       </div>
     </section>
 
-    <el-dialog v-model="nodeDialogVisible" :title="nodeDialogMode === 'create' ? '新建节点' : '编辑节点'" width="920px" destroy-on-close>
-      <div class="form-stack">
-        <div class="mini-description">在弹窗里维护节点主表、键和粒度。保存后，主页面继续负责字段绑定。</div>
-        <div class="three-col-form">
+    <el-dialog
+      v-model="nodeDialogVisible"
+      :title="nodeDialogMode === 'create' ? '新建节点' : '编辑节点'"
+      width="980px"
+      align-center
+      class="node-editor-dialog"
+      destroy-on-close
+    >
+      <div class="node-dialog-scroll form-stack">
+        <div class="node-dialog-section">
+          <div class="node-dialog-section-title">节点来源</div>
+          <div class="three-col-form">
           <el-form-item label="节点名">
             <el-input v-model="nodeDialogForm.name" placeholder="例如 stock_daily_real" />
           </el-form-item>
@@ -2196,63 +2332,16 @@ function normalizeRouteQueryValue(value) {
               <el-option v-for="table in nodeDialogTableOptions" :key="table.name" :label="table.name" :value="table.name" />
             </el-select>
           </el-form-item>
+          </div>
         </div>
 
-        <div class="three-col-form">
-          <el-form-item label="主键字段 entity_keys">
-            <el-select v-model="nodeDialogForm.entity_keys" multiple collapse-tags style="width: 100%" placeholder="选择主键字段">
-              <el-option v-for="column in nodeDialogColumnOptions" :key="column.name" :label="column.name" :value="column.name" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="时间键类型">
-            <el-segmented
-              v-model="nodeDialogForm.time_key_mode"
-              :options="nodeTimeKeyModeOptions"
-              style="width: 100%"
-              @change="handleNodeTimeKeyModeChange"
-            />
-          </el-form-item>
-          <el-form-item label="粒度 grain">
-            <el-select v-model="nodeDialogForm.grain" style="width: 100%">
-              <el-option v-for="option in grainOptions" :key="option.value" :label="option.label" :value="option.value" />
-            </el-select>
-          </el-form-item>
-        </div>
-
-        <div v-if="nodeDialogForm.time_key_mode === 'single'" class="three-col-form">
-          <el-form-item label="单日时间字段 time_key">
-            <el-select v-model="nodeDialogForm.time_key" style="width: 100%" placeholder="选择单日时间字段" clearable>
-              <el-option v-for="column in nodeDialogColumnOptions" :key="column.name" :label="column.name" :value="column.name" />
-            </el-select>
-          </el-form-item>
-        </div>
-
-        <div v-else class="three-col-form">
-          <el-form-item label="区间开始字段 start">
-            <el-select
-              v-model="nodeDialogForm.interval_keys.start"
-              style="width: 100%"
-              placeholder="例如 in_date"
-              @change="syncIntervalStartToTimeKey"
-            >
-              <el-option v-for="column in nodeDialogColumnOptions" :key="column.name" :label="column.name" :value="column.name" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="区间结束字段 end">
-            <el-select v-model="nodeDialogForm.interval_keys.end" style="width: 100%" placeholder="例如 out_date" clearable>
-              <el-option v-for="column in nodeDialogColumnOptions" :key="column.name" :label="column.name" :value="column.name" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="兼容 time_key">
-            <el-input :model-value="nodeDialogForm.interval_keys.start || nodeDialogForm.time_key || '-'" disabled />
-          </el-form-item>
-        </div>
-
-        <el-form-item label="描述">
+        <div class="node-dialog-section">
+          <div class="node-dialog-section-title">描述与入口</div>
+          <el-form-item label="描述">
           <el-input v-model="nodeDialogForm.description" type="textarea" :rows="3" placeholder="描述这个节点的用途" />
-        </el-form-item>
+          </el-form-item>
 
-        <div class="node-config-block">
+          <div class="node-config-block">
           <div class="panel-heading panel-heading-space">
             <div>
               <span class="panel-title">逻辑入口配置</span>
@@ -2261,11 +2350,6 @@ function normalizeRouteQueryValue(value) {
           </div>
 
           <div class="three-col-form">
-            <el-form-item label="资产类型 asset_type">
-              <el-select v-model="nodeDialogForm.asset_type" clearable style="width: 100%" placeholder="例如 stock / etf / index">
-                <el-option v-for="option in assetTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
-              </el-select>
-            </el-form-item>
             <el-form-item label="查询频率 query_freq">
               <el-select v-model="nodeDialogForm.query_freq" clearable style="width: 100%" placeholder="例如 1d / 1m">
                 <el-option v-for="option in queryFreqOptions" :key="option.value" :label="option.label" :value="option.value" />
@@ -2296,6 +2380,7 @@ function normalizeRouteQueryValue(value) {
               </div>
             </div>
             <el-empty v-else description="当前没有基础过滤条件" :image-size="56" />
+          </div>
           </div>
         </div>
       </div>

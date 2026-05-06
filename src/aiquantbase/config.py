@@ -148,6 +148,8 @@ def _parse_node(item: dict[str, Any]) -> Node:
         asset_type=item.get("asset_type"),
         query_freq=item.get("query_freq"),
         base_filters=list(item.get("base_filters", [])),
+        business_type=item.get("business_type"),
+        field_facts=dict(item.get("field_facts") or {}),
         wide_table=dict(item["wide_table"]) if isinstance(item.get("wide_table"), dict) else None,
     )
 

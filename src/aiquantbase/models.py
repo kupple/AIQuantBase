@@ -35,6 +35,8 @@ class Node:
     asset_type: str | None = None
     query_freq: str | None = None
     base_filters: list[dict[str, Any]] = field(default_factory=list)
+    business_type: str | None = None
+    field_facts: dict[str, Any] = field(default_factory=dict)
     wide_table: dict[str, Any] | None = None
 
 

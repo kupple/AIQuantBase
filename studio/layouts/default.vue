@@ -9,6 +9,8 @@ const route = useRoute()
 const planningItems = [
   { path: '/database', label: '节点工作台' },
   { path: '/extensions', label: '扩展能力' },
+  { path: '/extensions-lab', label: '实体能力测试页' },
+  { path: '/mode-config', label: '模式配置 V3' },
   { path: '/capabilities', label: '模式工作台' },
 ]
 
@@ -53,7 +55,7 @@ onMounted(() => {
           duration: 2400,
           grouping: true,
         })
-        if (!['/settings', '/guide'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities') && !route.path.startsWith('/extensions')) {
+        if (!['/settings', '/guide'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities') && !route.path.startsWith('/extensions') && !route.path.startsWith('/mode-config')) {
           navigateTo('/settings')
         }
         return
@@ -68,7 +70,7 @@ onMounted(() => {
         message: error instanceof Error ? error.message : '工作区载入失败',
         duration: 3200,
       })
-      if (!['/settings', '/guide'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities') && !route.path.startsWith('/extensions')) {
+      if (!['/settings', '/guide'].includes(route.path) && !route.path.startsWith('/sync') && !route.path.startsWith('/capabilities') && !route.path.startsWith('/extensions') && !route.path.startsWith('/mode-config')) {
         navigateTo('/settings')
       }
     })
@@ -150,7 +152,7 @@ onMounted(() => {
   position: sticky;
   top: 0;
   z-index: 20;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .platform-header-inner {
@@ -158,8 +160,9 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   align-items: center;
-  gap: 18px;
-  padding: 10px 16px;
+  gap: 14px;
+  min-height: 54px;
+  padding: 6px 14px;
   border-radius: 0;
   background: rgba(255, 255, 255, 0.88);
   border: none;
@@ -169,7 +172,7 @@ onMounted(() => {
 
 .platform-brand-inline {
   flex: 0 0 auto;
-  font-size: 22px;
+  font-size: 19px;
   line-height: 1;
   letter-spacing: -0.04em;
   font-weight: 700;
@@ -179,9 +182,11 @@ onMounted(() => {
 .platform-top-menu {
   flex: 1 1 auto;
   justify-content: flex-start;
-  padding: 0 16px;
+  padding: 0 10px;
   border-bottom: none;
   background: transparent;
+  min-height: 44px;
+  --el-menu-horizontal-height: 44px;
   --el-menu-bg-color: transparent;
   --el-menu-hover-bg-color: rgba(15, 118, 110, 0.06);
   --el-menu-active-color: var(--accent);
@@ -190,7 +195,9 @@ onMounted(() => {
 
 .platform-top-menu :deep(.el-menu-item),
 .platform-top-menu :deep(.el-sub-menu__title) {
-  border-radius: 12px;
+  height: 44px;
+  border-radius: 10px;
+  line-height: 44px;
 }
 
 .platform-main-top {
@@ -232,7 +239,7 @@ onMounted(() => {
   }
 
   .platform-header-inner {
-    padding: 16px 12px;
+    padding: 10px 12px;
   }
 }
 </style>

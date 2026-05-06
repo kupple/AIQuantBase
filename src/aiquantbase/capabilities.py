@@ -11,6 +11,7 @@ from .config import dump_yaml, load_yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CAPABILITY_ROOT = PROJECT_ROOT / "config" / "aiquantbase"
 DEFAULT_GRAPH_PATH = PROJECT_ROOT / "config" / "graph.yaml"
+DEFAULT_FIELDS_PATH = PROJECT_ROOT / "config" / "fields.yaml"
 
 
 def default_alphablocks_root() -> Path:
@@ -41,6 +42,7 @@ def load_capability_workspace(
     mode_registry_path: str | Path | None = None,
     query_templates_path: str | Path | None = None,
     graph_path: str | Path | None = None,
+    fields_path: str | Path | None = None,
 ) -> dict[str, Any]:
     root = _resolve_capability_root(capability_root=capability_root, alphablocks_root=alphablocks_root)
     manifest_path = _resolve_capability_path(
@@ -60,7 +62,7 @@ def load_capability_workspace(
     manifest = _safe_load_yaml(manifest_path, diagnostics=diagnostics, label="provider_manifest")
     mode_registry = _safe_load_yaml(registry_path, diagnostics=diagnostics, label="mode_registry")
     query_templates = _safe_load_yaml(templates_path, diagnostics=diagnostics, label="query_templates")
-    graph_catalog = _load_graph_catalog(graph_path)
+    graph_catalog = _load_graph_catalog(graph_path, fields_path=fields_path)
     mode_profiles = _load_mode_profiles(mode_registry, root=root, diagnostics=diagnostics)
 
     return {
@@ -747,7 +749,11 @@ def _mode_id(payload: dict[str, Any]) -> str:
     return f"{mode_kind}.{mode_name}" if mode_kind and mode_name else mode_name or mode_kind
 
 
-def _load_graph_catalog(path_like: str | Path | None = None) -> dict[str, dict[str, Any]]:
+def _load_graph_catalog(
+    path_like: str | Path | None = None,
+    *,
+    fields_path: str | Path | None = None,
+) -> dict[str, dict[str, Any]]:
     path = _resolve_path(path_like or DEFAULT_GRAPH_PATH, base=PROJECT_ROOT)
     if not path.exists():
         return {}
@@ -771,12 +777,44 @@ def _load_graph_catalog(path_like: str | Path | None = None) -> dict[str, dict[s
             "database": wide_table.get("target_database"),
             "grain": item.get("grain"),
             "asset_type": item.get("asset_type"),
+            "business_type": item.get("business_type"),
+            "field_facts": deepcopy(item.get("field_facts") or {}),
             "fields": fields,
             "entity_keys": _string_list(item.get("entity_keys")),
             "time_key": item.get("time_key"),
             "time_key_mode": item.get("time_key_mode"),
             "interval_keys": deepcopy(item.get("interval_keys") or {}),
         }
+    for node_name, semantic_fields in _field_catalog_fields_by_node(fields_path).items():
+        if node_name not in rows:
+            continue
+        rows[node_name]["fields"] = _merge_unique(
+            rows[node_name].get("fields") or [],
+            semantic_fields,
+        )
+    return rows
+
+
+def _field_catalog_fields_by_node(fields_path: str | Path | None = None) -> dict[str, list[str]]:
+    path = _resolve_path(fields_path or DEFAULT_FIELDS_PATH, base=PROJECT_ROOT)
+    if not path.exists():
+        return {}
+    try:
+        payload = load_yaml(path)
+    except Exception:
+        return {}
+    rows: dict[str, list[str]] = {}
+    for item in list(payload.get("fields") or []):
+        if not isinstance(item, dict):
+            continue
+        standard_field = str(item.get("standard_field") or "").strip()
+        if not standard_field:
+            continue
+        for key in ("base_node", "source_node"):
+            node_name = str(item.get(key) or "").strip()
+            if not node_name:
+                continue
+            rows[node_name] = _merge_unique(rows.get(node_name) or [], [standard_field])
     return rows
 
 
@@ -800,6 +838,14 @@ def _provider_node_rows(manifest: dict[str, Any], *, graph_catalog: dict[str, di
                 "table": graph_node.get("table"),
                 "database": graph_node.get("database"),
                 "grain": graph_node.get("grain"),
+                "asset_type": graph_node.get("asset_type"),
+                "business_type": graph_node.get("business_type"),
+                "field_facts": deepcopy(graph_node.get("field_facts") or {}),
+                "fields": list(graph_node.get("fields") or []),
+                "entity_keys": list(graph_node.get("entity_keys") or []),
+                "time_key": graph_node.get("time_key"),
+                "time_key_mode": graph_node.get("time_key_mode"),
+                "interval_keys": deepcopy(graph_node.get("interval_keys") or {}),
                 "source_fields": list(graph_node.get("fields") or []),
                 "capabilities": sorted((node.get("semantics") or {}).keys()),
                 "registered": True,
@@ -820,6 +866,14 @@ def _provider_node_rows(manifest: dict[str, Any], *, graph_catalog: dict[str, di
                 "table": graph_node.get("table"),
                 "database": graph_node.get("database"),
                 "grain": graph_node.get("grain"),
+                "asset_type": graph_node.get("asset_type"),
+                "business_type": graph_node.get("business_type"),
+                "field_facts": deepcopy(graph_node.get("field_facts") or {}),
+                "fields": list(graph_node.get("fields") or []),
+                "entity_keys": list(graph_node.get("entity_keys") or []),
+                "time_key": graph_node.get("time_key"),
+                "time_key_mode": graph_node.get("time_key_mode"),
+                "interval_keys": deepcopy(graph_node.get("interval_keys") or {}),
                 "source_fields": list(graph_node.get("fields") or []),
                 "capabilities": [],
                 "registered": False,

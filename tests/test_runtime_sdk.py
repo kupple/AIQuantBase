@@ -287,6 +287,48 @@ def test_get_supported_fields_with_node_filter():
     assert all(item["node"] == "stock_daily_real" for item in result["fields"])
 
 
+def test_stock_daily_can_resolve_industry_classification_bridge_fields():
+    runtime = GraphRuntime.from_defaults()
+    fields = {
+        item["name"]
+        for item in runtime.get_supported_fields(asset_type="stock", freq="1d", node="stock_daily_real")["fields"]
+    }
+    assert "industry_level1_name" in fields
+
+    validation = runtime.validate_query_request(
+        {
+            "symbols": ["000001.SZ"],
+            "fields": ["industry_level1_name"],
+            "start": "2024-01-02",
+            "end": "2024-01-08",
+            "freq": "1d",
+            "asset_type": "stock",
+            "provider_node": "stock_daily_real",
+        }
+    )
+    assert validation["ok"] is True
+
+    sql = runtime.render_intent(
+        {
+            "from": "stock_daily_real",
+            "select": ["code", "trade_time", "industry_level1_name"],
+            "where": {
+                "mode": "and",
+                "items": [{"field": "code", "op": "=", "value": "000001.SZ"}],
+            },
+            "time_range": {
+                "field": "trade_time",
+                "start": "2024-01-02",
+                "end": "2024-01-08",
+            },
+            "safety": {"lookahead_safe": False, "strict_mode": True},
+        }
+    )
+    assert "starlight.ad_industry_constituent" in sql
+    assert "starlight.ad_industry_base_info" in sql
+    assert "t1.level1_name AS industry_level1_name" in sql
+
+
 def test_get_supported_fields_with_field_role_filter():
     runtime = GraphRuntime.from_defaults()
     result = runtime.get_supported_fields(asset_type="stock", freq="1d", field_role="financial_field")
@@ -390,13 +432,13 @@ def test_execute_panel_profile_supports_where_filters():
         {
             "query_profile": "panel_time_series",
             "universe": "all_a",
-            "fields": ["index_constituent_code"],
+            "fields": ["is_st"],
             "start": "2024-01-01 00:00:00",
             "end": "2024-01-31 23:59:59",
             "where": {
                 "mode": "and",
                 "items": [
-                    {"field": "index_constituent_code", "op": "eq", "value": "399101.SZ"},
+                    {"field": "is_st", "op": "eq", "value": 0},
                 ],
             },
         }
@@ -404,9 +446,8 @@ def test_execute_panel_profile_supports_where_filters():
 
     assert result["ok"] is True
     where_items = result["debug"]["intent"]["where"]["items"]
-    assert {"field": "index_constituent_code", "op": "=", "value": "399101.SZ"} in where_items
-    assert "399101.SZ" in result["debug"]["sql"]
-    assert "index_constituent_code" in result["debug"]["sql"]
+    assert {"field": "is_st", "op": "=", "value": 0} in where_items
+    assert "is_st = 0" in result["debug"]["sql"]
 
 
 def test_execute_panel_profile_for_stock_supports_discrete_stock_daily_fields():

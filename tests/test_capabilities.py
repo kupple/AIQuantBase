@@ -180,19 +180,59 @@ def test_capabilities_workspace_lists_provider_nodes_and_modes(tmp_path: Path):
     assert payload["capabilities"][0]["capability"] == "price.daily"
 
 
+def test_provider_node_source_fields_include_field_catalog_entries(tmp_path: Path):
+    capability_root = _write_capability_workspace(tmp_path)
+    graph_path = tmp_path / "graph.yaml"
+    fields_path = tmp_path / "fields.yaml"
+    graph_path.write_text(
+        dump_yaml(
+            {
+                "nodes": [
+                    {
+                        "name": "stock_daily_real",
+                        "table": "starlight.stock_daily_real",
+                        "entity_keys": ["code"],
+                        "time_key": "trade_time",
+                        "fields": ["code", "trade_time", "close"],
+                    }
+                ],
+                "edges": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    fields_path.write_text(
+        dump_yaml(
+            {
+                "fields": [
+                    {
+                        "base_node": "stock_daily_real",
+                        "standard_field": "derived_alpha",
+                        "binding_mode": "derived",
+                        "field_role": "derived_field",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = load_capability_workspace(
+        capability_root=capability_root,
+        graph_path=graph_path,
+        fields_path=fields_path,
+    )
+    node = next(item for item in payload["provider_nodes"] if item["name"] == "stock_daily_real")
+
+    assert node["source_fields"] == ["code", "trade_time", "close", "derived_alpha"]
+
+
 def test_discrete_stock_valuation_snapshot_is_bound_through_extension_slots():
     workspace = load_capability_workspace()
     mode = next(
         item for item in workspace["mode_profiles"] if item["mode_id"] == "strategy_modes.discrete_stock"
     )
-    binding = next(
-        item
-        for item in mode["extension_capability_bindings"]
-        if item["capability"] == "valuation_snapshot"
-    )
-
-    assert binding["fields"] == ["market_cap", "float_market_cap", "turnover_rate"]
-    assert binding["slots"] == ["ranking_fields", "filter_fields", "weighting_fields", "report_fields"]
+    assert mode["extension_capability_bindings"] == []
     assert mode["accepted_output_scopes"] == [
         {"scope_type": "daily_panel", "entity_type": "stock"},
         {"scope_type": "linked_daily_panel", "output_entity_type": "stock"},
@@ -291,25 +331,12 @@ def test_discrete_stock_industry_classification_is_bound_as_linked_extension():
     mode = next(
         item for item in workspace["mode_profiles"] if item["mode_id"] == "strategy_modes.discrete_stock"
     )
-    binding = next(
-        item
-        for item in mode["extension_capability_bindings"]
-        if item["capability"] == "industry_classification"
-    )
+    assert mode["extension_capability_bindings"] == []
     provider = next(
         item
         for item in workspace["capabilities"]
         if item["capability"] == "industry_classification"
     )
-
-    assert binding["fields"] == [
-        "industry_code",
-        "industry_level1_name",
-        "industry_level2_name",
-        "industry_level3_name",
-        "industry_name",
-    ]
-    assert binding["slots"] == ["filter_fields", "groupby_fields", "neutralization_fields", "report_fields"]
     assert provider["provider_node"] == "stock_industry_daily_real"
     assert provider["output_scope"] == {
         "scope_type": "linked_daily_panel",
@@ -325,21 +352,12 @@ def test_discrete_stock_stock_pool_membership_is_bound_as_interval_extension():
     mode = next(
         item for item in workspace["mode_profiles"] if item["mode_id"] == "strategy_modes.discrete_stock"
     )
-    binding = next(
-        item
-        for item in mode["extension_capability_bindings"]
-        if item["capability"] == "stock_pool_membership"
-    )
+    assert mode["extension_capability_bindings"] == []
     provider = next(
         item
         for item in workspace["capabilities"]
         if item["capability"] == "stock_pool_membership"
     )
-
-    assert binding["provider_node"] == "index_constituent_real"
-    assert binding["query_profile"] == "interval_membership"
-    assert binding["fields"] == ["index_constituent_code", "index_constituent_name", "index_name"]
-    assert binding["slots"] == ["universe_fields", "filter_fields", "report_fields"]
     assert provider["provider_node"] == "index_constituent_real"
     assert provider["query_profiles"] == ["interval_membership"]
     assert provider["output_scope"] == {
@@ -352,18 +370,20 @@ def test_discrete_stock_stock_pool_membership_is_bound_as_interval_extension():
 def test_industry_source_table_bindings_render_expected_sql_paths():
     runtime = GraphRuntime()
 
-    with pytest.raises(ValueError):
-        runtime.render_intent(
-            {
-                "from": "stock_daily_real",
-                "select": ["industry_level1_name", "industry_name"],
-                "time_range": {
-                    "field": "trade_time",
-                    "start": "2024-01-01",
-                    "end": "2024-01-02",
-                },
-            }
-        )
+    stock_industry_sql = runtime.render_intent(
+        {
+            "from": "stock_daily_real",
+            "select": ["industry_level1_name", "industry_name"],
+            "time_range": {
+                "field": "trade_time",
+                "start": "2024-01-01",
+                "end": "2024-01-02",
+            },
+        }
+    )
+    assert "LEFT JOIN starlight.ad_industry_constituent" in stock_industry_sql
+    assert "LEFT JOIN (SELECT * FROM starlight.ad_industry_base_info WHERE level_type = 3 AND is_pub = 1)" in stock_industry_sql
+    assert "t1.level1_name AS industry_level1_name" in stock_industry_sql
 
     with pytest.raises(ValueError):
         runtime.render_intent(
@@ -904,18 +924,8 @@ def test_capabilities_preview_resolves_industry_classification_extension():
 
     assert preview_response.status_code == 200
     payload = preview_response.get_json()
-    assert payload["ok"] is True
-    extension = next(
-        item for item in payload["resolved_queries"] if item["id"] == "extension_industry_classification"
-    )
-    assert extension["provider_node"] == "stock_industry_daily_real"
-    assert extension["key_schema"] == {"symbol": "index_code", "time": "trade_date"}
-    assert extension["output_scope"]["scope_type"] == "linked_daily_panel"
-    assert extension["requested_field_map"] == {
-        "industry_level1_name": "industry_level1_name",
-        "industry_name": "industry_name",
-    }
-    assert extension["slots"] == ["groupby_fields", "report_fields"]
+    assert payload["ok"] is False
+    assert payload["diagnostics"][0]["code"] == "extension_capability_not_bound"
 
 
 def test_capabilities_preview_resolves_stock_pool_membership_extension():
@@ -941,23 +951,8 @@ def test_capabilities_preview_resolves_stock_pool_membership_extension():
 
     assert preview_response.status_code == 200
     payload = preview_response.get_json()
-    assert payload["ok"] is True
-    extension = next(
-        item for item in payload["resolved_queries"] if item["id"] == "extension_stock_pool_membership"
-    )
-    assert extension["provider_node"] == "index_constituent_real"
-    assert extension["query_profile"] == "interval_membership"
-    assert extension["key_schema"] == {"symbol": "con_code", "start": "in_date", "end": "out_date"}
-    assert extension["output_scope"] == {
-        "scope_type": "daily_panel",
-        "entity_type": "stock",
-        "keys": {"entity": "code", "time": "trade_time"},
-    }
-    assert extension["requested_field_map"] == {
-        "index_constituent_code": "index_code",
-        "index_constituent_name": "index_name",
-    }
-    assert extension["slots"] == ["filter_fields", "report_fields"]
+    assert payload["ok"] is False
+    assert payload["diagnostics"][0]["code"] == "extension_capability_not_bound"
 
 
 def test_capabilities_preview_uses_graph_interval_keys_for_interval_membership(tmp_path: Path):
@@ -1010,16 +1005,8 @@ def test_capabilities_preview_uses_graph_interval_keys_for_interval_membership(t
         }
     )
 
-    extension = next(
-        item for item in payload["resolved_queries"] if item["id"] == "extension_stock_pool_membership"
-    )
-    assert extension["provider_node"] == "index_constituent_real"
-    assert extension["query_profile"] == "interval_membership"
-    assert extension["key_schema"] == {
-        "symbol": "member_code",
-        "start": "effective_from",
-        "end": "effective_to",
-    }
+    assert payload["ok"] is False
+    assert payload["diagnostics"][0]["code"] == "extension_capability_not_bound"
 
 
 def test_capabilities_mode_extension_contract_resolves_slots_and_scope(tmp_path: Path):

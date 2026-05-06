@@ -2810,6 +2810,8 @@ class GraphRuntime:
             status=node.status,
             asset_type=node.asset_type,
             query_freq=node.query_freq,
+            business_type=node.business_type,
+            field_facts=dict(node.field_facts or {}),
             # Wide table target already materializes the asset-specific base universe.
             base_filters=[],
         )

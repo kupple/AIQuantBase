@@ -1,0 +1,614 @@
+version: 1
+assets:
+- capability: asset_industry_daily_stock_industry_daily_real
+  name: 行业日线数据
+  description: 日线数据节点：stock_industry_daily_real
+  enabled: true
+  entity_id: industry
+  target_entity_id: stock
+  access_type: entity_data
+  asset_group: market
+  market_grain: daily
+  data_shape: time_series
+  fields:
+  - name: open
+    source: open
+    label: open
+  - name: high
+    source: high
+    label: high
+  - name: close
+    source: close
+    label: close
+  - name: low
+    source: low
+    label: low
+  - name: amount
+    source: amount
+    label: amount
+  - name: volume
+    source: volume
+    label: volume
+  - name: pb
+    source: pb
+    label: pb
+  - name: pe
+    source: pe
+    label: pe
+  - name: total_cap
+    source: total_cap
+    label: total_cap
+  - name: a_float_cap
+    source: a_float_cap
+    label: a_float_cap
+  - name: pre_close
+    source: pre_close
+    label: pre_close
+  - name: industry_index_code
+    source: index_code
+    label: 行业指数代码
+  - name: industry_index_name
+    source: industry_index_name
+    label: 行业指数名称
+  - name: industry_code
+    source: industry_code
+    label: 行业代码
+  - name: industry_level1_name
+    source: industry_level1_name
+    label: 一级行业
+  - name: industry_level2_name
+    source: industry_level2_name
+    label: 二级行业
+  - name: industry_level3_name
+    source: industry_level3_name
+    label: 三级行业
+  - name: industry_name
+    source: industry_name
+    label: 行业名称
+  field_count: 18
+  provider_nodes:
+  - stock_industry_daily_real
+  provider_bindings:
+  - provider_node: stock_industry_daily_real
+    field_bindings:
+      entity: index_code
+      time: trade_date
+      group: ''
+      member: ''
+      start: ''
+      end: ''
+      event_time: ''
+      announce_date: ''
+      report_period: ''
+    access_type: entity_data
+    source_entity_id: industry
+    target_entity_id: stock
+    market_grain: daily
+  query_profiles:
+  - panel_time_series
+  output_scope: {}
+  binding_summary: 周期：日线
+  draft: false
+  created_at: '2026-05-03T16:50:09.055836+00:00'
+  updated_at: '2026-05-03T16:50:09.055836+00:00'
+- capability: asset_stock_daily_stock_daily_real
+  name: 股票日线数据
+  description: 日线数据节点：stock_daily_real
+  enabled: true
+  entity_id: stock
+  target_entity_id: stock
+  access_type: entity_data
+  asset_group: market
+  market_grain: daily
+  data_shape: time_series
+  fields:
+  - name: open
+    source: open
+    label: open
+  - name: high
+    source: high
+    label: high
+  - name: low
+    source: low
+    label: low
+  - name: close
+    source: close
+    label: close
+  - name: volume
+    source: volume
+    label: volume
+  - name: amount
+    source: amount
+    label: amount
+  - name: pre_close
+    source: pre_close
+    label: pre_close
+  - name: turnover_rate
+    source: turnover_rate
+    label: 换手率
+  - name: is_st
+    source: is_st
+    label: is_st
+  - name: is_suspended
+    source: is_suspended
+    label: is_suspended
+  - name: open_adj
+    source: open_adj
+    label: open_adj
+  - name: backward_adj_factor
+    source: backward_adj_factor
+    label: backward_adj_factor
+  - name: high_adj
+    source: high_adj
+    label: high_adj
+  - name: low_adj
+    source: low_adj
+    label: low_adj
+  - name: close_adj
+    source: close_adj
+    label: close_adj
+  - name: is_wd_sec
+    source: is_wd_sec
+    label: is_wd_sec
+  - name: is_xr_sec
+    source: is_xr_sec
+    label: is_xr_sec
+  - name: is_kcb
+    source: is_kcb
+    label: is_kcb
+  - name: is_cyb
+    source: is_cyb
+    label: is_cyb
+  - name: is_bjs
+    source: is_bjs
+    label: is_bjs
+  - name: high_limited
+    source: high_limited
+    label: high_limited
+  - name: low_limited
+    source: low_limited
+    label: low_limited
+  - name: market_cap
+    source: market_cap
+    label: 总市值
+  - name: tot_share
+    source: tot_share
+    label: tot_share
+  - name: float_market_cap
+    source: float_market_cap
+    label: 流通市值
+  - name: float_share
+    source: float_share
+    label: float_share
+  field_count: 26
+  provider_nodes:
+  - stock_daily_real
+  provider_bindings:
+  - provider_node: stock_daily_real
+    field_bindings:
+      entity: code
+      time: trade_time
+      group: ''
+      member: ''
+      start: ''
+      end: ''
+      event_time: ''
+      announce_date: ''
+      report_period: ''
+    access_type: entity_data
+    source_entity_id: stock
+    target_entity_id: stock
+    market_grain: daily
+  query_profiles:
+  - panel_time_series
+  output_scope: {}
+  binding_summary: 周期：日线
+  draft: false
+  created_at: '2026-05-03T16:50:44.811246+00:00'
+  updated_at: '2026-05-03T16:50:44.811246+00:00'
+- capability: asset_stock_minute_stock_minute_real
+  name: 股票分钟数据
+  description: 分钟数据节点：stock_minute_real
+  enabled: true
+  entity_id: stock
+  target_entity_id: stock
+  access_type: entity_data
+  asset_group: market
+  market_grain: minute
+  data_shape: time_series
+  fields:
+  - name: open
+    source: open
+    label: open
+  - name: high
+    source: high
+    label: high
+  - name: low
+    source: low
+    label: low
+  - name: close
+    source: close
+    label: close
+  - name: volume
+    source: volume
+    label: volume
+  - name: amount
+    source: amount
+    label: amount
+  field_count: 6
+  provider_nodes:
+  - stock_minute_real
+  provider_bindings:
+  - provider_node: stock_minute_real
+    field_bindings:
+      entity: code
+      time: trade_time
+      group: ''
+      member: ''
+      start: ''
+      end: ''
+      event_time: ''
+      announce_date: ''
+      report_period: ''
+    access_type: entity_data
+    source_entity_id: stock
+    target_entity_id: stock
+    market_grain: minute
+  query_profiles:
+  - anchored_intraday_window
+  output_scope: {}
+  binding_summary: 周期：分钟
+  draft: false
+  created_at: '2026-05-03T16:50:50.099965+00:00'
+  updated_at: '2026-05-03T16:50:50.099965+00:00'
+- capability: asset_index_stock_relation_index_constituent_real
+  name: 指数 -> 股票关系
+  description: 本地测试能力，尚未写入后端注册表。
+  enabled: true
+  entity_id: index
+  target_entity_id: stock
+  access_type: relation_data
+  asset_group: extension
+  market_grain: daily
+  data_shape: relation
+  fields:
+  - name: index_constituent_code
+    source: index_code
+    label: 成分归属代码
+  - name: index_constituent_name
+    source: index_name
+    label: 成分归属名称
+  - name: index_name
+    source: index_name
+    label: 指数名称
+  field_count: 3
+  provider_nodes:
+  - index_constituent_real
+  provider_bindings:
+  - provider_node: index_constituent_real
+    field_bindings:
+      entity: index_code
+      time: ''
+      group: index_code
+      member: con_code
+      start: in_date
+      end: out_date
+      event_time: ''
+      announce_date: ''
+      report_period: ''
+    access_type: relation_data
+    source_entity_id: index
+    target_entity_id: stock
+    market_grain: daily
+  query_profiles:
+  - interval_membership
+  output_scope: {}
+  binding_summary: 集合：index_code / 成员：con_code / 区间：in_date -> out_date
+  draft: false
+  created_at: '2026-05-03T17:03:11.063151+00:00'
+  updated_at: '2026-05-06T01:03:41.999663+00:00'
+- capability: asset_stock_time_series_long_hu_bang_real
+  name: 股票时间序列
+  description: 本地测试能力，尚未写入后端注册表。
+  enabled: true
+  entity_id: stock
+  target_entity_id: stock
+  access_type: entity_data
+  asset_group: extension
+  market_grain: daily
+  data_shape: time_series
+  fields:
+  - name: security_name
+    source: security_name
+    label: security_name
+  - name: reason_type
+    source: reason_type
+    label: reason_type
+  - name: reason_type_name
+    source: reason_type_name
+    label: reason_type_name
+  - name: change_range
+    source: change_range
+    label: 涨跌幅
+  - name: trader_name
+    source: trader_name
+    label: trader_name
+  - name: buy_amount
+    source: buy_amount
+    label: 买入额
+  - name: sell_amount
+    source: sell_amount
+    label: 卖出额
+  - name: flow_mark
+    source: flow_mark
+    label: flow_mark
+  - name: total_amount
+    source: total_amount
+    label: total_amount
+  - name: total_volume
+    source: total_volume
+    label: total_volume
+  - name: long_hu_net_amount
+    source: long_hu_net_amount
+    label: long_hu_net_amount
+  field_count: 11
+  provider_nodes:
+  - long_hu_bang_real
+  provider_bindings:
+  - provider_node: long_hu_bang_real
+    field_bindings:
+      entity: market_code
+      time: trade_date
+      group: ''
+      member: ''
+      start: ''
+      end: ''
+      event_time: ''
+      announce_date: ''
+      report_period: ''
+    access_type: entity_data
+    source_entity_id: stock
+    target_entity_id: stock
+    market_grain: daily
+  query_profiles:
+  - panel_time_series
+  output_scope: {}
+  binding_summary: 实体：market_code / 时间：trade_date
+  draft: false
+  created_at: '2026-05-03T23:15:28.347818+00:00'
+  updated_at: '2026-05-05T15:15:23.900989+00:00'
+- capability: asset_index_daily_index_daily_real
+  name: 指数日线数据
+  description: 日线数据节点：index_daily_real
+  enabled: true
+  entity_id: index
+  target_entity_id: index
+  access_type: entity_data
+  asset_group: market
+  market_grain: daily
+  data_shape: time_series
+  fields:
+  - name: open
+    source: open
+    label: open
+  - name: high
+    source: high
+    label: high
+  - name: low
+    source: low
+    label: low
+  - name: close
+    source: close
+    label: close
+  - name: volume
+    source: volume
+    label: volume
+  - name: amount
+    source: amount
+    label: amount
+  field_count: 6
+  provider_nodes:
+  - index_daily_real
+  provider_bindings:
+  - provider_node: index_daily_real
+    field_bindings:
+      entity: code
+      time: trade_time
+      group: ''
+      member: ''
+      start: ''
+      end: ''
+      event_time: ''
+      announce_date: ''
+      report_period: ''
+    access_type: entity_data
+    source_entity_id: index
+    target_entity_id: index
+    market_grain: daily
+  query_profiles:
+  - panel_time_series
+  output_scope: {}
+  binding_summary: 周期：日线
+  draft: false
+  created_at: '2026-05-04T03:48:59.265120+00:00'
+  updated_at: '2026-05-04T03:48:59.265120+00:00'
+- capability: asset_etf_daily_etf_daily_real
+  name: ETF日线数据
+  description: 日线数据节点：etf_daily_real
+  enabled: true
+  entity_id: etf
+  target_entity_id: etf
+  access_type: entity_data
+  asset_group: market
+  market_grain: daily
+  data_shape: time_series
+  fields:
+  - name: open
+    source: open
+    label: open
+  - name: high
+    source: high
+    label: high
+  - name: low
+    source: low
+    label: low
+  - name: close
+    source: close
+    label: close
+  - name: volume
+    source: volume
+    label: volume
+  - name: amount
+    source: amount
+    label: amount
+  field_count: 6
+  provider_nodes:
+  - etf_daily_real
+  provider_bindings:
+  - provider_node: etf_daily_real
+    field_bindings:
+      entity: code
+      time: trade_time
+      group: ''
+      member: ''
+      start: ''
+      end: ''
+      event_time: ''
+      announce_date: ''
+      report_period: ''
+    access_type: entity_data
+    source_entity_id: etf
+    target_entity_id: etf
+    market_grain: daily
+  query_profiles:
+  - panel_time_series
+  output_scope: {}
+  binding_summary: 周期：日线
+  draft: false
+  created_at: '2026-05-04T03:49:56.785736+00:00'
+  updated_at: '2026-05-04T03:49:56.785736+00:00'
+- capability: asset_industry_stock_relation_industry_constituent_real
+  name: 行业 -> 股票关系
+  description: 本地测试能力，尚未写入后端注册表。
+  enabled: true
+  entity_id: industry
+  target_entity_id: stock
+  access_type: relation_data
+  asset_group: extension
+  market_grain: daily
+  data_shape: relation
+  fields:
+  - name: industry_level1_name
+    source: industry_level1_name
+    label: 一级行业
+  - name: industry_level2_name
+    source: industry_level2_name
+    label: 二级行业
+  - name: industry_level3_name
+    source: industry_level3_name
+    label: 三级行业
+  - name: industry_name
+    source: industry_name
+    label: 行业名称
+  - name: sdasd
+    source: sdasd
+    label: sdasd
+  field_count: 5
+  provider_nodes:
+  - industry_constituent_real
+  provider_bindings:
+  - provider_node: industry_constituent_real
+    field_bindings:
+      entity: industry_code
+      time: ''
+      group: industry_code
+      member: con_code
+      start: in_date
+      end: out_date
+      event_time: ''
+      announce_date: ''
+      report_period: ''
+    access_type: relation_data
+    source_entity_id: industry
+    target_entity_id: stock
+    market_grain: daily
+  query_profiles:
+  - panel_time_series
+  output_scope: {}
+  binding_summary: 集合：industry_code / 成员：con_code / 区间：in_date -> out_date
+  draft: false
+  created_at: '2026-05-04T09:01:59.240631+00:00'
+  updated_at: '2026-05-06T01:03:33.064425+00:00'
+- capability: asset_stock_event_dividend_real
+  name: 股票事件记录
+  description: 本地测试能力，尚未写入后端注册表。
+  enabled: true
+  entity_id: stock
+  target_entity_id: stock
+  access_type: entity_data
+  asset_group: extension
+  market_grain: daily
+  data_shape: event
+  fields:
+  - name: ann_date
+    source: ann_date
+    label: ann_date
+  - name: report_period
+    source: report_period
+    label: report_period
+  - name: div_progress
+    source: div_progress
+    label: div_progress
+  - name: dvd_per_share_stk
+    source: dvd_per_share_stk
+    label: dvd_per_share_stk
+  - name: dvd_per_share_pre_tax_cash
+    source: dvd_per_share_pre_tax_cash
+    label: dvd_per_share_pre_tax_cash
+  - name: dvd_per_share_after_tax_cash
+    source: dvd_per_share_after_tax_cash
+    label: dvd_per_share_after_tax_cash
+  - name: date_eqy_record
+    source: date_eqy_record
+    label: date_eqy_record
+  - name: date_dvd_payout
+    source: date_dvd_payout
+    label: date_dvd_payout
+  - name: div_bonusrate
+    source: div_bonusrate
+    label: div_bonusrate
+  - name: div_conversedrate
+    source: div_conversedrate
+    label: div_conversedrate
+  - name: remark
+    source: remark
+    label: remark
+  - name: div_target
+    source: div_target
+    label: div_target
+  field_count: 12
+  provider_nodes:
+  - dividend_real
+  provider_bindings:
+  - provider_node: dividend_real
+    field_bindings:
+      entity: market_code
+      time: ''
+      group: ''
+      member: ''
+      start: ''
+      end: ''
+      event_time: date_ex
+      announce_date: ''
+      report_period: ''
+    access_type: entity_data
+    source_entity_id: stock
+    target_entity_id: stock
+    market_grain: daily
+  query_profiles:
+  - event_stream
+  output_scope: {}
+  binding_summary: 实体：market_code / 事件时间：date_ex
+  draft: false
+  created_at: '2026-05-04T09:27:16.311414+00:00'
+  updated_at: '2026-05-04T09:27:16.311414+00:00'

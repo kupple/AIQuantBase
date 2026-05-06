@@ -1,295 +1,163 @@
 version: 1
 mode_kind: strategy_modes
 mode_name: discrete_stock
-description: 股票离散订单账户模式
+description: 股票离散订单账户模式 v2，使用 mode_data_access 实体资产配置，不使用旧 slot 映射
 aiquantbase:
   accepted_output_scopes:
-  - scope_type: daily_panel
-    entity_type: stock
-  - scope_type: linked_daily_panel
-    output_entity_type: stock
+    - scope_type: daily_panel
+      entity_type: stock
+    - scope_type: linked_daily_panel
+      output_entity_type: stock
   required_capabilities:
-  - capability: price.daily
-    fields:
-    - open
-    - high
-    - low
-    - close
-    - pre_close
-    - volume
-    - amount
-    - backward_adj_factor
-    provider_node: stock_daily_real
-    field_map:
-      open: open
-      high: high
-      low: low
-      close: close
-      pre_close: pre_close
-      volume: volume
-      amount: amount
-      backward_adj_factor: backward_adj_factor
-  - capability: benchmark.daily
-    fields:
-    - open
-    - close
-    provider_node: stock_daily_real
-    field_map:
-      open: open
-      close: close
-  - capability: corporate_action.dividend
-    provider_node: dividend_real
-    field_map:
-      dividend_cash_pre_tax: dvd_per_share_pre_tax_cash
-      dividend_cash_after_tax: dvd_per_share_after_tax_cash
-      dividend_stock_per_share: dvd_per_share_stk
-      dividend_bonus_rate: div_bonusrate
-      dividend_conversed_rate: div_conversedrate
-      ex_dividend_date: date_ex
-      dividend_payout_date: date_dvd_payout
-      equity_record_date: date_eqy_record
-  - capability: tradability.limit_status
-    fields:
-    - high_limited
-    - low_limited
-    provider_node: stock_daily_real
-    field_map:
-      high_limited: high_limited
-      low_limited: low_limited
-  - capability: universe.tradeable_flags
-    fields:
-    - is_st
-    - is_suspended
-    - is_wd_sec
-    provider_node: stock_daily_real
-    field_map:
-      is_st: is_st
-      is_suspended: is_suspended
-      is_wd_sec: is_wd_sec
-  - capability: universe.board_flags
-    fields:
-    - is_kcb
-    - is_cyb
-    - is_bjs
-    provider_node: stock_daily_real
-    field_map:
-      is_kcb: is_kcb
-      is_cyb: is_cyb
-      is_bjs: is_bjs
-  - capability: order_constraints.cn_stock
-    provider_node: cn_stock_order_rules
-    field_map:
-      lot_size: 100
-      supports_min_commission: true
-      supports_order_volume_ratio: true
+    - capability: price.daily
+      fields:
+        - open
+        - high
+        - low
+        - close
+        - pre_close
+        - volume
+        - amount
+        - backward_adj_factor
+      provider_node: stock_daily_real
+      field_map:
+        open: open
+        high: high
+        low: low
+        close: close
+        pre_close: pre_close
+        volume: volume
+        amount: amount
+        backward_adj_factor: backward_adj_factor
+    - capability: benchmark.daily
+      fields:
+        - open
+        - close
+      provider_node: stock_daily_real
+      field_map:
+        open: open
+        close: close
+    - capability: corporate_action.dividend
+      provider_node: dividend_real
+      field_map:
+        dividend_cash_pre_tax: dvd_per_share_pre_tax_cash
+        dividend_cash_after_tax: dvd_per_share_after_tax_cash
+        dividend_stock_per_share: dvd_per_share_stk
+        dividend_bonus_rate: div_bonusrate
+        dividend_conversed_rate: div_conversedrate
+        ex_dividend_date: date_ex
+        dividend_payout_date: date_dvd_payout
+        equity_record_date: date_eqy_record
+    - capability: tradability.limit_status
+      fields:
+        - high_limited
+        - low_limited
+      provider_node: stock_daily_real
+      field_map:
+        high_limited: high_limited
+        low_limited: low_limited
+    - capability: universe.tradeable_flags
+      fields:
+        - is_st
+        - is_suspended
+        - is_wd_sec
+      provider_node: stock_daily_real
+      field_map:
+        is_st: is_st
+        is_suspended: is_suspended
+        is_wd_sec: is_wd_sec
+    - capability: universe.board_flags
+      fields:
+        - is_kcb
+        - is_cyb
+        - is_bjs
+      provider_node: stock_daily_real
+      field_map:
+        is_kcb: is_kcb
+        is_cyb: is_cyb
+        is_bjs: is_bjs
+    - capability: order_constraints.cn_stock
+      provider_node: cn_stock_order_rules
+      field_map:
+        lot_size: 100
+        supports_min_commission: true
+        supports_order_volume_ratio: true
   conditional_capabilities:
-  - capability: price.intraday
+    - capability: price.intraday
+      enabled_when:
+        all_of_present:
+          - intraday_requirement
+          - intraday_anchors
+      fields:
+        - open
+        - high
+        - low
+        - close
+        - amount
+        - volume
+      provider_node: stock_minute_real
+      field_map:
+        open: open
+        high: high
+        low: low
+        close: close
+        amount: amount
+        volume: volume
+query_needs:
+  - id: daily_market
+    use: stock_daily_panel
+    required: true
+    derive:
+      symbols_from: scope.symbols
+      start_from: scope.start
+      end_from: scope.end
+      fields_from:
+        - data_requirement.fields
+      fields_append:
+        - open
+        - high
+        - low
+        - close
+        - pre_close
+        - volume
+        - amount
+        - backward_adj_factor
+        - high_limited
+        - low_limited
+        - is_suspended
+        - is_st
+        - is_wd_sec
+        - is_kcb
+        - is_cyb
+        - is_bjs
+  - id: benchmark_daily
+    use: benchmark_daily_series
+    required: true
+    derive:
+      symbol_from: scope.benchmark
+      start_from: scope.start
+      end_from: scope.end
+      fields_default:
+        - close
+        - open
+  - id: dividend_events
+    use: stock_dividend_events
+    required: false
+    derive:
+      symbols_from: scope.symbols
+      start_from: scope.start
+      end_from: scope.end
+  - id: intraday_execution
+    use: stock_intraday_execution
+    required: false
     enabled_when:
       all_of_present:
-      - intraday_requirement
-      - intraday_anchors
-    fields:
-    - open
-    - high
-    - low
-    - close
-    - amount
-    - volume
-    provider_node: stock_minute_real
-    field_map:
-      open: open
-      high: high
-      low: low
-      close: close
-      amount: amount
-      volume: volume
-  extension_slots:
-  - slot: universe_fields
-    name: 候选池字段
-    description: 用于构建或缩小候选股票池
-    query_profile: panel_time_series
-    freq: 1d
-  - slot: filter_fields
-    name: 过滤字段
-    description: 用于过滤候选股票
-    query_profile: panel_time_series
-    freq: 1d
-  - slot: groupby_fields
-    name: 分组字段
-    description: 用于行业、主题、板块等分组统计或分组约束
-    query_profile: panel_time_series
-    freq: 1d
-  - slot: neutralization_fields
-    name: 中性化字段
-    description: 用于行业或风格中性化处理
-    query_profile: panel_time_series
-    freq: 1d
-  - slot: ranking_fields
-    name: 排序字段
-    description: 用于排序、打分和选股
-    query_profile: panel_time_series
-    freq: 1d
-    allowed_dtypes:
-    - float
-    - int
-  - slot: signal_fields
-    name: 信号字段
-    description: 用于买卖信号表达式
-    query_profile: panel_time_series
-    freq: 1d
-  - slot: weighting_fields
-    name: 权重字段
-    description: 用于目标权重或仓位计算
-    query_profile: panel_time_series
-    freq: 1d
-    allowed_dtypes:
-    - float
-    - int
-  - slot: report_fields
-    name: 报告字段
-    description: 仅用于输出和诊断展示
-    query_profile: panel_time_series
-    freq: 1d
-  extension_capability_bindings:
-  - capability: valuation_snapshot
-    query_profile: panel_time_series
-    provider_node: stock_daily_real
-    fields:
-    - market_cap
-    - float_market_cap
-    - turnover_rate
-    field_map:
-      market_cap: market_cap
-      float_market_cap: float_market_cap
-      turnover_rate: turnover_rate
-    slots:
-    - ranking_fields
-    - filter_fields
-    - weighting_fields
-    - report_fields
-  - capability: industry_classification
-    query_profile: panel_time_series
-    provider_node: stock_industry_daily_real
-    fields:
-    - industry_code
-    - industry_level1_name
-    - industry_level2_name
-    - industry_level3_name
-    - industry_name
-    field_map:
-      industry_code: industry_code
-      industry_level1_name: industry_level1_name
-      industry_level2_name: industry_level2_name
-      industry_level3_name: industry_level3_name
-      industry_name: industry_name
-    slots:
-    - filter_fields
-    - groupby_fields
-    - neutralization_fields
-    - report_fields
-  - capability: stock_pool_membership
-    query_profile: interval_membership
-    provider_node: index_constituent_real
-    description: 指数、板块、主题或自定义股票池成分归属字段
-    fields:
-    - index_constituent_code
-    - index_constituent_name
-    - index_name
-    field_map:
-      index_constituent_code: index_code
-      index_constituent_name: index_name
-      index_name: index_name
-    slots:
-    - universe_fields
-    - filter_fields
-    - report_fields
-  - capability: dragon_tiger_daily
-    provider_node: long_hu_bang_real
-    fields:
-    - buy_amount
-    - change_range
-    - flow_mark
-    - market_code
-    - reason_type
-    - reason_type_name
-    - security_name
-    - sell_amount
-    - total_amount
-    - total_volume
-    - trade_date
-    - trader_name
-    field_map:
-      buy_amount: buy_amount
-      change_range: change_range
-      flow_mark: flow_mark
-      market_code: market_code
-      reason_type: reason_type
-      reason_type_name: reason_type_name
-      security_name: security_name
-      sell_amount: sell_amount
-      total_amount: total_amount
-      total_volume: total_volume
-      trade_date: trade_date
-      trader_name: trader_name
-    slots:
-    - filter_fields
-    - ranking_fields
-    - report_fields
-query_needs:
-- id: daily_market
-  use: stock_daily_panel
-  required: true
-  derive:
-    symbols_from: scope.symbols
-    start_from: scope.start
-    end_from: scope.end
-    fields_from:
-    - data_requirement.fields
-    fields_append:
-    - open
-    - high
-    - low
-    - close
-    - pre_close
-    - volume
-    - amount
-    - backward_adj_factor
-    - high_limited
-    - low_limited
-    - is_suspended
-    - is_st
-    - is_wd_sec
-    - is_kcb
-    - is_cyb
-    - is_bjs
-- id: benchmark_daily
-  use: benchmark_daily_series
-  required: true
-  derive:
-    symbol_from: scope.benchmark
-    start_from: scope.start
-    end_from: scope.end
-    fields_default:
-    - close
-    - open
-- id: dividend_events
-  use: stock_dividend_events
-  required: false
-  derive:
-    symbols_from: scope.symbols
-    start_from: scope.start
-    end_from: scope.end
-- id: intraday_execution
-  use: stock_intraday_execution
-  required: false
-  enabled_when:
-    all_of_present:
-    - intraday_requirement
-    - intraday_anchors
-  derive:
-    anchors_from: intraday_anchors
-    start_hhmm_from: intraday_requirement.observe_times
-    end_hhmm_from: intraday_requirement.observe_times
-    hhmm_list_from: intraday_requirement.observe_times
-    fields_from:
-    - intraday_requirement.required_fields
+        - intraday_requirement
+        - intraday_anchors
+    derive:
+      anchors_from: intraday_anchors
+      start_hhmm_from: intraday_requirement.observe_times
+      end_hhmm_from: intraday_requirement.observe_times
+      hhmm_list_from: intraday_requirement.observe_times
+      fields_from:
+        - intraday_requirement.required_fields
