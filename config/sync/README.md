@@ -6,9 +6,7 @@
 
 1. `plans/`
    存放同步任务计划文件，文件名形如 `run_sync*.toml`。
-2. `wide_table_specs/`
-   存放宽表导出的同步 YAML。
-3. `../runtime.local.yaml`
+2. `../runtime.local.yaml`
    主程序与同步程序共用的运行配置文件。
 
 说明：

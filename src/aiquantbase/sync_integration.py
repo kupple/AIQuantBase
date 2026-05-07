@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import re
 import sys
+import re
 from dataclasses import asdict
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from flask import jsonify, request
 
-from sync_data_system.config_paths import resolve_sync_plan_root, resolve_sync_spec_dir
-from .wide_table import build_wide_table_export_payload, export_wide_table_yaml, list_wide_tables
+from sync_data_system.config_paths import resolve_sync_plan_root
+from .wide_table import build_wide_table_export_payload
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -28,14 +27,12 @@ DATE_FIELD_CANDIDATES = (
     "date",
 )
 CONFIG_FILE_RE = re.compile(r"^run_sync.*\.toml$", re.IGNORECASE)
-SPEC_FILE_RE = re.compile(r"^[\w.-]+$")
 
 
 class SyncIntegration:
     def __init__(self, sync_project_root: str | Path | None = None) -> None:
         self.sync_project_root = Path(sync_project_root or DEFAULT_SYNC_PROJECT_ROOT).resolve()
         self.sync_config_root = resolve_sync_plan_root(self.sync_project_root)
-        self.sync_spec_dir = resolve_sync_spec_dir(self.sync_project_root)
         self._job_manager: Any | None = None
 
     def ensure_sync_project_root(self) -> Path:
@@ -86,51 +83,6 @@ class SyncIntegration:
         file_path.unlink()
         return {"ok": True, "name": file_path.name}
 
-    def list_exported_wide_tables(
-        self,
-        graph_path: str | Path | None = None,
-    ) -> dict[str, Any]:
-        self.sync_spec_dir.mkdir(parents=True, exist_ok=True)
-        items = []
-        for item in list_wide_tables(graph_path=graph_path):
-            file_path = self.sync_spec_dir / f"{item['name']}.yaml"
-            exported = file_path.is_file()
-            items.append(
-                {
-                    **item,
-                    "exported": exported,
-                    "exported_path": str(file_path) if exported else "",
-                    "exported_at": _mtime_iso(file_path) if exported else "",
-                }
-            )
-        return {
-            "items": items,
-            "sync_spec_dir": str(self.sync_spec_dir),
-        }
-
-    def export_wide_table_spec(
-        self,
-        *,
-        design_id: str,
-        name: str,
-        graph_path: str | Path | None = None,
-        fields_path: str | Path | None = None,
-    ) -> dict[str, Any]:
-        clean_name = self._validate_spec_name(name)
-        self.sync_spec_dir.mkdir(parents=True, exist_ok=True)
-        yaml_text = export_wide_table_yaml(
-            design_id,
-            graph_path=graph_path,
-            fields_path=fields_path,
-        )
-        file_path = self.sync_spec_dir / f"{clean_name}.yaml"
-        file_path.write_text(yaml_text, encoding="utf-8")
-        return {
-            "ok": True,
-            "exported_path": str(file_path),
-            "content": yaml_text,
-        }
-
     def run_wide_table_inline(
         self,
         *,
@@ -138,6 +90,7 @@ class SyncIntegration:
         graph_path: str | Path | None = None,
         fields_path: str | Path | None = None,
         state_database: str | None = None,
+        runtime_path: str | None = None,
     ) -> dict[str, Any]:
         self._ensure_vendor_path()
         from sync_data_system.clickhouse_client import ClickHouseConfig
@@ -154,7 +107,7 @@ class SyncIntegration:
         results = run_wide_table_sync_payloads_with_clickhouse(
             {spec_path: payload},
             {spec_path: metadata},
-            config=ClickHouseConfig.from_env(),
+            config=ClickHouseConfig.from_env(runtime_path=runtime_path),
             state_database=state_database,
         )
         return {
@@ -162,16 +115,7 @@ class SyncIntegration:
             "results": [item.__dict__ for item in results],
         }
 
-    def read_wide_table_spec_file(self, name: str) -> dict[str, Any]:
-        file_path = self._resolve_spec_path(name)
-        return {
-            "name": file_path.name,
-            "content": file_path.read_text(encoding="utf-8"),
-            "exported_path": str(file_path),
-            "exported_at": _mtime_iso(file_path),
-        }
-
-    def sync_table_status(self) -> dict[str, Any]:
+    def sync_table_status(self, runtime_path: str | None = None) -> dict[str, Any]:
         self._ensure_vendor_path()
         from sync_data_system.clickhouse_client import ClickHouseConfig, create_clickhouse_client
 
@@ -207,7 +151,7 @@ class SyncIntegration:
 
         connection = None
         try:
-            config = ClickHouseConfig.from_env()
+            config = ClickHouseConfig.from_env(runtime_path=runtime_path)
             connection = create_clickhouse_client(config)
             table_rows = connection.query_rows(
                 """
@@ -339,48 +283,11 @@ class SyncIntegration:
             }
         raise KeyError(task_name)
 
-    def list_wide_table_specs(self) -> dict[str, Any]:
-        self._ensure_vendor_path()
-        from sync_data_system.wide_table_sync import list_wide_table_metadata, wide_table_metadata_to_dict
-
-        return {
-            "specs": [wide_table_metadata_to_dict(item) for item in list_wide_table_metadata(self.sync_project_root)]
-        }
-
-    def get_wide_table_spec(self, name: str) -> dict[str, Any]:
-        self._ensure_vendor_path()
-        from sync_data_system.wide_table_sync import get_wide_table_metadata, wide_table_metadata_to_dict
-
-        metadata = get_wide_table_metadata(self.sync_project_root, name)
-        if metadata is None:
-            raise FileNotFoundError(f"wide table spec not found: {name}")
-        return wide_table_metadata_to_dict(metadata)
-
-    def plan_wide_tables(
+    def list_wide_table_states(
         self,
-        *,
-        clickhouse_live: bool = False,
-        write_state: bool = False,
         state_database: str | None = None,
+        runtime_path: str | None = None,
     ) -> dict[str, Any]:
-        self._ensure_vendor_path()
-        if write_state and not clickhouse_live:
-            raise ValueError("write_state requires clickhouse_live")
-        from sync_data_system.clickhouse_client import ClickHouseConfig
-        from sync_data_system.wide_table_sync import load_and_plan_specs, load_and_plan_specs_with_clickhouse, wide_table_plan_to_dict
-
-        if clickhouse_live:
-            plans = load_and_plan_specs_with_clickhouse(
-                self.sync_project_root,
-                config=ClickHouseConfig.from_env(),
-                state_database=state_database,
-                write_state=write_state,
-            )
-        else:
-            plans = load_and_plan_specs(self.sync_project_root)
-        return {"plans": [wide_table_plan_to_dict(plan) for plan in plans]}
-
-    def list_wide_table_states(self, state_database: str | None = None) -> dict[str, Any]:
         self._ensure_vendor_path()
         from sync_data_system.clickhouse_client import ClickHouseConfig, create_clickhouse_client
         from sync_data_system.wide_table_sync import (
@@ -388,7 +295,7 @@ class SyncIntegration:
             wide_table_state_to_dict,
         )
 
-        config = ClickHouseConfig.from_env()
+        config = ClickHouseConfig.from_env(runtime_path=runtime_path)
         connection = create_clickhouse_client(config)
         try:
             repository = WideTableSyncStateRepository(
@@ -401,7 +308,12 @@ class SyncIntegration:
         finally:
             connection.close()
 
-    def get_wide_table_state(self, name: str, state_database: str | None = None) -> dict[str, Any]:
+    def get_wide_table_state(
+        self,
+        name: str,
+        state_database: str | None = None,
+        runtime_path: str | None = None,
+    ) -> dict[str, Any]:
         self._ensure_vendor_path()
         from sync_data_system.clickhouse_client import ClickHouseConfig, create_clickhouse_client
         from sync_data_system.wide_table_sync import (
@@ -409,7 +321,7 @@ class SyncIntegration:
             wide_table_state_to_dict,
         )
 
-        config = ClickHouseConfig.from_env()
+        config = ClickHouseConfig.from_env(runtime_path=runtime_path)
         connection = create_clickhouse_client(config)
         try:
             repository = WideTableSyncStateRepository(
@@ -423,17 +335,6 @@ class SyncIntegration:
             return wide_table_state_to_dict(state)
         finally:
             connection.close()
-
-    def run_wide_tables(self, *, wide_table_names: list[str] | None = None, state_database: str | None = None) -> dict[str, Any]:
-        job_manager = self._job_manager_instance()
-        job = job_manager.create_wide_table_job(
-            wide_table_names=wide_table_names,
-            state_database=state_database,
-        )
-        return {
-            **asdict(job),
-            "wide_table_names": list(wide_table_names or []),
-        }
 
     def list_jobs(self, *, status: str | None = None, task: str | None = None, kind: str | None = None) -> dict[str, Any]:
         job_manager = self._job_manager_instance()
@@ -456,9 +357,15 @@ class SyncIntegration:
         job_manager = self._job_manager_instance()
         return {"job_id": job_id, "logs": job_manager.read_job_log(job_id, tail_lines=tail_lines)}
 
-    def run_config(self, *, config: str, log_level: str | None = None) -> dict[str, Any]:
+    def run_config(
+        self,
+        *,
+        config: str,
+        log_level: str | None = None,
+        runtime_path: str | None = None,
+    ) -> dict[str, Any]:
         job_manager = self._job_manager_instance()
-        job = job_manager.create_config_job(config, log_level=log_level)
+        job = job_manager.create_config_job(config, log_level=log_level, runtime_path=runtime_path)
         return {
             **asdict(job),
             "config": config,
@@ -517,6 +424,7 @@ class SyncIntegration:
                 force=force,
                 resume=resume,
                 log_level=log_level,
+                runtime_path=runtime_path,
             )
             task_metadata = None
         return {
@@ -534,22 +442,6 @@ class SyncIntegration:
         if not CONFIG_FILE_RE.match(file_name):
             raise ValueError("invalid config file name")
         return self.sync_config_root / file_name
-
-    def _resolve_spec_path(self, name: str) -> Path:
-        clean_name = self._validate_spec_name(name)
-        candidates = [self.sync_spec_dir / clean_name]
-        if not clean_name.endswith(".yaml") and not clean_name.endswith(".yml"):
-            candidates.extend([self.sync_spec_dir / f"{clean_name}.yaml", self.sync_spec_dir / f"{clean_name}.yml"])
-        for candidate in candidates:
-            if candidate.is_file():
-                return candidate
-        raise FileNotFoundError(f"wide table sync spec not found: {name}")
-
-    def _validate_spec_name(self, name: str) -> str:
-        clean_name = str(name or "").strip()
-        if not SPEC_FILE_RE.match(clean_name):
-            raise ValueError("invalid file name")
-        return clean_name
 
 
 def build_sync_integration(sync_project_root: str | Path | None = None) -> SyncIntegration:
@@ -591,47 +483,10 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
         except Exception as exc:
             return _json_error(exc)
 
-    @app.get("/api/sync-wide-tables")
-    def sync_wide_tables():
-        try:
-            return jsonify(
-                integration.list_exported_wide_tables(
-                    graph_path=request.args.get("graph_path") or None,
-                )
-            )
-        except Exception as exc:
-            return _json_error(exc)
-
-    @app.post("/api/sync-wide-tables")
-    def sync_wide_tables_export():
-        try:
-            payload = request.get_json(force=True) or {}
-            design_id = str(payload.get("id") or "").strip()
-            name = str(payload.get("name") or "").strip()
-            if not design_id or not name:
-                raise ValueError("id and name are required")
-            return jsonify(
-                integration.export_wide_table_spec(
-                    design_id=design_id,
-                    name=name,
-                    graph_path=payload.get("graph_path") or None,
-                    fields_path=payload.get("fields_path") or None,
-                )
-            )
-        except Exception as exc:
-            return _json_error(exc)
-
-    @app.get("/api/sync-wide-tables/<path:name>")
-    def sync_wide_table_file(name: str):
-        try:
-            return jsonify(integration.read_wide_table_spec_file(name))
-        except Exception as exc:
-            return _json_error(exc)
-
     @app.get("/api/sync-table-status")
     def sync_table_status():
         try:
-            return jsonify(integration.sync_table_status())
+            return jsonify(integration.sync_table_status(runtime_path=request.args.get("runtime_path") or None))
         except Exception as exc:
             return _json_error(exc)
 
@@ -656,38 +511,15 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
         except Exception as exc:
             return _json_error(exc)
 
-    @app.get("/api/sync/wide-tables/specs")
-    def sync_specs():
-        try:
-            return jsonify(integration.list_wide_table_specs())
-        except Exception as exc:
-            return _json_error(exc)
-
-    @app.get("/api/sync/wide-tables/specs/<wide_table_name>")
-    def sync_spec_detail(wide_table_name: str):
-        try:
-            return jsonify(integration.get_wide_table_spec(wide_table_name))
-        except Exception as exc:
-            return _json_error(exc)
-
-    @app.post("/api/sync/wide-tables/plan")
-    def sync_plan():
-        try:
-            payload = request.get_json(force=True) or {}
-            return jsonify(
-                integration.plan_wide_tables(
-                    clickhouse_live=bool(payload.get("clickhouse_live")),
-                    write_state=bool(payload.get("write_state")),
-                    state_database=payload.get("state_database") or None,
-                )
-            )
-        except Exception as exc:
-            return _json_error(exc)
-
     @app.get("/api/sync/wide-tables/states")
     def sync_states():
         try:
-            return jsonify(integration.list_wide_table_states(state_database=request.args.get("state_database") or None))
+            return jsonify(
+                integration.list_wide_table_states(
+                    state_database=request.args.get("state_database") or None,
+                    runtime_path=request.args.get("runtime_path") or None,
+                )
+            )
         except Exception as exc:
             return _json_error(exc)
 
@@ -698,19 +530,7 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
                 integration.get_wide_table_state(
                     wide_table_name,
                     state_database=request.args.get("state_database") or None,
-                )
-            )
-        except Exception as exc:
-            return _json_error(exc)
-
-    @app.post("/api/sync/wide-tables/run")
-    def sync_run_wide_tables():
-        try:
-            payload = request.get_json(force=True) or {}
-            return jsonify(
-                integration.run_wide_tables(
-                    wide_table_names=list(payload.get("wide_table_names") or []),
-                    state_database=payload.get("state_database") or None,
+                    runtime_path=request.args.get("runtime_path") or None,
                 )
             )
         except Exception as exc:
@@ -729,18 +549,7 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
                     graph_path=payload.get("graph_path") or None,
                     fields_path=payload.get("fields_path") or None,
                     state_database=payload.get("state_database") or None,
-                )
-            )
-        except Exception as exc:
-            return _json_error(exc)
-
-    @app.post("/api/sync/wide-tables/run/<wide_table_name>")
-    def sync_run_single_wide_table(wide_table_name: str):
-        try:
-            return jsonify(
-                integration.run_wide_tables(
-                    wide_table_names=[wide_table_name],
-                    state_database=request.args.get("state_database") or None,
+                    runtime_path=(str(payload.get("runtime_path")) if payload.get("runtime_path") is not None else None),
                 )
             )
         except Exception as exc:
@@ -783,6 +592,7 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
                 integration.run_config(
                     config=str(payload.get("config") or ""),
                     log_level=(str(payload.get("log_level")) if payload.get("log_level") is not None else None),
+                    runtime_path=(str(payload.get("runtime_path")) if payload.get("runtime_path") is not None else None),
                 )
             )
         except Exception as exc:
@@ -820,11 +630,6 @@ def register_sync_routes(app, integration: SyncIntegration) -> None:
             return jsonify(integration.cancel_job(job_id))
         except Exception as exc:
             return _json_error(exc)
-
-
-def _mtime_iso(path: Path) -> str:
-    return datetime.fromtimestamp(path.stat().st_mtime).astimezone().isoformat()
-
 
 def _json_error(exc: Exception):
     detail = str(exc)

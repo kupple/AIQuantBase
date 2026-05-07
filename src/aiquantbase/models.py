@@ -37,6 +37,10 @@ class Node:
     base_filters: list[dict[str, Any]] = field(default_factory=list)
     business_type: str | None = None
     field_facts: dict[str, Any] = field(default_factory=dict)
+    record_grain: str | None = None
+    detail_keys: list[str] = field(default_factory=list)
+    default_rollup: str | None = None
+    rollups: list[dict[str, Any]] = field(default_factory=list)
     wide_table: dict[str, Any] | None = None
 
 

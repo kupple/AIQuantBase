@@ -118,20 +118,6 @@ def delete_wide_table(
     return removed
 
 
-def export_wide_table_yaml(
-    design_id: str,
-    path: str | Path | None = None,
-    graph_path: str | Path | None = None,
-    fields_path: str | Path | None = None,
-) -> str:
-    payload = build_wide_table_export_payload(
-        design_id,
-        graph_path=graph_path or path,
-        fields_path=fields_path,
-    )
-    return dump_yaml(payload)
-
-
 def build_wide_table_export_payload(
     design_id: str,
     path: str | Path | None = None,
@@ -309,7 +295,7 @@ def _find_wide_table_node_index(
         node_name = str(node.get('name') or '').strip()
         if not target_id and target_name and node_name == target_name:
             return index
-        if not target_id and target_source and node_name == target_source:
+        if not target_id and target_source and wide_table and str(wide_table.get('source_node') or '') == target_source:
             return index
     return None
 
@@ -375,7 +361,6 @@ def _create_node_from_design(design: dict[str, Any], *, source_node: dict[str, A
 
 def _apply_design_to_node(node: dict[str, Any], design: dict[str, Any]) -> dict[str, Any]:
     next_node = dict(node)
-    next_node['name'] = design['name']
     next_node['description'] = design['description'] or next_node.get('description')
     next_node['status'] = design['status']
     next_node['wide_table'] = _design_to_node_meta(design)

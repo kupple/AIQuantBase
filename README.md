@@ -97,8 +97,7 @@ npm run dev
 其中包含：
 
 1. `plans/run_sync*.toml`
-2. `wide_table_specs/*.yaml`
-3. [config/sync/README.md](/Users/zhao/Desktop/git/AIQuantBase/config/sync/README.md)
+2. [config/sync/README.md](/Users/zhao/Desktop/git/AIQuantBase/config/sync/README.md)
 
 同步程序与主程序公用同一个运行配置文件：
 

@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 from aiquantbase.config import dump_yaml
 from aiquantbase.server import create_app
-from aiquantbase.wide_table import save_wide_table_workspace, upsert_wide_table
 
 
 def _write_graph(path: Path) -> None:
@@ -160,45 +159,10 @@ def test_sync_config_endpoints_use_integrated_sync_root(tmp_path: Path):
     assert "daily_kline" in payload["content"]
 
 
-def test_sync_wide_table_export_endpoints_write_into_integrated_sync_project(tmp_path: Path):
-    client, _, _, sync_root = _client(tmp_path)
-    spec_root = tmp_path / "config" / "sync" / "wide_table_specs"
-    wide_table_path = tmp_path / "wide_tables.yaml"
-    save_wide_table_workspace({"version": 1, "wide_tables": []}, wide_table_path)
-    design = upsert_wide_table(
-        {
-            "name": "stock_daily_research_wide",
-            "source_node": "stock_daily_real",
-            "target_database": "research",
-            "target_table": "stock_daily_research_wide",
-            "engine": "Memory",
-            "fields": ["code", "trade_time", "close"],
-            "key_fields": ["code", "trade_time"],
-        },
-        wide_table_path,
-    )
+def test_sync_wide_table_export_endpoints_are_removed(tmp_path: Path):
+    client, _, _, _ = _client(tmp_path)
+    removed_prefix = "/api/" + "sync-" + "wide-tables"
 
-    response = client.get("/api/sync-wide-tables", query_string={"wide_table_path": str(wide_table_path)})
-    assert response.status_code == 200
-    payload = response.get_json()
-    assert payload["sync_spec_dir"] == str(spec_root)
-    assert payload["items"][0]["exported"] is False
-
-    export_response = client.post(
-        "/api/sync-wide-tables",
-        json={
-            "id": design["id"],
-            "name": design["name"],
-            "wide_table_path": str(wide_table_path),
-        },
-    )
-    assert export_response.status_code == 200
-    export_payload = export_response.get_json()
-    exported_path = Path(export_payload["exported_path"])
-    assert exported_path.is_file()
-
-    file_response = client.get(f"/api/sync-wide-tables/{design['name']}")
-    assert file_response.status_code == 200
-    file_payload = file_response.get_json()
-    assert file_payload["name"] == f"{design['name']}.yaml"
-    assert "wide_table:" in file_payload["content"]
+    assert client.get(removed_prefix).status_code == 404
+    assert client.post(removed_prefix, json={}).status_code == 404
+    assert client.get(f"{removed_prefix}/demo").status_code == 404

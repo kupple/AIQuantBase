@@ -223,6 +223,45 @@ nodes:
   name: long_hu_bang_real
   node_role: query_entry
   query_freq: null
+  record_grain: detail
+  detail_keys:
+  - reason_type
+  - flow_mark
+  - trader_name
+  default_rollup: entity_daily
+  rollups:
+  - name: entity_daily
+    label: 主体日频汇总
+    group_by:
+    - market_code
+    - trade_date
+    aggregations:
+    - name: buy_amount
+      label: 买入额合计
+      source: buy_amount
+      func: sum
+      null_policy: zero
+    - name: sell_amount
+      label: 卖出额合计
+      source: sell_amount
+      func: sum
+      null_policy: zero
+    - name: total_amount
+      label: 当日成交额
+      source: total_amount
+      func: max
+      null_policy: ignore
+    - name: total_volume
+      label: 当日成交量
+      source: total_volume
+      func: max
+      null_policy: ignore
+    - name: long_hu_net_amount
+      label: 龙虎榜净买入额
+      source: ''
+      func: expr
+      expr: sum(buy_amount) - sum(sell_amount)
+      null_policy: zero
   status: enabled
   table: starlight.ad_long_hu_bang
   time_key: trade_date

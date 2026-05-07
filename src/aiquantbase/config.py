@@ -150,6 +150,10 @@ def _parse_node(item: dict[str, Any]) -> Node:
         base_filters=list(item.get("base_filters", [])),
         business_type=item.get("business_type"),
         field_facts=dict(item.get("field_facts") or {}),
+        record_grain=item.get("record_grain"),
+        detail_keys=list(item.get("detail_keys") or []),
+        default_rollup=item.get("default_rollup"),
+        rollups=list(item.get("rollups") or []),
         wide_table=dict(item["wide_table"]) if isinstance(item.get("wide_table"), dict) else None,
     )
 

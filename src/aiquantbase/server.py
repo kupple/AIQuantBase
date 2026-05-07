@@ -59,7 +59,6 @@ from .sync.service import build_sync_service
 from .sync_integration import DEFAULT_SYNC_PROJECT_ROOT, register_sync_routes
 from .wide_table import (
     delete_wide_table,
-    export_wide_table_yaml,
     get_wide_table_summary,
     list_wide_tables,
     upsert_wide_table,
@@ -129,12 +128,10 @@ def create_app(
                     "/api/membership/members",
                     "/api/membership/relations",
                     "/api/wide-tables",
-                    "/api/wide-tables/export",
                     "/api/fields/ai-notes",
                     "/api/query/execute",
                     "/api/query/nl",
                     "/api/sync-configs",
-                    "/api/sync-wide-tables",
                     "/api/sync-table-status",
                     "/api/sync/meta/tasks",
                     "/api/sync/jobs",
@@ -171,16 +168,6 @@ def create_app(
         design_id = request.args.get("id") or ""
         item = delete_wide_table(design_id, graph_path=graph_path)
         return jsonify({"ok": True, "item": item, "summary": get_wide_table_summary(graph_path=graph_path)})
-
-    @app.get("/api/wide-tables/export")
-    def export_wide_table():
-        design_id = request.args.get("id") or ""
-        yaml_text = export_wide_table_yaml(
-            design_id,
-            graph_path=request.args.get("graph_path") or _default_graph_path(),
-            fields_path=request.args.get("fields_path") or _default_fields_path(),
-        )
-        return jsonify({"ok": True, "yaml": yaml_text})
 
     @app.get("/api/membership/workspace")
     def membership_workspace():
@@ -863,6 +850,14 @@ def _node_to_workspace_item(node) -> dict[str, Any]:
         item.pop("business_type", None)
     if not item.get("field_facts"):
         item.pop("field_facts", None)
+    if not item.get("record_grain"):
+        item.pop("record_grain", None)
+    if not item.get("detail_keys"):
+        item.pop("detail_keys", None)
+    if not item.get("default_rollup"):
+        item.pop("default_rollup", None)
+    if not item.get("rollups"):
+        item.pop("rollups", None)
     return item
 
 

@@ -145,7 +145,7 @@ class GraphRuntime:
 
         self.runtime_config = load_runtime_config(self.runtime_path)
         loaded_nodes, self.edges = load_nodes_and_edges(self.graph_path)
-        self.wide_table_specs = {
+        self.wide_table_overlays = {
             node.name: node.wide_table
             for node in loaded_nodes
             if isinstance(node.wide_table, dict) and str(node.wide_table.get('status') or 'enabled') == 'enabled'
@@ -2778,12 +2778,12 @@ class GraphRuntime:
         return mapping
 
     def _apply_wide_table_overlays(self, nodes: list[Node]) -> list[Node]:
-        if not self.wide_table_specs:
+        if not self.wide_table_overlays:
             return nodes
 
         overlaid_nodes: list[Node] = []
         for node in nodes:
-            spec = self.wide_table_specs.get(node.name)
+            spec = self.wide_table_overlays.get(node.name)
             if not spec:
                 overlaid_nodes.append(node)
                 continue

@@ -94,11 +94,6 @@ def build_parser() -> argparse.ArgumentParser:
     sync_run_task_cmd.add_argument("--resume", action="store_true")
     sync_run_task_cmd.add_argument("--log-level")
 
-    sync_run_wide_table_cmd = subparsers.add_parser("sync-run-wide-tables", help="Run bundled wide table sync jobs")
-    sync_run_wide_table_cmd.add_argument("--sync-project-root", help="Path to bundled sync project root")
-    sync_run_wide_table_cmd.add_argument("--wide-table-name", action="append", dest="wide_table_names", default=[])
-    sync_run_wide_table_cmd.add_argument("--state-database")
-
     exec_cmd = subparsers.add_parser("execute-intent", help="Plan, render and execute a Query Intent")
     exec_cmd.add_argument("graph", help="Path to graph YAML")
     exec_cmd.add_argument("intent", help="Path to Query Intent YAML")
@@ -443,20 +438,6 @@ def main() -> None:
                     force=args.force,
                     resume=args.resume,
                     log_level=args.log_level,
-                ),
-                indent=2,
-                ensure_ascii=False,
-            )
-        )
-        return
-
-    if args.command == "sync-run-wide-tables":
-        integration = build_sync_service(args.sync_project_root)
-        print(
-            json.dumps(
-                integration.run_wide_tables(
-                    wide_table_names=list(args.wide_table_names or []),
-                    state_database=args.state_database,
                 ),
                 indent=2,
                 ensure_ascii=False,
