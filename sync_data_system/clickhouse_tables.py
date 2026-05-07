@@ -909,7 +909,15 @@ CREATE TABLE IF NOT EXISTS {AD_LONG_HU_BANG_TABLE}
 )
 ENGINE = ReplacingMergeTree
 PARTITION BY toYYYYMM(trade_date)
-ORDER BY (market_code, trade_date, ifNull(flow_mark, -1))
+ORDER BY (
+    market_code,
+    trade_date,
+    ifNull(reason_type, ''),
+    ifNull(flow_mark, -1),
+    ifNull(trader_name, ''),
+    ifNull(buy_amount, -1),
+    ifNull(sell_amount, -1)
+)
 """
 
 
